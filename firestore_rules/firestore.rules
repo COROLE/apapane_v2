@@ -1,0 +1,86 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  match /{path=**}/stories/{storyId} {
+    allow read: if isAdmin();
+  }
+  match /users/{uid} {
+      allow read: if isAuthenticated();
+      allow update: if isAdmin();
+      //request.resource.dataは送信されたデータ
+      allow create: if isTheSameUserAndVerified(uid) && isValidUser(request.resource.data, uid);
+      allow delete: if isTheSameUserAndVerified(uid);
+      match /chatLogs/{chatLogId} {
+        allow read: if isAuthenticated();
+        allow update: if isAdmin();
+        allow create: if isTheSameUserAndVerified(uid);
+        // && isValidChatLog(request.resource.data, uid);
+        allow delete: if isTheSameUserAndVerified(uid);
+        match /stories/{storyId} {
+          allow read: if isAuthenticated();
+          allow update: if isAdmin();
+          allow create: if isTheSameUserAndVerified(uid) && isValidStory(request.resource.data, uid);
+          allow delete: if isTheSameUserAndVerified(uid);
+        }
+      }
+      
+      }
+    
+    }
+  }
+
+  function isAuthenticated() {
+  return request.auth != null;
+  }
+
+  function isTheSameUserAndVerified(uid) {
+    return request.auth.uid == uid; // emailVerifiedも追加
+  }
+
+
+  function isAdmin() {
+    return request.auth.uid == "oAe7C4F7htYuY2qIbIXehRdzdV22";
+  }
+  function isValidUser(user, uid) {
+    //boolをreturn
+    return user.size() == 9 &&
+    'age' in user && user.age is int && 
+    'createdAt' in user && user.createdAt is timestamp &&
+    'followerCount' in user && user.followerCount is int &&
+    'followingCount' in user && user.followingCount is int &&
+    'isAdmin' in user && user.isAdmin is bool &&
+    'updatedAt' in user && user.updatedAt is timestamp &&
+    'userName' in user && user.userName is string &&
+    'userImageURL' in user && user.userImageURL is string &&
+    'uid' in user && user.uid is string &&
+    user.uid == uid;
+  }
+
+  // function isValidChatLog(chatLog, uid) {
+  //   return chatLog.size() == 6 &&
+  //   'chatLog' in chatLog && chatLog is string &&
+  //   'chatLogId' in chatLog && chatLogId is string &&
+  //   'createdAt' in chatLog && createdAt is timestamp &&
+  //   'uid' in chatLog && uid is string &&
+  //   'userName' in chatLog && userName is string &&
+  //   'updatedAt' in chatLog && updatedAt is timestamp &&
+  //   chatLog.uid == uid;
+  // }
+
+  function isValidStory(story, uid) {
+    return story.size() == 11 &&
+    'createdAt' in story && story.createdAt is timestamp &&
+    'isPublic' in story && story.isPublic is bool &&
+    'stories' in story && story.stories is list &&
+    'storyId' in story && story.storyId is string &&
+    'titleImage' in story && story.titleImage is string &&
+    'titleText' in story && story.titleText is string &&
+    'uid' in story && story.uid is string &&
+    'userImageURL' in story && story.userImageURL is string &&
+    'userName' in story && story.userName is string &&
+    'updatedAt' in story && story.updatedAt is timestamp &&
+    story.uid == uid;
+  }
+
+
