@@ -200,7 +200,6 @@ class ChatModel extends ChangeNotifier {
     return response.toJson()["content"][0]["text"];
   }
 
-//replyのエンドポイントを使って、会話をする
   Future<String> talk(String text) async {
     final String prompt = '''
     <chatlog>
@@ -261,7 +260,6 @@ class ChatModel extends ChangeNotifier {
   //   }
   // }
 
-//exampleのエンドポイントを使って、exampleをする
   Future<String> example(String text) async {
     const String prompt = '''
     <prompt>
