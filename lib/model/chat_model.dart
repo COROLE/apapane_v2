@@ -183,6 +183,23 @@ class ChatModel extends ChangeNotifier {
   //   }
   // }
 
+  Future<String> claude(String text) async {
+    const String model = "claude-3-haiku-20240307";
+    final service = Anthropic.AnthropicService(dotenv.get("ANTHROPIC_API_KEY"),
+        model: model);
+    var request = Anthropic.Request();
+    request.model = model;
+    request.maxTokens = 1024;
+    request.messages = [
+      Anthropic.Message(
+        role: "user",
+        content: text,
+      )
+    ];
+    var response = await service.sendRequest(request: request);
+    return response.toJson()["content"][0]["text"];
+  }
+
 //replyのエンドポイントを使って、会話をする
   Future<String> talk(String text) async {
     final String prompt = '''
@@ -209,24 +226,8 @@ class ChatModel extends ChangeNotifier {
     We have already asked about the name of main character and location, so please start with the other questions.
     Follow the instructions under [instruction] for output.
     ''';
-    const String model = "claude-3-haiku-20240307";
-    final service = Anthropic.AnthropicService(dotenv.get("ANTHROPIC_API_KEY"),
-        model: model);
-    var request = Anthropic.Request();
-    request.model = model;
-    request.maxTokens = 1024;
-    request.messages = [
-      Anthropic.Message(
-        role: "user",
-        content: prompt,
-      )
-    ];
-    var response = await service.sendRequest(request: request);
-
-    // レスポンスボディをそのまま出力
-    // debugPrint('Response body: ${response.toJson()["content"][0]["text"]}');
-
-    return response.toJson()["content"][0]["text"];
+    final String response = await claude(prompt);
+    return response;
   }
 
 // Response body: {id: msg_01RYfE4NMXifqPDnKdDfPfHd, type: message, role: assistant, model: claude-3-haiku-20240307, content: [{type: text, text: このお話の主人公はアキラで、舞台は月です。
@@ -262,29 +263,25 @@ class ChatModel extends ChangeNotifier {
 
 //exampleのエンドポイントを使って、exampleをする
   Future<String> example(String text) async {
-    final url = Uri.https(
-        "asia-northeast1-apapane-3cca0.cloudfunctions.net", "/example");
-    final response = await http.post(
-      url,
-      headers: <String, String>{
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: jsonEncode({"req": text}),
-    );
-
-    try {
-      if (response.statusCode == 200) {
-        debugPrint('Example text uploaded successfully');
-        return response.body;
-      } else {
-        debugPrint(
-            'Text upload failed with status code ${response.statusCode}');
-        return "error";
-      }
-    } catch (e) {
-      debugPrint('Error uploading text: $e');
-      return "error";
-    }
+    const String prompt = '''
+    <prompt>
+    <role>子供の想像力を助けるアシスタント</role>
+    <skill>少年漫画風のひらがな一言で子供の創造性を刺激する</skill>
+    <instructions>
+        <item>出力は必ず一言のみとしてください</item>
+        <item>文脈に合わせた返答にしてください</item>
+    </instructions>
+    <example>
+        <question>どんなところ？<question/>
+        <answer>ふかいもりのなか</answer>
+        <question>おはなしのしゅじんこうはだれにする？<question/>
+        <answer>たかしくん</answer>
+    </example>
+    <input_prompt>文脈に合わせた返答を子供の想像力を促す一言の例のひらがな文を作成してください。文脈:</input_prompt>
+    </prompt>
+    ''';
+    final String response = await claude(text + prompt);
+    return response;
   }
 
   Future<void> newMessageScroll() async {
@@ -384,40 +381,51 @@ class ChatModel extends ChangeNotifier {
   // }
 
   //storymakerを使用
-  Future<List<Map<String, dynamic>>> makeStory({
-    required String text,
-  }) async {
-    final url = Uri.https(
-        "asia-northeast1-apapane-3cca0.cloudfunctions.net", '/storymaker');
-    String jsonBody = jsonEncode({"message": text}); // JSON キーを 'message' に修正
-    final response = await http.post(
-      url,
-      headers: <String, String>{
-        "Content-Type": "application/json; charset=UTF-8",
-      },
-      body: jsonBody,
-    );
+  Future<List<Map<String, dynamic>>> makeStory({required String text}) async {
+    final String prompt = '''
+    <chatlog>
+    $text
+    </chatlog>
 
-    try {
-      if (response.statusCode == 200) {
-        debugPrint('Text uploaded successfully');
-        final List<dynamic> responseData = jsonDecode(response.body);
-        if (responseData.isEmpty) {
-          debugPrint('No stories returned');
-          return [];
-        }
-        List<Map<String, dynamic>> storyMaps =
-            responseData.cast<Map<String, dynamic>>();
-        return storyMaps;
-      } else {
-        debugPrint(
-            'Text upload failed with status code ${response.statusCode}');
-        return [];
-      }
-    } catch (e) {
-      debugPrint('Error in makeImage: $e');
-      return [];
+    <storyline>
+    *Stories that delve deeply into the inner life, emotions, surprising secrets, and backgrounds of the main character and other characters
+    *Stories with unexpected events and foreshadowing
+    *A story in which the protagonist faces unexpected difficulties or obstacles and manages to overcome them with innovative solutions
+    *A story in which the protagonists realize their inner power and demonstrate it to create an unexpected turn of events
+    *A story in which unexpected events occur as the protagonist confronts and overcomes his or her own weaknesses and shortcomings
+    *A touching story in which unexpected encounters and events occur as the protagonist strives to achieve his or her dreams and goals
+    *A story in which unexpected relationships between characters are revealed
+    </storyline>
+
+    <instruction>
+    *Describe in detail the names of the characters, what kind of creatures they are, their appearance, personalities, etc., using your imagination.
+    *Describe in detail the location of the story, the scenery, the surroundings, etc., using your imagination.
+    *Avoid mediocre storylines.
+    </instruction>
+
+    <OutputExample>
+    {
+      "introduction": "秘密に包まれた魔法の世界がありました。その国で、若い魔法使いのレナが、不思議な力を持つ伝説の魔法を探して、冒険を始めます。レナは、風を操る杖と、話す猫を仲間に、いろいろな遺跡を探検しました。",
+      "development": "そしてレナたちは、氷河の丘にある「氷河の城」へと向かいました。ここでは、時計仕掛けのパズルを解いて、古い魔法の本を見つけることができました。この本には、命を癒す力が含まれており、レナの力もぐんと増えました。",
+      "turn": "レナと仲間たちは、大きな竜が住む「炎の谷」へと辿り着きます。ここで、レナは竜と戦い、かつての戦いで幸せを失った竜の心を解きほぐします。竜は感謝して、レナに最後の魔法「平和のお守り」を渡しました。",
+      "conclusion": "冒険を終えて、レナは故郷に帰ります。レナは魔法を使って、村の人々に困っている人たちを助け、世界に平和と繁栄をもたらしました。レナの伝説は、世界中の子供たちに夢と希望を語り継ぐことになりました。"
     }
+    </OutputExample>
+
+    Create a narrative based on the [chatlog].Make it fun and exciting for kids!
+    Write a story with interesting twists and turns as described in the [storyline].
+    Follow the [instruction] to create a story.
+
+    Output a story in easy Japanese that can be understood by middle school students
+    The ratio of kanji to hiragana should be about 1:4. Avoid difficult-to-read kanji characters.
+    The story consists of four paragraphs.
+    Use JSON format with the keys "introduction", "development", "turn", and "conclusion".
+    Output only JSON.
+    Please refer to [OutputExample] for the output format.
+
+    Output:
+    ''';
+    final String response = await claude(prompt);
   }
 
   Future<void> createButtonPressed(
