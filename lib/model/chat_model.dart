@@ -200,6 +200,42 @@ class ChatModel extends ChangeNotifier {
     return response.toJson()["content"][0]["text"];
   }
 
+  Future<Map<String, dynamic>> stableDiffusion(String text) async {
+    const String url =
+        "https://api.stability.ai/v2beta/stable-image/generate/core";
+    final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
+
+    final headers = {
+      "Authorization": "Bearer $apiKey",
+      "Content-Type": "application/json",
+    };
+
+    final data = {
+      "prompt": text,
+      "aspect_ratio": "9:16",
+      "output": "png",
+    };
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: headers,
+      body: jsonEncode(data),
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData;
+      } catch (e) {
+        debugPrint('Error decoding image: $e');
+        return {};
+      }
+    } else {
+      final Map<String, dynamic> responseData = {};
+      return responseData;
+    }
+  }
+
 //replyのエンドポイントを使って、会話をする
   Future<String> talk(String text) async {
     final String prompt = '''
@@ -426,6 +462,44 @@ class ChatModel extends ChangeNotifier {
     Output:
     ''';
     final String response = await claude(prompt);
+    final Map<String, dynamic> story = jsonDecode(response);
+    debugPrint('story: $story');
+    final String imagePrompt = '''
+    <paragraph>
+    $response
+    </paragraph>
+
+    <positive>
+    detailed anime-style illustration, 3d, digital painting, vibrant colors, highly detailed, digital art,
+    </positive>
+
+    <negative>
+    low quality, cartoon-like, 2d, text, logo, watermark
+    </negative>
+
+    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [paragraph], down to the actions and characters.
+    Positive prompts should include the word [positive] and negative prompts should include the word [negative]. Other words can of course be included as well.
+    Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
+    I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
+
+    Use JSON format with the keys "positive", "negative".
+    Output only JSON.
+
+    Output:
+    ''';
+    final String imageResponse = await claude(imagePrompt);
+    final Map<String, dynamic> imageStory = jsonDecode(imageResponse);
+    debugPrint('imageStory: $imageStory');
+    final List<Map<String, dynamic>> outputStory = [];
+    imageStory.forEach((key, element) async {
+      final Map<String, dynamic> imageOutput = await stableDiffusion(element);
+      outputStory.add({
+        "story": story[key],
+        "image": imageOutput["image"],
+      });
+    });
+    debugPrint('outputStory: $outputStory');
+    return outputStory;
   }
 
   Future<void> createButtonPressed(
