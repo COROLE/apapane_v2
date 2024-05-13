@@ -3,8 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 //packages
-import 'package:cached_network_image/cached_network_image.dart';
-//components
 import 'package:apapane/details/rounded_sentence.dart';
 //models
 import 'package:apapane/model/story_model.dart';
