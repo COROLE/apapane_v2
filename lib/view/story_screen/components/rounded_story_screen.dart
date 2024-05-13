@@ -1,4 +1,6 @@
 //flutter
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 //packages
 import 'package:cached_network_image/cached_network_image.dart';
@@ -28,12 +30,12 @@ class RoundedStoryScreen extends StatelessWidget {
         Align(
           alignment: Alignment.center,
           child: Container(
-            width: screenWidth * 1,
-            height: screenHeight * 1,
+            width: screenWidth,
+            height: screenHeight,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               image: DecorationImage(
-                  image: CachedNetworkImageProvider(picture),
+                  image: MemoryImage(base64Decode(picture)),
                   fit: BoxFit.cover),
             ),
           ),

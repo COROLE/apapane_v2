@@ -200,38 +200,38 @@ class ChatModel extends ChangeNotifier {
     return response.toJson()["content"][0]["text"];
   }
 
-  Future<Map<String, dynamic>> stableDiffusion(String text) async {
+  Future<String> stableDiffusion(
+      String prompt, String negativePrompt) async {
     const String url =
         "https://api.stability.ai/v2beta/stable-image/generate/core";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
 
     final headers = {
       "Authorization": "Bearer $apiKey",
-      "Content-Type": "application/json",
+      "Accept": "application/json", // 応答の形式を指定
     };
 
-    final data = {
-      "prompt": text,
-      "aspect_ratio": "9:16",
-      "output": "png",
-    };
+    var request = http.MultipartRequest('POST', Uri.parse(url))
+      ..headers.addAll(headers)
+      ..fields['prompt'] = prompt
+      ..fields['negative_prompt'] = negativePrompt
+      ..fields['aspect_ratio'] = '9:16'
+      ..fields['output'] = 'png';
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: headers,
-      body: jsonEncode(data),
-    );
+    final response = await request.send();
+
+    final responseString = await response.stream.bytesToString();
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        return responseData;
+        final Map<String, dynamic> responseData = jsonDecode(responseString);
+        return responseData["image"];
       } catch (e) {
         debugPrint('Error decoding image: $e');
-        return {};
+        return "";
       }
     } else {
-      final Map<String, dynamic> responseData = {};
+      const String responseData = "error";
       return responseData;
     }
   }
@@ -465,9 +465,9 @@ class ChatModel extends ChangeNotifier {
     final Map<String, dynamic> story = jsonDecode(response);
     debugPrint('story: $story');
     final String imagePrompt = '''
-    <paragraph>
-    $response
-    </paragraph>
+    <story>
+    $story
+    </story>
 
     <positive>
     detailed anime-style illustration, 3d, digital painting, vibrant colors, highly detailed, digital art,
@@ -478,26 +478,60 @@ class ChatModel extends ChangeNotifier {
     </negative>
 
     Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [paragraph], down to the actions and characters.
+    The [story] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
     Positive prompts should include the word [positive] and negative prompts should include the word [negative]. Other words can of course be included as well.
     Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
     I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
 
-    Use JSON format with the keys "positive", "negative".
+    Please output in JSON format as in the following [OutputExample].
+    <OutputExample>
+    {
+      “introduction”: [
+        {
+          'prompt: 'text',.
+          'nagetive_prompt': 'text',.
+        }
+      ], }
+      “development”: [
+        {
+          'prompt: 'text','
+          'nagetive_prompt': 'text',.
+        }
+      ], }
+      “turn”: [
+        {
+          'prompt: 'text', }
+          'nagetive_prompt': 'text',.
+        }
+      ], }
+      “conclusion”: [
+        {
+          'prompt: 'text', }
+          'nagetive_prompt': 'text',.
+        }
+      ]
+    }
+    </OutputExample>
+
     Output only JSON.
 
     Output:
     ''';
     final String imageResponse = await claude(imagePrompt);
     final Map<String, dynamic> imageStory = jsonDecode(imageResponse);
-    debugPrint('imageStory: $imageStory');
-    final List<Map<String, dynamic>> outputStory = [];
-    imageStory.forEach((key, element) async {
-      final Map<String, dynamic> imageOutput = await stableDiffusion(element);
-      outputStory.add({
-        "story": story[key],
-        "image": imageOutput["image"],
-      });
-    });
+    final List<Map<String, dynamic>> outputStory = await Future.wait(
+      imageStory.entries.map((entry) async {
+        final key = entry.key;
+        final element = entry.value;
+        final String imageOutput = await stableDiffusion(
+            element[0]["positive_prompt"], element[0]["negative_prompt"]);
+        debugPrint('imageOutput: $imageOutput');
+        return {
+          "story": story[key],
+          "image": imageOutput,
+        };
+      }),
+    );
     debugPrint('outputStory: $outputStory');
     return outputStory;
   }
