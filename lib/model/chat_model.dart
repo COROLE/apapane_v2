@@ -297,7 +297,6 @@ class ChatModel extends ChangeNotifier {
   //   }
   // }
 
-//exampleのエンドポイントを使って、exampleをする
   Future<String> example(String text) async {
     const String prompt = '''
     <prompt>
