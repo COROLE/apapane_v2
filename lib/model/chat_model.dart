@@ -744,7 +744,7 @@ class ChatModel extends ChangeNotifier {
     int countIsMeMessages =
         messagesList.where((message) => message.isMe).length;
 
-    if (countIsMeMessages > 3) {
+    if (countIsMeMessages > 4) {
       String reply = await talk(message); // 会話履歴を毎回送る
 
       message += reply;
@@ -791,6 +791,9 @@ class ChatModel extends ChangeNotifier {
       case 3:
         await Future.delayed(const Duration(seconds: 1));
         return "他にだれが出てくる？";
+      case 4:
+        await Future.delayed(const Duration(seconds: 1));
+        return "その子はおともだち？それとも敵？";
       default:
         await Future.delayed(const Duration(seconds: 1));
         return "そうしましょう！";
