@@ -1,5 +1,6 @@
 //flutter
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 //packages
@@ -15,33 +16,49 @@ class RoundedStoryScreen extends StatelessWidget {
       required this.sentence})
       : super(key: key);
   final StoryModel storyModel;
-  final String picture;
+  final Uint8List picture;
   final String sentence;
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
 
+    Widget imageWidget;
+
+    try {
+      final decodedImage = picture;
+      imageWidget = Container(
+        width: screenWidth,
+        height: screenHeight,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          image: DecorationImage(
+              image: MemoryImage(decodedImage), fit: BoxFit.cover),
+        ),
+      );
+    } catch (e) {
+      // デコードに失敗した場合のフォールバックとして、エラーメッセージを表示
+      imageWidget = Container(
+        width: screenWidth,
+        height: screenHeight,
+        color: Colors.grey,
+        child: const Center(
+          child: Text('画像を表示できません'),
+        ),
+      );
+    }
+
     return Stack(
       fit: StackFit.expand,
       children: [
         Align(
           alignment: Alignment.center,
-          child: Container(
-            width: screenWidth,
-            height: screenHeight,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              image: DecorationImage(
-                  image: MemoryImage(base64Decode(picture)),
-                  fit: BoxFit.cover),
-            ),
-          ),
+          child: imageWidget,
         ),
         RoundedSentence(sentence: sentence),
         Positioned(
-          top: screenHeight * 0.08, // 位置を調整してください
-          right: 10, // 位置を調整してください
+          top: screenHeight * 0.08,
+          right: 10,
           child: Container(
             decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(50),

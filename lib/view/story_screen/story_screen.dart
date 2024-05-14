@@ -1,4 +1,7 @@
 //flutter
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,9 +30,10 @@ class StoryScreen extends ConsumerWidget {
       ),
       // storyModelから取得した各ストーリーページをここに追加します。
       ...storyModel.storyPages.map((page) {
+        Uint8List image = base64Decode(page["image"]);
         return RoundedStoryScreen(
           storyModel: storyModel,
-          picture: page["image"].toString(),
+          picture: image,
           sentence: page['story'].toString(),
         );
       }),
