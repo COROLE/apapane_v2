@@ -20,6 +20,12 @@ import 'package:apapane/model/story_model.dart';
 
 final chatProvider = ChangeNotifierProvider((ref) => ChatModel());
 
+class Pair<T, U> {
+  final T first;
+  final U second;
+  const Pair(this.first, this.second);
+}
+
 class ChatModel extends ChangeNotifier {
   final Map<String, dynamic> responseData = {};
 
@@ -200,8 +206,7 @@ class ChatModel extends ChangeNotifier {
     return response.toJson()["content"][0]["text"];
   }
 
-  Future<String> stableDiffusion(
-      String prompt, String negativePrompt) async {
+  Future<String> stableDiffusion(String prompt, String negativePrompt) async {
     const String url =
         "https://api.stability.ai/v2beta/stable-image/generate/core";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
@@ -460,8 +465,35 @@ class ChatModel extends ChangeNotifier {
 
     Output:
     ''';
-    final String response = await claude(prompt);
-    final Map<String, dynamic> story = jsonDecode(response);
+    var retries = 0;
+    const int maxRetries = 3;
+    Map<String, dynamic> story = {};
+
+    while (retries < maxRetries) {
+      try {
+        // APIリクエストを行う
+        final data = await claude(prompt);
+
+        // レスポンスをJSONとしてデコードする
+        story = jsonDecode(data);
+        break;
+      } on FormatException catch (e) {
+        // JSONデコードに失敗した場合はリトライする
+        debugPrint('Invalid JSON response, retrying... (${e.message})');
+      } catch (e) {
+        // その他の例外をキャッチし、適切に処理する
+        debugPrint('Error occurred: $e');
+      }
+
+      retries++;
+      await Future.delayed(const Duration(seconds: 2)); // 2秒待機してリトライ
+    }
+
+    if (retries >= maxRetries) {
+      // 最大リトライ回数を超えた場合はエラー
+      throw Exception('Maximum retries exceeded');
+    }
+
     debugPrint('story: $story');
     final String imagePrompt = '''
     <story>
@@ -516,15 +548,56 @@ class ChatModel extends ChangeNotifier {
 
     Output:
     ''';
-    final String imageResponse = await claude(imagePrompt);
-    final Map<String, dynamic> imageStory = jsonDecode(imageResponse);
+    retries = 0;
+    Map<String, dynamic> imageStory = {};
+
+    while (retries < maxRetries) {
+      try {
+        // APIリクエストを行う
+        final data = await claude(imagePrompt);
+
+        // レスポンスをJSONとしてデコードする
+        imageStory = jsonDecode(data);
+        break;
+      } on FormatException catch (e) {
+        // JSONデコードに失敗した場合はリトライする
+        debugPrint('Invalid JSON response, retrying... (${e.message})');
+      } catch (e) {
+        // その他の例外をキャッチし、適切に処理する
+        debugPrint('Error occurred: $e');
+      }
+
+      retries++;
+      await Future.delayed(const Duration(seconds: 2)); // 2秒待機してリトライ
+    }
+
+    if (retries >= maxRetries) {
+      // 最大リトライ回数を超えた場合はエラー
+      throw Exception('Maximum retries exceeded');
+    }
+
+    Map<String, Pair<String, String>> elements = {};
+
+    imageStory.forEach((key, value) {
+      if (value is List) {
+        for (var item in value) {
+          if (item is Map<String, dynamic>) {
+            List<String> keys = item.keys.toList();
+            elements[key] = Pair(keys[0], keys[1]);
+          }
+        }
+      }
+    });
+
     final List<Map<String, dynamic>> outputStory = await Future.wait(
       imageStory.entries.map((entry) async {
         final key = entry.key;
         final element = entry.value;
+        final String positivePrompt = elements[key]?.first ?? "positive_prompt";
+        final String negativePrompt =
+            elements[key]?.second ?? "negative_prompt";
         final String imageOutput = await stableDiffusion(
-            element[0]["positive_prompt"], element[0]["negative_prompt"]);
-        debugPrint('imageOutput: $imageOutput');
+            element[0][positivePrompt], element[0][negativePrompt]);
         return {
           "story": story[key],
           "image": imageOutput,
