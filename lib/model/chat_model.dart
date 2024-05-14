@@ -200,8 +200,7 @@ class ChatModel extends ChangeNotifier {
     return response.toJson()["content"][0]["text"];
   }
 
-  Future<String> stableDiffusion(
-      String prompt, String negativePrompt) async {
+  Future<String> stableDiffusion(String prompt, String negativePrompt) async {
     const String url =
         "https://api.stability.ai/v2beta/stable-image/generate/core";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
@@ -245,23 +244,48 @@ class ChatModel extends ChangeNotifier {
 
     <instruction>
     Speak in a friendly, frank tone, without using honorifics.
-    Do not ask the same question more than once.
-    Do not repeat a question that you have previously heard in the conversation history.
+  Do not repeat a question that you have previously heard in the conversation history.
     Please answer in easy-to-understand japanese, using no more than 30 characters.
     The ratio of kanji to hiragana should be about 1:4.
     Avoid difficult-to-read kanji characters.
     </instruction>
 
     You are a friendly interviewer who asks the children what they imagine the story to be about.
-    You are very curious about what story the children are imagining, so you ask, "What other characters are there?", "What happens afterwards?", "What happens after that?", and so on.
+    You are very curious about what story the children are imagining, so you ask, "What other characters are there?", "Does it mean ~?", "What happens after that?", and so on.
     Ask for more information about the protagonist and the characters.
     Ask only one element at a time about the setting of a story.
     Omit the preamble and output only the agreement(e.g., "I see, so the main character is ~!", "nice!" etc.) and a question.
-    Please look at the conversation history so far in [chatlog] and output only the Assistant's next reply.
-    Assistant should output a reaction to Human's last statement in [chatlog] and another additional question regarding the setting of the story.
+    Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply.
+    Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story.
     We have already asked about the name of main character and location, so please start with the other questions.
-    Follow the instructions under [instruction] for output.
+    Follow the instructions under [[instruction]] for output.
+    Do not ask the same question in the [[chatlog]] twice! Ask questions that will help the child to unpack his or her thinking step by step! Definitely focus on the setting of the story and other points of interest!
     ''';
+    // '''
+    // <chatlog>
+    // $text
+    // </chatlog>
+
+    // <instruction>
+    // Speak in a friendly, frank tone, without using honorifics.
+    // Do not ask the same question more than once.
+    // Do not repeat a question that you have previously heard in the conversation history.
+    // Please answer in easy-to-understand japanese, using no more than 30 characters.
+    // The ratio of kanji to hiragana should be about 1:4.
+    // Avoid difficult-to-read kanji characters.
+    // </instruction>
+
+    // You are a friendly interviewer who asks the children what they imagine the story to be about.
+    // You are very curious about what story the children are imagining, so you ask, "What other characters are there?", "What happens afterwards?", "What happens after that?", and so on.
+    // Ask for more information about the protagonist and the characters.
+    // Ask only one element at a time about the setting of a story.
+    // Omit the preamble and output only the agreement(e.g., "I see, so the main character is ~!", "nice!" etc.) and a question.
+    // Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply.
+    // Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story.
+    // We have already asked about the name of main character and location, so please start with the other questions.
+    // Follow the instructions under [[instruction]] for output.
+    // Do not ask the same question in the [[chatlog]] twice! Ask questions that will help the child to unpack his or her thinking step by step! Definitely focus on the setting of the story and other points of interest!
+    // ''';
     final String response = await claude(prompt);
     return response;
   }
@@ -646,7 +670,7 @@ class ChatModel extends ChangeNotifier {
     int countIsMeMessages =
         messagesList.where((message) => message.isMe).length;
 
-    if (countIsMeMessages > 2) {
+    if (countIsMeMessages > 3) {
       String reply = await talk(message); // 会話履歴を毎回送る
 
       message += reply;
@@ -689,11 +713,12 @@ class ChatModel extends ChangeNotifier {
         return "このおはなしの主人公はだれ？";
       case 2:
         await Future.delayed(const Duration(seconds: 1));
-
         return "このおはなしの場所はどこ？";
+      case 3:
+        await Future.delayed(const Duration(seconds: 1));
+        return "他にだれが出てくる？";
       default:
         await Future.delayed(const Duration(seconds: 1));
-
         return "そうしましょう！";
     }
   }

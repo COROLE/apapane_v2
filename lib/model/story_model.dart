@@ -127,12 +127,12 @@ class StoryModel extends ChangeNotifier {
           // 画像をFirebase Storageに保存する
           List<Map<String, dynamic>> updatedStoryPages = [];
           try {
+            // 画像がある場合のみ保存する
             if (titleImage != '') {
-              // 画像がある場合のみ保存する
-              titleImage = await saveImageFromUrl(
+              titleImage = await saveImageFromBase64(
                 activeUid: activeUid,
                 storyId: id,
-                imageUrl: titleImage,
+                base64Image: titleImage,
               );
               // 新しいダウンロードURLで更新
               notifyListeners();
@@ -140,11 +140,11 @@ class StoryModel extends ChangeNotifier {
 
             for (final storyPage in storyPages) {
               if (storyPage['image'] != null) {
-                String imageUrl = storyPage['image'] as String;
-                String downloadUrl = await saveImageFromUrl(
+                String base64Image = storyPage['image'] as String;
+                String downloadUrl = await saveImageFromBase64(
                   activeUid: activeUid,
                   storyId: id,
-                  imageUrl: imageUrl,
+                  base64Image: base64Image,
                 );
                 updatedStoryPages.add({
                   ...storyPage,
@@ -268,14 +268,16 @@ class StoryModel extends ChangeNotifier {
     }
   }
 
-  Future<String> saveImageFromUrl({
+  Future<String> saveImageFromBase64({
     required String activeUid,
     required String storyId,
-    required String imageUrl,
+    required String base64Image,
   }) async {
-    Uint8List imageData = await downloadImage(imageUrl);
+    // Base64文字列から画像データをデコード
+    Uint8List imageData = base64Decode(base64Image);
     String fileName = returnJpgFileName();
 
+    // Firebaseにアップロード
     String downloadUrl = await uploadImageToFirebase(
         activeUid: activeUid,
         storyId: storyId,
