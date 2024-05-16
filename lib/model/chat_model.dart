@@ -614,21 +614,26 @@ class ChatModel extends ChangeNotifier {
       }
     });
 
-    final List<Map<String, dynamic>> outputStory = await Future.wait(
-      imageStory.entries.map((entry) async {
-        final key = entry.key;
-        final element = entry.value;
-        final String positivePrompt = elements[key]?.first ?? "positive_prompt";
-        final String negativePrompt =
-            elements[key]?.second ?? "negative_prompt";
-        final String imageOutput = await stableDiffusion(
-            element[0][positivePrompt], element[0][negativePrompt]);
-        return {
-          "story": story[key],
-          "image": imageOutput,
-        };
-      }),
-    );
+    final List<Map<String, dynamic>> outputStory = [];
+
+    // 並列処理するFutureのリストを作成
+    final futures = imageStory.entries.map((entry) async {
+      final key = entry.key;
+      final element = entry.value;
+      final String positivePrompt = elements[key]?.first ?? "positive_prompt";
+      final String negativePrompt = elements[key]?.second ?? "negative_prompt";
+      final String imageOutput =
+          await stableDiffusion(element[0][positivePrompt], element[0][negativePrompt]);
+      return {
+        "story": story[key],
+        "image": imageOutput,
+      };
+    }).toList();
+
+    // 並列処理の結果を待ち、順番を維持したままoutputStoryに追加
+    final results = await Future.wait(futures);
+    outputStory.addAll(results);
+
     debugPrint('outputStory: $outputStory');
     return outputStory;
   }
