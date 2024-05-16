@@ -208,29 +208,39 @@ class ChatModel extends ChangeNotifier {
 
   Future<String> stableDiffusion(String prompt, String negativePrompt) async {
     const String url =
-        "https://api.stability.ai/v2beta/stable-image/generate/core";
+        "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
 
-    final headers = {
-      "Authorization": "Bearer $apiKey",
-      "Accept": "application/json", // 応答の形式を指定
-    };
-
-    var request = http.MultipartRequest('POST', Uri.parse(url))
-      ..headers.addAll(headers)
-      ..fields['prompt'] = prompt
-      ..fields['negative_prompt'] = negativePrompt
-      ..fields['aspect_ratio'] = '9:16'
-      ..fields['output'] = 'png';
-
-    final response = await request.send();
-
-    final responseString = await response.stream.bytesToString();
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $apiKey',
+      },
+      body: jsonEncode({
+        'text_prompts': [
+          {
+            'text': prompt,
+            'weight': 1.0,
+          },
+          {
+            'text': negativePrompt,
+            'weight': -1.0,
+          }
+        ],
+        'cfg_scale': 7,
+        'height': 1344,
+        'width': 768,
+        'samples': 1,
+        'steps': 30,
+      }),
+    );
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> responseData = jsonDecode(responseString);
-        return responseData["image"];
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return responseData["artifacts"][0]["base64"];
       } catch (e) {
         debugPrint('Error decoding image: $e');
         return "";
@@ -622,8 +632,8 @@ class ChatModel extends ChangeNotifier {
       final element = entry.value;
       final String positivePrompt = elements[key]?.first ?? "positive_prompt";
       final String negativePrompt = elements[key]?.second ?? "negative_prompt";
-      final String imageOutput =
-          await stableDiffusion(element[0][positivePrompt], element[0][negativePrompt]);
+      final String imageOutput = await stableDiffusion(
+          element[0][positivePrompt], element[0][negativePrompt]);
       return {
         "story": story[key],
         "image": imageOutput,
