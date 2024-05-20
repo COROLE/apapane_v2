@@ -5,11 +5,13 @@ import 'dart:convert';
 import 'package:apapane/constants/voids.dart' as voids;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
 //packages
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
+// ignore: library_prefixes
 import 'package:anthropic_dart/anthropic_dart.dart' as Anthropic;
 //constants
 import 'package:apapane/constants/enums.dart';
@@ -191,19 +193,42 @@ class ChatModel extends ChangeNotifier {
 
   Future<String> claude(String text) async {
     const String model = "claude-3-haiku-20240307";
-    final service = Anthropic.AnthropicService(dotenv.get("ANTHROPIC_API_KEY"),
-        model: model);
-    var request = Anthropic.Request();
-    request.model = model;
-    request.maxTokens = 1024;
-    request.messages = [
-      Anthropic.Message(
-        role: "user",
-        content: text,
-      )
-    ];
-    var response = await service.sendRequest(request: request);
-    return response.toJson()["content"][0]["text"];
+    final String apiKey = dotenv.get("ANTHROPIC_API_KEY");
+    final url = Uri.https('api.anthropic.com', '/v1/messages');
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'X-API-Key': apiKey,
+      'Anthropic-Version': '2023-06-01',
+    };
+
+    final body = jsonEncode({
+      'model': model,
+      'max_tokens': 1024,
+      'messages': [
+        {'role': 'user', 'content': text},
+      ]
+    });
+
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: body,
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        final Map<String, dynamic> responseData = jsonDecode(utf8.decode(response.bodyBytes));
+        return responseData['content'][0]['text'];
+      } catch (e) {
+        debugPrint('Error decoding response: $e');
+        return "";
+      }
+    } else {
+      const String responseData = "error";
+      debugPrint('Error response: $response');
+      return responseData;
+    }
   }
 
   Future<String> stableDiffusion(String prompt, String negativePrompt) async {
