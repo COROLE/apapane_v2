@@ -665,7 +665,8 @@ class ChatModel extends ChangeNotifier {
               title: newStoryMaps[0]['story'], image: newStoryMaps[0]['image']);
           storyModel.updateStoryMaps(newStoryMaps: newStoryMaps);
           storyModel.toStoryPageType = ToStoryPageType.newStory;
-          routes.toStoryScreenReplacement(context: context);
+          // ignore: use_build_context_synchronously
+          routes.toStoryScreenReplacement(context: context, isNew: true);
         } else {
           debugPrint('No stories or images returned');
           voids.showFluttertoast(msg: "物語を取得できませんでした。");

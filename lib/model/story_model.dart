@@ -35,6 +35,8 @@ class StoryModel extends ChangeNotifier {
   bool isVolume = false;
   bool isVoiceDownloading = false;
   final player = AudioPlayer();
+  final Map<String, Uint8List> _imageCache = {};
+
   // ignore: non_constant_identifier_names
 
   List<Map<String, dynamic>> storyPages = [];
@@ -304,6 +306,21 @@ class StoryModel extends ChangeNotifier {
       // エラーハンドリング
       print('Failed to load voice');
       return null;
+    }
+  }
+
+  Future<Uint8List> fetchImageData(String imageUrl) async {
+    if (_imageCache.containsKey(imageUrl)) {
+      return _imageCache[imageUrl]!;
+    } else {
+      final response = await http.get(Uri.parse(imageUrl));
+      if (response.statusCode == 200) {
+        Uint8List imageData = response.bodyBytes;
+        _imageCache[imageUrl] = imageData; // キャッシュに画像データを保存
+        return imageData;
+      } else {
+        throw Exception('Failed to load image');
+      }
     }
   }
 }
