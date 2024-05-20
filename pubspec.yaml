@@ -10,7 +10,6 @@ dependencies:
   flutter:
     sdk: flutter
   audioplayers: ^5.2.1
-  anthropic_dart: ^1.0.1
   cached_network_image: ^3.3.1
   freezed: ^2.4.6
   cloud_firestore: ^4.13.6

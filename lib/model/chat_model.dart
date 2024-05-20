@@ -5,14 +5,11 @@ import 'dart:convert';
 import 'package:apapane/constants/voids.dart' as voids;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:intl/intl.dart';
 //packages
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
-// ignore: library_prefixes
-import 'package:anthropic_dart/anthropic_dart.dart' as Anthropic;
 //constants
 import 'package:apapane/constants/enums.dart';
 import 'package:apapane/constants/routes.dart' as routes;
@@ -191,7 +188,7 @@ class ChatModel extends ChangeNotifier {
   //   }
   // }
 
-  Future<String> claude(String text) async {
+  Future<String> claude(String prompt, String systemPrompt) async {
     const String model = "claude-3-haiku-20240307";
     final String apiKey = dotenv.get("ANTHROPIC_API_KEY");
     final url = Uri.https('api.anthropic.com', '/v1/messages');
@@ -205,8 +202,9 @@ class ChatModel extends ChangeNotifier {
     final body = jsonEncode({
       'model': model,
       'max_tokens': 1024,
+      'system': systemPrompt,
       'messages': [
-        {'role': 'user', 'content': text},
+        {'role': 'user', 'content': prompt},
       ]
     });
 
@@ -285,7 +283,7 @@ class ChatModel extends ChangeNotifier {
 
     <instruction>
     Speak in a friendly, frank tone, without using honorifics.
-  Do not repeat a question that you have previously heard in the conversation history.
+    Do not repeat a question that you have previously heard in the conversation history.
     Please answer in easy-to-understand japanese, using no more than 30 characters.
     The ratio of kanji to hiragana should be about 1:4.
     Avoid difficult-to-read kanji characters.
@@ -327,7 +325,7 @@ class ChatModel extends ChangeNotifier {
     // Follow the instructions under [[instruction]] for output.
     // Do not ask the same question in the [[chatlog]] twice! Ask questions that will help the child to unpack his or her thinking step by step! Definitely focus on the setting of the story and other points of interest!
     // ''';
-    final String response = await claude(prompt);
+    final String response = await claude(prompt, "Please reply in Japanese.");
     return response;
   }
 
@@ -380,7 +378,7 @@ class ChatModel extends ChangeNotifier {
     <input_prompt>文脈に合わせた返答を子供の想像力を促す一言の例のひらがな文を作成してください。文脈:</input_prompt>
     </prompt>
     ''';
-    final String response = await claude(text + prompt);
+    final String response = await claude(text + prompt, "Please reply in Japanese.");
     return response;
   }
 
@@ -532,7 +530,7 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(prompt);
+        final data = await claude(prompt, "Please reply in Japanese.");
 
         // レスポンスをJSONとしてデコードする
         story = jsonDecode(data);
@@ -614,7 +612,7 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(imagePrompt);
+        final data = await claude(imagePrompt, "Please reply in Japanese.");
 
         // レスポンスをJSONとしてデコードする
         imageStory = jsonDecode(data);
