@@ -18,8 +18,6 @@ class PublicModel extends ChangeNotifier {
   List<String> muteUids = [];
   final RefreshController refreshController = RefreshController();
   bool isLoading = false;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final Map<String, dynamic> _storiesCache = {};
 
   Query<Map<String, dynamic>> returnQuery() {
     // FirebaseFirestore.instanceから直接.collectionGroup('stories')を使用します。
