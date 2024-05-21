@@ -68,27 +68,17 @@ class PublicModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> getMyStories({
-    required BuildContext context,
-    required StoryModel storyModel,
-    required DocumentSnapshot storyDoc,
-  }) async {
-    String storyId = storyDoc.id;
-    if (_storiesCache.containsKey(storyId)) {
-      // キャッシュからデータを取得し、リストに変換して渡す
-      storyModel.updateStoryMaps(newStoryMaps: [_storiesCache[storyId]]);
-    } else {
-      // データベースからデータを取得
-      DocumentSnapshot snapshot =
-          await _firestore.collection('stories').doc(storyId).get();
-      if (snapshot.exists) {
-        Map<String, dynamic> storyData =
-            snapshot.data() as Map<String, dynamic>;
-        _storiesCache[storyId] = storyData; // キャッシュにデータを保存
-        // データをリストに変換して渡す
-        storyModel.updateStoryMaps(newStoryMaps: [storyData]);
-      }
-    }
+  Future<void> getMyStories(
+      {required BuildContext context,
+      required StoryModel storyModel,
+      required DocumentSnapshot<Map<String, dynamic>> storyDoc}) async {
+    final List<dynamic> myStoryMaps = storyDoc['stories'] as List<dynamic>;
+    storyModel.getTitleTextAndImage(
+        title: storyDoc['titleText'], image: storyDoc['titleImage']);
+    storyModel.updateStoryMaps(
+        newStoryMaps: myStoryMaps.cast<Map<String, dynamic>>());
+    storyModel.toStoryPageType = ToStoryPageType.memoryStory;
+    routes.toStoryScreen(context: context, isNew: false);
   }
 
   void backToContext(BuildContext context) {
