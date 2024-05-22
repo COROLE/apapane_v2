@@ -34,26 +34,28 @@ class StoryScreen extends ConsumerWidget {
           return FutureBuilder<Uint8List>(
               future: storyModel.fetchImageData(page["image"]),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done &&
-                    snapshot.hasData) {
-                  return RoundedStoryScreen(
-                    storyModel: storyModel,
-                    picture: snapshot.data!,
-                    sentence: page['story'].toString(),
-                  );
-                } else {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                if (snapshot.connectionState == ConnectionState.done) {
+                  if (snapshot.hasData) {
+                    return RoundedStoryScreen(
+                      storyModel: storyModel,
+                      picture: snapshot.data!,
+                      sentence: page['story'].toString(),
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                        child: Text('画像の読み込みに失敗しました: ${snapshot.error}'));
+                  }
                 }
+                return const Center(child: CircularProgressIndicator());
               });
         }
         String base64Image = page["image"];
         // Base64文字列の長さが4の倍数になるように調整
-        while (base64Image.length % 4 != 0) {
-          base64Image += '=';
-        }
+        // while (base64Image.length % 4 != 0) {
+        //   base64Image += '=';
+        // }
         Uint8List image = base64Decode(base64Image);
+
         return RoundedStoryScreen(
           storyModel: storyModel,
           picture: image,
