@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:apapane/constants/voids.dart' as voids;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:intl/intl.dart';
 //packages
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -216,7 +217,8 @@ class ChatModel extends ChangeNotifier {
 
     if (response.statusCode == 200) {
       try {
-        final Map<String, dynamic> responseData = jsonDecode(utf8.decode(response.bodyBytes));
+        final Map<String, dynamic> responseData =
+            jsonDecode(utf8.decode(response.bodyBytes));
         return responseData['content'][0]['text'];
       } catch (e) {
         debugPrint('Error decoding response: $e');
@@ -229,7 +231,9 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  Future<String> stableDiffusion(String prompt, String negativePrompt) async {
+  Future<Map<String, dynamic>> stableDiffusion(
+      String prompt, String negativePrompt,
+      {int seed = 0}) async {
     const String url =
         "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
@@ -257,20 +261,20 @@ class ChatModel extends ChangeNotifier {
         'width': 768,
         'samples': 1,
         'steps': 30,
+        'seed': seed,
       }),
     );
 
     if (response.statusCode == 200) {
       try {
         final Map<String, dynamic> responseData = jsonDecode(response.body);
-        return responseData["artifacts"][0]["base64"];
+        return responseData["artifacts"][0];
       } catch (e) {
         debugPrint('Error decoding image: $e');
-        return "";
+        return {};
       }
     } else {
-      const String responseData = "error";
-      return responseData;
+      return {};
     }
   }
 
@@ -378,7 +382,8 @@ class ChatModel extends ChangeNotifier {
     <input_prompt>文脈に合わせた返答を子供の想像力を促す一言の例のひらがな文を作成してください。文脈:</input_prompt>
     </prompt>
     ''';
-    final String response = await claude(text + prompt, "Please reply in Japanese.");
+    final String response =
+        await claude(text + prompt, "Please reply in Japanese.");
     return response;
   }
 
@@ -649,17 +654,34 @@ class ChatModel extends ChangeNotifier {
 
     final List<Map<String, dynamic>> outputStory = [];
 
+    final firstKey = imageStory.keys.first;
+    final firstElement = imageStory[firstKey];
+    final String firstPositivePrompt =
+        elements[firstKey]?.first ?? "positive_prompt";
+    final String firstNegativePrompt =
+        elements[firstKey]?.second ?? "negative_prompt";
+    final Map<String, dynamic> firstImageOutput = await stableDiffusion(
+        firstElement[0][firstPositivePrompt],
+        firstElement[0][firstNegativePrompt]);
+    final int seed = firstImageOutput["seed"];
+    outputStory.add({
+      "story": story[firstKey],
+      "image": firstImageOutput["base64"],
+    });
+    imageStory.remove(firstKey);
+
     // 並列処理するFutureのリストを作成
     final futures = imageStory.entries.map((entry) async {
       final key = entry.key;
       final element = entry.value;
       final String positivePrompt = elements[key]?.first ?? "positive_prompt";
       final String negativePrompt = elements[key]?.second ?? "negative_prompt";
-      final String imageOutput = await stableDiffusion(
-          element[0][positivePrompt], element[0][negativePrompt]);
+      final Map<String, dynamic> imageOutput = await stableDiffusion(
+          element[0][positivePrompt], element[0][negativePrompt],
+          seed: seed);
       return {
         "story": story[key],
-        "image": imageOutput,
+        "image": imageOutput["base64"],
       };
     }).toList();
 
