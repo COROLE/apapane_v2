@@ -13,25 +13,25 @@ class RoundedSentence extends StatelessWidget {
       Padding(
         padding: EdgeInsets.only(
             top: screenHeight * 0.8,
-            left: screenWidth * 0.95,
+            left: screenWidth * 0.05,
             right: screenWidth * 0.95,
             bottom: screenHeight * 0.02),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(0.3),
             borderRadius: BorderRadius.circular(40),
           ),
           child: BorderedText(
+            strokeWidth: 5.0,
+            strokeColor: Colors.white,
             child: Text(
               sentence,
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Colors.black),
             ),
-            strokeWidth: 5.0,
-            strokeColor: Colors.white,
           ),
         ),
       ),

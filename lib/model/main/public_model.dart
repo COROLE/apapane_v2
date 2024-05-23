@@ -76,7 +76,7 @@ class PublicModel extends ChangeNotifier {
     storyModel.updateStoryMaps(
         newStoryMaps: myStoryMaps.cast<Map<String, dynamic>>());
     storyModel.toStoryPageType = ToStoryPageType.memoryStory;
-    routes.toStoryScreen(context: context);
+    routes.toStoryScreen(context: context, isNew: false);
   }
 
   void backToContext(BuildContext context) {

@@ -24,6 +24,6 @@ class StoryIcon extends StatelessWidget {
                 Icons.book,
                 size: screenHeight * 0.1,
               )
-            : RectangleImage(image: NetworkImage(storyImageURL)));
+            : RectangleImage(imageUrl: storyImageURL));
   }
 }
