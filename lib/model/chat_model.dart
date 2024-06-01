@@ -280,56 +280,28 @@ class ChatModel extends ChangeNotifier {
 
 //replyのエンドポイントを使って、会話をする
   Future<String> talk(String text) async {
-    final String prompt = '''
-    <chatlog>
-    $text
-    </chatlog>
-
-    <instruction>
-    Speak in a friendly, frank tone, without using honorifics.
-    Do not repeat a question that you have previously heard in the conversation history.
-    Please answer in easy-to-understand japanese, using no more than 30 characters.
-    The ratio of kanji to hiragana should be about 1:4.
-    Avoid difficult-to-read kanji characters.
-    </instruction>
-
-    You are a friendly interviewer who asks the children what they imagine the story to be about.
-    You are very curious about what story the children are imagining, so you ask, "What other characters are there?", "Does it mean ~?", "What happens after that?", and so on.
-    Ask for more information about the protagonist and the characters.
-    Ask only one element at a time about the setting of a story.
-    Omit the preamble and output only the agreement(e.g., "I see, so the main character is ~!", "nice!" etc.) and a question.
-    Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply.
-    Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story.
-    We have already asked about the name of main character and location, so please start with the other questions.
-    Follow the instructions under [[instruction]] for output.
-    Do not ask the same question in the [[chatlog]] twice! Ask questions that will help the child to unpack his or her thinking step by step! Definitely focus on the setting of the story and other points of interest!
+    const String prompt = '''
+      You are a friendly interviewer who asks children about the stories they imagine.
+      Speak in a friendly, frank tone, without using honorifics.
+      Do not repeat questions already asked in the conversation history.
+      Answer in easy-to-understand Japanese, using no more than 30 characters per sentence.
+      The ratio of kanji to hiragana should be about 1:4.
+      Avoid difficult-to-read kanji characters.
+      Omit preambles and output only agreement (e.g., "I see, so the main character is ~!", "Nice!") and a question.
+      Follow these instructions to react to the user's last statement in the chatlog and ask another question regarding the story setting.
+      Focus on questions that help the child unpack their thoughts step by step, and avoid repeating questions already asked.
     ''';
-    // '''
-    // <chatlog>
-    // $text
-    // </chatlog>
-
-    // <instruction>
-    // Speak in a friendly, frank tone, without using honorifics.
-    // Do not ask the same question more than once.
-    // Do not repeat a question that you have previously heard in the conversation history.
-    // Please answer in easy-to-understand japanese, using no more than 30 characters.
-    // The ratio of kanji to hiragana should be about 1:4.
-    // Avoid difficult-to-read kanji characters.
-    // </instruction>
-
-    // You are a friendly interviewer who asks the children what they imagine the story to be about.
-    // You are very curious about what story the children are imagining, so you ask, "What other characters are there?", "What happens afterwards?", "What happens after that?", and so on.
-    // Ask for more information about the protagonist and the characters.
-    // Ask only one element at a time about the setting of a story.
-    // Omit the preamble and output only the agreement(e.g., "I see, so the main character is ~!", "nice!" etc.) and a question.
-    // Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply.
-    // Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story.
-    // We have already asked about the name of main character and location, so please start with the other questions.
-    // Follow the instructions under [[instruction]] for output.
-    // Do not ask the same question in the [[chatlog]] twice! Ask questions that will help the child to unpack his or her thinking step by step! Definitely focus on the setting of the story and other points of interest!
-    // ''';
-    final String response = await claude(prompt, "Please reply in Japanese.");
+    final String systemPrompt = '''
+    <chatlog>
+      $text
+    </chatlog>
+    <instruction>
+      Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
+      Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
+      We have already asked about the name of the main character and location, so please start with other questions.
+    </instruction>
+    ''';
+    final String response = await claude(prompt, systemPrompt);
     return response;
   }
 
@@ -490,6 +462,11 @@ class ChatModel extends ChangeNotifier {
     $text
     </chatlog>
 
+    Create a narrative based on the [[chatlog]].Make it fun and exciting for kids!
+
+    Output:
+    ''';
+    const String systemPrompt = '''
     <storyline>
     *Stories that delve deeply into the inner life, emotions, surprising secrets, and backgrounds of the main character and other characters
     *Stories with unexpected events and foreshadowing
@@ -501,33 +478,35 @@ class ChatModel extends ChangeNotifier {
     </storyline>
 
     <instruction>
+    *The title should be a title that best describes the entire four-paragraph story in one word. The title must be no more than 15 words.
     *Describe in detail the names of the characters, what kind of creatures they are, their appearance, personalities, etc., using your imagination.
     *Describe in detail the location of the story, the scenery, the surroundings, etc., using your imagination.
     *Avoid mediocre storylines.
+    *As far as possible, describe the characters in detail and clearly in words.For example, instead of abstract and vague descriptions such as 'a large monster with magical powers', use clear and detailed descriptions such as 'a 10m long dragon that breathes fire'.
     </instruction>
 
     <OutputExample>
     {
-      "introduction": "秘密に包まれた魔法の世界がありました。その国で、若い魔法使いのレナが、不思議な力を持つ伝説の魔法を探して、冒険を始めます。レナは、風を操る杖と、話す猫を仲間に、いろいろな遺跡を探検しました。",
-      "development": "そしてレナたちは、氷河の丘にある「氷河の城」へと向かいました。ここでは、時計仕掛けのパズルを解いて、古い魔法の本を見つけることができました。この本には、命を癒す力が含まれており、レナの力もぐんと増えました。",
-      "turn": "レナと仲間たちは、大きな竜が住む「炎の谷」へと辿り着きます。ここで、レナは竜と戦い、かつての戦いで幸せを失った竜の心を解きほぐします。竜は感謝して、レナに最後の魔法「平和のお守り」を渡しました。",
-      "conclusion": "冒険を終えて、レナは故郷に帰ります。レナは魔法を使って、村の人々に困っている人たちを助け、世界に平和と繁栄をもたらしました。レナの伝説は、世界中の子供たちに夢と希望を語り継ぐことになりました。"
+      "title": "ここに物語のタイトルが入る",
+      "introduction": "ここにIntroductionの章が入る",
+      "development": "ここにDevelopmentの章が入る",
+      "turn": "ここにTurnの章が入る",
+      "conclusion": "ここにConclusionの章が入る"
     }
     </OutputExample>
-
-    Create a narrative based on the [chatlog].Make it fun and exciting for kids!
-    Write a story with interesting twists and turns as described in the [storyline].
-    Follow the [instruction] to create a story.
 
     Output a story in easy Japanese that can be understood by middle school students
     The ratio of kanji to hiragana should be about 1:4. Avoid difficult-to-read kanji characters.
     The story consists of four paragraphs.
-    Use JSON format with the keys "introduction", "development", "turn", and "conclusion".
+    Output the title of the whole story and four paragraphs.
+    Use JSON format with the keys "title", "introduction", "development", "turn", and "conclusion".
     Output only JSON.
-    Please refer to [OutputExample] for the output format.
+    Please refer to [[OutputExample]] for the output format.
 
-    Output:
+    Write a story with interesting twists and turns as described in the [[storyline]].
+    Follow the [[instruction]] to create a story.
     ''';
+
     var retries = 0;
     const int maxRetries = 3;
     Map<String, dynamic> story = {};
@@ -535,7 +514,7 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(prompt, "Please reply in Japanese.");
+        final data = await claude(prompt, systemPrompt);
 
         // レスポンスをJSONとしてデコードする
         story = jsonDecode(data);
@@ -617,7 +596,7 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(imagePrompt, "Please reply in Japanese.");
+        final data = await claude(imagePrompt, "");
 
         // レスポンスをJSONとしてデコードする
         imageStory = jsonDecode(data);
