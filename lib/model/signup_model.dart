@@ -35,7 +35,7 @@ class SignUpModel extends ChangeNotifier {
 
     await FirebaseFirestore.instance.collection('users').doc(uid).set(userData);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Text(userCreatedMsg),
       ),
     );
@@ -53,7 +53,30 @@ class SignUpModel extends ChangeNotifier {
       await createFirestoreUser(context: context, uid: uid);
       routes.toMyApp(context: context);
     } on FirebaseAuthException catch (e) {
-      print(e.toString());
+      String errorMessage = _getErrorMessage(e.code);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _getErrorMessage(String errorCode) {
+    switch (errorCode) {
+      case 'email-already-in-use':
+        return 'このメールアドレスは既に使用されています。';
+      case 'operation-not-allowed':
+        debugPrint(errorCode);
+        return '予期せぬエラーが発生しました。';
+      case 'invalid-email':
+        return 'メールアドレスが無効です。';
+      case 'weak-password':
+        return 'パスワードが弱すぎます。';
+      default:
+        debugPrint(errorCode);
+        return '予期せぬエラーが発生しました。';
     }
   }
 

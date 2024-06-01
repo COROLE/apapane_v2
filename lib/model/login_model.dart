@@ -19,7 +19,28 @@ class LoginModel extends ChangeNotifier {
           .signInWithEmailAndPassword(email: email, password: password);
       routes.toMyApp(context: context);
     } on FirebaseAuthException catch (e) {
-      print(e.toString());
+      String errorMessage = _getErrorMessage(e.code);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _getErrorMessage(String errorCode) {
+    switch (errorCode) {
+      case 'user-not-found':
+        return 'ユーザーが見つかりません。';
+      case 'wrong-password':
+        return 'パスワードが間違っています。';
+      case 'invalid-email':
+      case 'invalid-credential':
+        return 'メールアドレスが無効です。';
+      default:
+        debugPrint(errorCode);
+        return 'パスワード、メールアドレスが間違っています。';
     }
   }
 

@@ -1,4 +1,5 @@
 //flutter
+import 'package:apapane/model/bottom_nav_bar_model.dart';
 import 'package:flutter/material.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,8 +11,6 @@ import 'package:apapane/domain/firestore_user/firestore_user.dart';
 import 'package:apapane/constants/others.dart';
 //routes
 import 'package:apapane/constants/routes.dart' as routes;
-//models
-import 'package:apapane/model/bottom_nav_bar_model.dart';
 
 final mainProvider = ChangeNotifierProvider((ref) => MainModel());
 
@@ -29,15 +28,15 @@ class MainModel extends ChangeNotifier {
   MainModel() {
     init();
   }
-  void setCurrentUser() {
+  void setCurrentUser(bottomNavBarModel) {
     currentUser = FirebaseAuth.instance.currentUser;
+    bottomNavBarModel.currentIndex = 0;
     notifyListeners();
   }
 
   //initの中でcurrentUserを更新すれば良い
   Future<void> init() async {
     startLoading();
-    //modelを跨がないでcurrentUserの更新
     currentUser = returnAuthUser();
     currentUserDoc = await FirebaseFirestore.instance
         .collection('users')
@@ -59,12 +58,12 @@ class MainModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> logout(
-      {required BuildContext context,
-      required BottomNavigationBarModel bottomNavigationBarModel}) async {
-    await FirebaseAuth.instance.signOut();
-    setCurrentUser();
-    bottomNavigationBarModel.currentIndex = 0;
+  Future<void> logout({
+    required BuildContext context,
+    required BottomNavigationBarModel bottomNavBarModel,
+  }) async {
     routes.toLoginSignupScreen(context: context);
+    await FirebaseAuth.instance.signOut();
+    setCurrentUser(bottomNavBarModel);
   }
 }

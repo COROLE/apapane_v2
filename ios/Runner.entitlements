@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!--
-   Runner.entitlements
-   Runner
-
-   Created by Haruto Uemura on 2024/05/27.
-   Copyright (c) 2024 . All rights reserved.
--->
 <plist version="1.0">
-<dict/>
+<dict>
+    <key>aps-environment</key>
+    <string>development</string> <!-- または "production" -->
+</dict>
 </plist>

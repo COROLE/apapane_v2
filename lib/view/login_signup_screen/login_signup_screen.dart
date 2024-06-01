@@ -15,15 +15,18 @@ class LoginSignUpScreen extends ConsumerWidget {
         length: 2,
         child: Scaffold(
           appBar: AppBar(
-            title: const Text('ログイン・新規登録'),
-            bottom: const TabBar(
-              tabs: [
+            title: const Text('Apapane', style: TextStyle(color: Colors.black)),
+            bottom: TabBar(
+              indicatorColor: Colors.pinkAccent,
+              labelColor: Colors.pink[300],
+              unselectedLabelColor: Colors.grey[600],
+              tabs: const [
                 Tab(text: 'ログイン'),
                 Tab(text: '新規登録'),
               ],
             ),
           ),
-          body: TabBarView(
+          body: const TabBarView(
             children: [
               LoginScreen(),
               SignUpScreen(),

@@ -60,7 +60,7 @@ class MyHomePage extends ConsumerWidget {
     //MainModelが起動し、init()が実行される
     final MainModel mainModel = ref.watch(mainProvider);
     final BottomNavigationBarModel bottomNavigationBarModel =
-        ref.watch(snsBottomNavigationBarProvider);
+        ref.watch(bottomNavigationBarProvider);
 
     return Scaffold(
         resizeToAvoidBottomInset: false,

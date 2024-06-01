@@ -16,7 +16,7 @@ class DetailButton extends StatelessWidget {
       ),
       child: IconButton(
           color: const Color.fromARGB(255, 0, 0, 0),
-          onPressed: () {},
+          onPressed: onPressed,
           icon: Icon(
             Icons.dehaze_sharp,
             size: size,

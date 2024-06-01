@@ -1,4 +1,5 @@
 //flutter
+import 'package:apapane/model/bottom_nav_bar_model.dart';
 import 'package:flutter/material.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,11 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ProfileModel profileModel = ref.watch(profileProvider);
+    final MainModel mainModel = ref.watch(mainProvider);
     final StoryModel storyModel = ref.watch(storyProvider);
+    final BottomNavigationBarModel bottomNavBarModel =
+        ref.watch(bottomNavigationBarProvider);
+
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(
@@ -43,7 +48,12 @@ class ProfileScreen extends ConsumerWidget {
           Positioned(
               top: screenHeight * 0.12.w,
               right: screenWidth * 0.07.w,
-              child: DetailButton(onPressed: () {}, size: screenWidth * 0.07)),
+              child: DetailButton(
+                  onPressed: () => mainModel.logout(
+                        context: context,
+                        bottomNavBarModel: bottomNavBarModel,
+                      ),
+                  size: screenWidth * 0.07)),
           Positioned(
               top: screenHeight * 0.16.w,
               left: screenWidth * 0.12.w,

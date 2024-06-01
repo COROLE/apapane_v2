@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final snsBottomNavigationBarProvider =
+final bottomNavigationBarProvider =
     ChangeNotifierProvider((ref) => BottomNavigationBarModel());
 
 class BottomNavigationBarModel extends ChangeNotifier {
@@ -15,8 +15,8 @@ class BottomNavigationBarModel extends ChangeNotifier {
   }
 
   void init() {
+    currentIndex = 0;
     pageController = PageController(initialPage: currentIndex, keepPage: false);
-    print('currentIndex: $currentIndex');
     notifyListeners();
   }
 

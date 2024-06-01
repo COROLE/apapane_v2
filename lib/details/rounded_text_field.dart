@@ -24,14 +24,18 @@ class RoundedTextField extends StatelessWidget {
     return TextFieldContainer(
       borderColor: borderColor,
       shadowColor: shadowColor,
+      vertical: 10.0,
       child: TextFormField(
         keyboardType: keyboardType,
         onChanged: onChanged,
         controller: controller,
         decoration: InputDecoration(
-            border: InputBorder.none,
-            hintText: hintText,
-            hintStyle: const TextStyle(fontWeight: FontWeight.bold)),
+          hintText: hintText,
+          hintStyle:
+              TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
+
+          border: InputBorder.none, // Remove underline
+        ),
       ),
     );
   }

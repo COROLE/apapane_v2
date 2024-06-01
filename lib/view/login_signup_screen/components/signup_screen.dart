@@ -12,7 +12,7 @@ import 'package:apapane/details/rounded_text_field.dart';
 import 'package:apapane/model/signup_model.dart';
 
 class SignUpScreen extends ConsumerWidget {
-  SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -21,29 +21,40 @@ class SignUpScreen extends ConsumerWidget {
         TextEditingController(text: signUpModel.email);
     final TextEditingController passwordController =
         TextEditingController(text: signUpModel.password);
+    final double screenHeight = MediaQuery.of(context).size.height;
+
     return Column(
       children: [
-        Text(mailAddressText),
+        SizedBox(
+          height: screenHeight * 0.1,
+        ),
+        const Text(mailAddressText, style: TextStyle(color: Colors.grey)),
         RoundedTextField(
             keyboardType: TextInputType.emailAddress,
             onChanged: (text) => signUpModel.email = text,
             controller: emailController,
-            borderColor: Colors.pink,
-            shadowColor: Colors.pink.withOpacity(0.3),
+            borderColor: Colors.green[800]!,
+            shadowColor: Colors.green[800]!.withOpacity(0.5),
             hintText: mailAddressText),
-        Text(passwordText),
+        const Text(passwordText, style: TextStyle(color: Colors.grey)),
         RoundedPasswordField(
           onChanged: (text) => signUpModel.password = text,
           passwordController: passwordController,
           obscureText: signUpModel.isObscure,
           toggleObscureText: () => signUpModel.toggleIsObscure(),
-          borderColor: Colors.pink,
-          shadowColor: Colors.pink.withOpacity(0.3),
+          borderColor: Colors.lightGreen[
+              400]!, // Brighter and stylish color for password field
+          shadowColor:
+              Colors.lightGreen[400]!.withOpacity(0.5), // Matching shadow color
+        ),
+        SizedBox(
+          height: screenHeight * 0.03,
         ),
         RoundedButton(
             onPressed: () => signUpModel.createUser(context: context),
             widthRate: 0.85,
-            color: Colors.pink.withOpacity(0.3),
+            color: Colors.lightGreen[400]!
+                .withOpacity(0.8), // Brighter and stylish color for button
             text: signUpText)
       ],
     );
