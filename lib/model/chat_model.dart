@@ -542,60 +542,74 @@ class ChatModel extends ChangeNotifier {
     </story>
 
     <positive>
-    detailed anime-style illustration, 3d, digital painting, vibrant colors, highly detailed, digital art,
+    detailed anime-style illustration, 3d, digital painting, vibrant colors, highly detailed, digital art, clearly
     </positive>
 
     <negative>
-    low quality, cartoon-like, 2d, text, logo, watermark
+    low quality, cartoon-like, 2d, text, logo, watermark, vague, blurred
     </negative>
 
-    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [paragraph], down to the actions and characters.
-    The [story] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
-    Positive prompts should include the word [positive] and negative prompts should include the word [negative]. Other words can of course be included as well.
+    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
+    The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
+    Positive prompts should include the words in [[positive]] and negative prompts should include the words in [[negative]]. Other words can of course be included as well.
     Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
     I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
 
-    Please output in JSON format as in the following [OutputExample].
+    Output:
+    ''';
+    
+    const String imageSystemPrompt = '''
+    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
+    The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
+    Positive prompts should include the words in [[positive]] and negative prompts should include the words in [[negative]]. Other words can of course be included as well.
+    Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
+    I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
+    
+    First, figure out who and what each of the main character and other characters in the [[story]] look like.
+    Generate positive_prompt_characters and negative_prompt_characters to have stablediffusion generate images of what the main character and the other characters look like.
+    Include positive_prompt_characters in the "prompt" of all four paragraphs and negative_prompt_characters in the "negative_prompt" of all four paragraphs.
+    In other words, generate images so that the main character and each of the characters have the same look and feel in all paragraphs. The same characters should appear consistently across all four paragraphs.
+    
+    Please output in JSON format as in the following [[OutputExample]].
     <OutputExample>
     {
       “introduction”: [
         {
-          'prompt: 'text',.
-          'nagetive_prompt': 'text',.
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
         }
       ], }
       “development”: [
         {
-          'prompt: 'text','
-          'nagetive_prompt': 'text',.
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
         }
       ], }
       “turn”: [
         {
-          'prompt: 'text', }
-          'nagetive_prompt': 'text',.
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
         }
       ], }
       “conclusion”: [
         {
-          'prompt: 'text', }
-          'nagetive_prompt': 'text',.
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
         }
       ]
     }
     </OutputExample>
 
     Output only JSON.
-
-    Output:
     ''';
+
     retries = 0;
     Map<String, dynamic> imageStory = {};
 
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(imagePrompt, "");
+        final data = await claude(imagePrompt, imageSystemPrompt);
 
         // レスポンスをJSONとしてデコードする
         imageStory = jsonDecode(data);
