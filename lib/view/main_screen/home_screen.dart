@@ -5,6 +5,7 @@ import 'package:apapane/constants/strings.dart';
 //components
 import 'package:apapane/details/rounded_start_button.dart';
 import 'package:bordered_text/bordered_text.dart';
+import 'package:flutter/services.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 //models
@@ -15,6 +16,11 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 画面の向きを縦向きに固定
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     final ChatModel chatModel = ref.watch(chatProvider);
 
     double screenHeight = MediaQuery.of(context).size.height;
@@ -34,8 +40,7 @@ class HomeScreen extends ConsumerWidget {
               top: screenHeight * 0.35,
               left: screenWidth * 0.15,
               child: InkWell(
-                onTap: () => chatModel.chatInit(
-                    context: context, apapaneTitle: startUpperTitle),
+                onTap: () => chatModel.init(context),
                 child: const RoundedStartButton(
                   startTitle: startAdventureText,
                 ),

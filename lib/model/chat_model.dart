@@ -2,20 +2,21 @@
 import 'dart:convert';
 
 //flutter
-import 'package:apapane/constants/voids.dart' as voids;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 //packages
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:http/http.dart' as http;
 //constants
+import 'package:apapane/constants/voids.dart' as voids;
 import 'package:apapane/constants/enums.dart';
 import 'package:apapane/constants/routes.dart' as routes;
 //models
-import 'package:apapane/model/model_class/message_class.dart';
 import 'package:apapane/model/story_model.dart';
+import 'package:uuid/uuid.dart';
 
 final chatProvider = ChangeNotifierProvider((ref) => ChatModel());
 
@@ -26,171 +27,110 @@ class Pair<T, U> {
 }
 
 class ChatModel extends ChangeNotifier {
-  final Map<String, dynamic> responseData = {};
-
+  bool isLoading = false;
   SpeechToText speechToText = SpeechToText();
   ScrollController scrollController = ScrollController();
-  bool isLoading = false;
   bool isListening = false;
-  bool isCommentLoading = false;
-  bool isExampleLoading = false;
   bool available = false;
-  int chatCount = 4;
   String userInput = "";
   String voiceText = "";
-  String message = "";
-  String exampleText = "";
-  String exampleText2 = "";
+
   String messageListString = "";
-  List<Message> messagesList = [];
-  bool isComplete = false;
+
   final TextEditingController textController = TextEditingController();
 
-  void startLoading() {
-    isLoading = true;
-    notifyListeners();
-  }
+//chatuiを使用
 
-  void endLoading() {
-    isLoading = false;
-    notifyListeners();
-  }
+  List<types.Message> _messages = [];
+  List<types.Message> get messages => _messages;
+  final _user = const types.User(
+    id: '82091008-a484-4a89-ae75-a22bf8d6f3ac',
+  );
+  final _apapane = const types.User(
+    id: '82091008-a484-4a89-ae75-a22bf8d65kai',
+    firstName: 'アパパネくん',
+  );
+  types.User get user => _user;
+  bool isShowCreate = false;
+  bool isCommentLoading = false;
+  bool isExampleLoading = false;
+  int chatCount = 4;
+  String _exampleText = "";
+  String get exampleText => _exampleText.trim().length > 6
+      ? _exampleText.trim().substring(0, 6)
+      : _exampleText.trim();
 
-  void startCommentLoading() {
+  void init(BuildContext context) async {
+    _messages = [];
+    isShowCreate = false;
     isCommentLoading = true;
+    _exampleText = "";
     notifyListeners();
-  }
-
-  void endCommentLoading() {
-    isCommentLoading = false;
-    notifyListeners();
-  }
-
-  void startExampleLoading() {
-    isExampleLoading = true;
-    notifyListeners();
-  }
-
-  void endExampleLoading() {
-    isExampleLoading = false;
-    notifyListeners();
-  }
-
-  // chatScreenに遷移したら最初のプロンプトを投げるようにする
-  void chatInit({required BuildContext context, required String apapaneTitle}) {
-    messagesList.clear();
-    message = "";
-    voiceText = "";
-    messageListString = "";
-    exampleText = "";
-    exampleText2 = "";
-    textController.clear();
-    isComplete = false;
-    chatCount = 4;
-    routes.toChatScreen(context: context, apapaneTitle: apapaneTitle);
-    messagesList.add(Message(
-      message: "こんにちは！いっしょにものがたりをつくりましょう！",
-      isMe: true,
-      sendTime: DateTime.now(),
-    ));
-
-    sendFirstPrompt("h:おはなしをつくりたいです！", true);
-    notifyListeners();
-  }
-
-  void sendFirstPrompt(String text, bool isMe) async {
-    String reply = await replyTemplate(1);
-    message += reply;
-    Message replyMessage = Message(
-      message: reply,
-      isMe: false,
-      sendTime: DateTime.now(),
-    );
-
-    messagesList.add(replyMessage);
-    startExampleLoading();
-    // exampleText = await example(reply);
-    // exampleText2 = await example(reply);
-    // exampleText = "mamama";
-    // exampleText2 = "mamama";
-
-    endExampleLoading();
-    notifyListeners();
-  }
-
-  Future<void> sendMessageFromButton({required BuildContext context}) async {
-    startCommentLoading();
-    FocusScope.of(context).unfocus();
-    await Future.delayed(const Duration(milliseconds: 200));
-    String userInput = textController.text;
-    textController.clear();
-    await sendMessage(userInput, true);
-    endCommentLoading();
-
+    routes.toChatScreen(context: context);
+    _replyMessage();
+    await Future.delayed(const Duration(milliseconds: 500));
+    _replyMessage();
     // ignore: use_build_context_synchronously
   }
 
-  Future<void> sendMessage(String text, bool isMe) async {
-    if (text.trim().isEmpty) {
-      // テキストが空白の場合、何も送信しない
-      return;
-    } else {
-      message += '$text\n';
-      Message newMessage = Message(
-        message: text,
-        isMe: true,
-        sendTime: DateTime.now(),
-      );
-      messagesList.add(newMessage);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await newMessageScroll();
-      });
-      notifyListeners();
-      int countIsMeMessages =
-          messagesList.where((message) => message.isMe).length;
-      if (countIsMeMessages % chatCount == 0 && countIsMeMessages != 0) {
-        toggleIsComplete();
-        chatCount += 4;
-        notifyListeners();
-      }
-      if (!isComplete) {
-        await talkAndExample();
-      }
+  void cancel() {
+    isShowCreate = false;
+    if (_messages.isNotEmpty && _messages.last is types.TextMessage) {
+      _replyMessage(text: (_messages.last as types.TextMessage).text);
     }
-
-    scrollController = ScrollController();
+    notifyListeners();
   }
 
-//echoMessageのエンドポイントを使って、会話をする
-  // Future<String> talk(String text) async {
-  //   final url = Uri.https("asia-northeast1-apapane-3cca0.cloudfunctions.net",
-  //       "/echoMessage", {"aiInput": "", "message": text});
-  //   final response = await http.get(
-  //     url,
-  //     headers: <String, String>{
-  //       "Content-Type":
-  //           "application/json; charset=UTF-8", // Correct token is set here
-  //     },
-  //   );
+  void _addMessage(types.Message message) {
+    _messages.insert(0, message);
+    _checkMessagesLength();
+    notifyListeners();
+    Future.delayed(const Duration(milliseconds: 500));
+  }
 
-  //   try {
-  //     if (response.statusCode == 200) {
-  //       debugPrint('Text uploaded successfully');
-  //       return response.body;
-  //     } else {
-  //       debugPrint(
-  //           'Text upload failed with status code ${response.statusCode}');
-  //       return "error";
-  //     }
-  //   } catch (e) {
-  //     debugPrint('Error uploading text: $e');
-  //     return "error";
-  //   }
-  // }
+  void _checkMessagesLength() {
+    int userMessageCount =
+        _messages.where((message) => message.author.id == _user.id).length;
+    if (userMessageCount > 0 && userMessageCount % chatCount == 0) {
+      isShowCreate = true;
+      chatCount += 4;
+    } else {
+      isShowCreate = false;
+    }
+  }
 
-  Future<String> claude(String prompt, String systemPrompt) async {
+  void exampleSendPressed(String text) {
+    if (isExampleLoading) return;
+    final textMessage = types.TextMessage(
+      author: _user,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      id: const Uuid().v4(),
+      text: text,
+    );
+    _addMessage(textMessage);
+    if (!isShowCreate) {
+      _replyMessage(text: text);
+    }
+    _startExampleLoading();
+  }
+
+  void handleSendPressed(types.PartialText message) {
+    final textMessage = types.TextMessage(
+      author: _user,
+      createdAt: DateTime.now().millisecondsSinceEpoch,
+      id: const Uuid().v4(),
+      text: message.text,
+    );
+    _addMessage(textMessage);
+    if (!isShowCreate) {
+      _replyMessage(text: message.text);
+    }
+  }
+
+  Future<String> _claude(
+      String prompt, String systemPrompt, String apiKeyName) async {
     const String model = "claude-3-haiku-20240307";
-    final String apiKey = dotenv.get("ANTHROPIC_API_KEY");
+    final String apiKey = dotenv.get(apiKeyName);
     final url = Uri.https('api.anthropic.com', '/v1/messages');
 
     final headers = {
@@ -228,6 +168,130 @@ class ChatModel extends ChangeNotifier {
       debugPrint('Error response: $response');
       return responseData;
     }
+  }
+
+  Future<String> _example(String text) async {
+    const String prompt = '''
+   <prompt>
+    <role>Assistant to boost children's imagination</role>
+    <skill>Stimulate children's creativity with single-word responses in the style of a shonen manga</skill>
+    <instructions>
+        <item>Responses must be a single word only.</item>
+    </instructions>
+    <example>
+        <question>What kind of place is it?</question>
+        <answer>Forest</answer>
+        <question>Who should be the protagonist of the story?</question>
+        <answer>Takashi</answer>
+    </example>
+    <input_prompt>Provide a single-word response in hiragana to stimulate a child's imagination, appropriate to the context. Context:</input_prompt>
+</prompt>
+    ''';
+    final String response = await _claude(
+        text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY_SHOTA");
+    _exampleText = response;
+    notifyListeners();
+    return response;
+  }
+
+  void _replyMessage({String text = ""}) async {
+    _startCommentLoading();
+    if (_messages.length < 8) {
+      text = await _replyTemplate(_messages.length);
+      final replyMessage = types.TextMessage(
+        author: _apapane,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: text,
+      );
+
+      _addMessage(replyMessage);
+    } else {
+      if (isShowCreate) return;
+      text = await talk(text);
+      final replyMessage = types.TextMessage(
+        author: _apapane,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+        id: const Uuid().v4(),
+        text: text,
+      );
+      _addMessage(replyMessage);
+    }
+    _endCommentLoading();
+    if (_messages.length == 1) return;
+    _startExampleLoading();
+    Future.delayed(const Duration(milliseconds: 500));
+    debugPrint("text: $text");
+    await _example(text);
+    _endExampleLoading();
+  }
+
+  Future<String> _replyTemplate(int countMessages) async {
+    switch (countMessages) {
+      case 0:
+        return "こんにちは！いっしょにものがたりをつくりましょう！";
+      case 1:
+        return "このおはなしの主人公はだれ？";
+      case 3:
+        await Future.delayed(const Duration(milliseconds: 600));
+        return "このおはなしの場所はどこ？";
+      case 5:
+        await Future.delayed(const Duration(milliseconds: 600));
+        return "他にだれが出てくる？";
+      case 7:
+        await Future.delayed(const Duration(milliseconds: 600));
+        return "その子はおともだち？それとも敵？";
+      default:
+        await Future.delayed(const Duration(milliseconds: 600));
+        return "そうしましょう！";
+    }
+  }
+
+  Future<String> talk(String text) async {
+    const String prompt = '''
+      You are a friendly interviewer who asks children about the stories they imagine.
+      Speak in a friendly, frank tone, without using honorifics.
+      Do not repeat questions already asked in the conversation history.
+      Answer in easy-to-understand Japanese, using no more than 30 characters per sentence.
+      The ratio of kanji to hiragana should be about 1:4.
+      Avoid difficult-to-read kanji characters.
+      Omit preambles and output only agreement (e.g., "I see, so the main character is ~!", "Nice!") and a question.
+      Follow these instructions to react to the user's last statement in the chatlog and ask another question regarding the story setting.
+      Focus on questions that help the child unpack their thoughts step by step, and avoid repeating questions already asked.
+    ''';
+    final String systemPrompt = '''
+    <chatlog>
+      $text
+    </chatlog>
+    <instruction>
+      Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
+      Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
+      We have already asked about the name of the main character and location, so please start with other questions.
+    </instruction>
+    ''';
+    final String response =
+        await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY");
+    return response;
+  }
+
+  void _startCommentLoading() {
+    isCommentLoading = true;
+    notifyListeners();
+  }
+
+  void _endCommentLoading() {
+    isCommentLoading = false;
+    notifyListeners();
+  }
+
+  void _startExampleLoading() {
+    isExampleLoading = true;
+    notifyListeners();
+  }
+
+  void _endExampleLoading() {
+    isExampleLoading = false;
+    notifyListeners();
   }
 
   Future<Map<String, dynamic>> stableDiffusion(
@@ -276,183 +340,6 @@ class ChatModel extends ChangeNotifier {
       return {};
     }
   }
-
-//replyのエンドポイントを使って、会話をする
-  Future<String> talk(String text) async {
-    const String prompt = '''
-      You are a friendly interviewer who asks children about the stories they imagine.
-      Speak in a friendly, frank tone, without using honorifics.
-      Do not repeat questions already asked in the conversation history.
-      Answer in easy-to-understand Japanese, using no more than 30 characters per sentence.
-      The ratio of kanji to hiragana should be about 1:4.
-      Avoid difficult-to-read kanji characters.
-      Omit preambles and output only agreement (e.g., "I see, so the main character is ~!", "Nice!") and a question.
-      Follow these instructions to react to the user's last statement in the chatlog and ask another question regarding the story setting.
-      Focus on questions that help the child unpack their thoughts step by step, and avoid repeating questions already asked.
-    ''';
-    final String systemPrompt = '''
-    <chatlog>
-      $text
-    </chatlog>
-    <instruction>
-      Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
-      Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
-      We have already asked about the name of the main character and location, so please start with other questions.
-    </instruction>
-    ''';
-    final String response = await claude(prompt, systemPrompt);
-    return response;
-  }
-
-// Response body: {id: msg_01RYfE4NMXifqPDnKdDfPfHd, type: message, role: assistant, model: claude-3-haiku-20240307, content: [{type: text, text: このお話の主人公はアキラで、舞台は月です。
-// アキラは月で起きている出来事の主人公となっています。月という特殊な場所が物語の舞台となっているようですね。}], stop_reason: end_turn, stop_sequence: null, usage: {input_tokens: 38, output_tokens: 66}}
-
-//echoMessageのエンドポイントを使って、exampleをする
-  // Future<String> example(String text) async {
-  //   final url = Uri.https("asia-northeast1-apapane-3cca0.cloudfunctions.net",
-  //       "/echoMessage", {"aiInput": text, "message": ""});
-  //   final response = await http.get(
-  //     url,
-  //     headers: <String, String>{
-  //       "Content-Type":
-  //           "application/json; charset=UTF-8", // Correct token is set here
-  //     },
-  //   );
-  //   debugPrint('example response: ${response.body}');
-
-  //   try {
-  //     if (response.statusCode == 200) {
-  //       debugPrint('Text uploaded successfully');
-  //       return response.body;
-  //     } else {
-  //       debugPrint(
-  //           'Text upload failed with status code ${response.statusCode}');
-  //       return "error";
-  //     }
-  //   } catch (e) {
-  //     debugPrint('Error uploading text: $e');
-  //     return "error";
-  //   }
-  // }
-
-  Future<String> example(String text) async {
-    const String prompt = '''
-    <prompt>
-    <role>子供の想像力を助けるアシスタント</role>
-    <skill>少年漫画風のひらがな一言で子供の創造性を刺激する</skill>
-    <instructions>
-        <item>出力は必ず一言のみとしてください</item>
-        <item>文脈に合わせた返答にしてください</item>
-    </instructions>
-    <example>
-        <question>どんなところ？<question/>
-        <answer>ふかいもりのなか</answer>
-        <question>おはなしのしゅじんこうはだれにする？<question/>
-        <answer>たかしくん</answer>
-    </example>
-    <input_prompt>文脈に合わせた返答を子供の想像力を促す一言の例のひらがな文を作成してください。文脈:</input_prompt>
-    </prompt>
-    ''';
-    final String response =
-        await claude(text + prompt, "Please reply in Japanese.");
-    return response;
-  }
-
-  Future<void> newMessageScroll() async {
-    if (scrollController.hasClients) {
-      await scrollController.animateTo(
-        scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-    notifyListeners();
-  }
-
-  Future<void> onTapScrollFunction(BuildContext context, double plus) async {
-    final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    // 現在のスクロール位置
-    final currentPosition = scrollController.position.pixels;
-    // ターゲットとなるスクロール位置（現在の位置 + キーボードの高さ + さらに少し余裕を持たせる）
-    final targetPosition =
-        currentPosition + keyboardHeight + plus; // 20は余裕を持たせるための値
-
-    // スクロール位置をアニメーションで移動
-    await scrollController.animateTo(
-      targetPosition,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void onTapScroll(BuildContext context) {
-    double screenHeight = MediaQuery.of(context).size.height;
-    int countIsMeMessages =
-        messagesList.where((message) => !message.isMe).length;
-    if (scrollController.hasClients) {
-      switch (countIsMeMessages) {
-        case 1:
-          onTapScrollFunction(context, screenHeight * 0.18);
-        case 2:
-          onTapScrollFunction(context, screenHeight * 0.35);
-          break;
-        default:
-          onTapScrollFunction(context, screenHeight * 0.43);
-          break;
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> replyMessageScroll() async {
-    if (scrollController.hasClients) {
-      await scrollController.animateTo(
-        scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-
-    notifyListeners();
-  }
-
-//makeStoryを使用
-  // Future<List<Map<String, dynamic>>> makeStory({
-  //   required String text,
-  // }) async {
-  //   final url = Uri.https("asia-northeast1-apapane-3cca0.cloudfunctions.net",
-  //       '/makeStory', {'message': text});
-  //   String jsonBody = jsonEncode({"data": text});
-  //   final response = await http.post(
-  //     url,
-  //     headers: <String, String>{
-  //       "Content-Type": "application/json; charset=UTF-8",
-  //     },
-  //     body: jsonBody,
-  //   );
-
-  //   try {
-  //     if (response.statusCode == 200) {
-  //       debugPrint('Text uploaded successfully');
-  //       // JSON データをデコードする
-  //       final List<dynamic> responseData = jsonDecode(response.body);
-
-  //       // responseDataをMapオブジェクトのリストに変換
-  //       List<Map<String, dynamic>> storyMaps =
-  //           responseData.cast<Map<String, dynamic>>();
-  //       // StoryModelのStoryMapsを更新するのではなく、新しいStoryMapのリストを返す
-  //       return storyMaps;
-  //       // 必要に応じて他の処理を行う
-  //     } else {
-  //       debugPrint(
-  //           'Text upload failed with status code ${response.statusCode}');
-  //       return [];
-  //     }
-  //   } catch (e) {
-  //     debugPrint('Error in makeImage: $e');
-  //     return [];
-  //   }
-  // }
 
   //storymakerを使用
   Future<List<Map<String, dynamic>>> makeStory({required String text}) async {
@@ -513,7 +400,7 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(prompt, systemPrompt);
+        final data = await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY");
 
         // レスポンスをJSONとしてデコードする
         story = jsonDecode(data);
@@ -557,7 +444,7 @@ class ChatModel extends ChangeNotifier {
 
     Output:
     ''';
-    
+
     const String imageSystemPrompt = '''
     Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
     The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
@@ -609,7 +496,9 @@ class ChatModel extends ChangeNotifier {
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
-        final data = await claude(imagePrompt, imageSystemPrompt);
+
+        final data =
+            await _claude(imagePrompt, imageSystemPrompt, "ANTHROPIC_API_KEY");
 
         // レスポンスをJSONとしてデコードする
         imageStory = jsonDecode(data);
@@ -688,9 +577,9 @@ class ChatModel extends ChangeNotifier {
   Future<void> createButtonPressed(
       {required BuildContext context, required StoryModel storyModel}) async {
     int countIsMeMessages =
-        messagesList.where((message) => message.isMe).length;
+        _messages.where((message) => message.author.id == _user.id).length;
     if (countIsMeMessages > 2) {
-      startLoading();
+      _startLoading();
       String message = messageListToString();
       storyModel.updateMessages(message: message);
 
@@ -712,23 +601,36 @@ class ChatModel extends ChangeNotifier {
         debugPrint('Error fetching story: $e');
         voids.showFluttertoast(msg: "エラーが発生しました。後ほど再試行してください。");
       } finally {
-        endLoading();
-        messagesList.clear();
+        _endLoading();
+        _messages.clear();
         notifyListeners();
       }
     }
   }
 
+  void _startLoading() {
+    isLoading = true;
+    notifyListeners();
+  }
+
+  void _endLoading() {
+    isLoading = false;
+    notifyListeners();
+  }
+
   String messageListToString() {
     messageListString = "";
     messageListString += '#会話履歴です。絶対子供の世界観を参考にしてください。\n';
-    for (Message message in messagesList) {
-      if (message.isMe) {
-        messageListString += ("物語を作成したい子供:${message.message}\n");
+
+    for (var message in _messages) {
+      if (message.author.id == _user.id) {
+        messageListString +=
+            "物語を作成したい子供:${(message as types.TextMessage).text}\n";
       } else {
-        messageListString += ("AI:${message.message}\n");
+        messageListString += "AI:${(message as types.TextMessage).text}\n";
       }
     }
+
     return messageListString;
   }
 
@@ -763,93 +665,14 @@ class ChatModel extends ChangeNotifier {
   }
 
   void backToHomeScreen({required BuildContext context}) {
-    messagesList.clear();
+    messageListString = "";
+    _messages.clear();
     Navigator.pop(context);
   }
 
   @override
   void dispose() {
-    // HTTPリクエストやタイマーをキャンセルする処理
-    chatCount = 4;
-    isComplete = false;
-    textController.dispose();
-    scrollController.dispose();
-    messagesList.clear();
-    messageListString = "";
-    message = "";
-    voiceText = "";
     super.dispose();
     notifyListeners();
-  }
-
-  void toggleIsComplete() {
-    isComplete = !isComplete;
-    notifyListeners();
-  }
-
-  Future<void> toggleIsCompleteAndTalk(BuildContext context) async {
-    toggleIsComplete();
-    await talkAndExample();
-    onTapScroll(context);
-  }
-
-  Future<void> talkAndExample() async {
-    int countIsMeMessages =
-        messagesList.where((message) => message.isMe).length;
-
-    if (countIsMeMessages > 4) {
-      String reply = await talk(message); // 会話履歴を毎回送る
-
-      message += reply;
-      // message += reply;
-      Message replyMessage = Message(
-        message: reply,
-        isMe: false,
-        sendTime: DateTime.now(),
-      );
-      messagesList.add(replyMessage);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await replyMessageScroll();
-      });
-    } else {
-      String reply = await replyTemplate(countIsMeMessages);
-      message += reply;
-      Message replyMessage = Message(
-        message: reply,
-        isMe: false,
-        sendTime: DateTime.now(),
-      );
-      messagesList.add(replyMessage);
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await replyMessageScroll();
-      });
-    }
-
-    startExampleLoading();
-    // exampleText = await example(reply);
-    // exampleText2 = await example(reply);
-    // exampleText = "mamama";
-    // exampleText2 = "mamama";
-    endExampleLoading();
-  }
-
-  Future<String> replyTemplate(int countIsMeMessages) async {
-    switch (countIsMeMessages) {
-      case 1:
-        await Future.delayed(const Duration(milliseconds: 500));
-        return "このおはなしの主人公はだれ？";
-      case 2:
-        await Future.delayed(const Duration(seconds: 1));
-        return "このおはなしの場所はどこ？";
-      case 3:
-        await Future.delayed(const Duration(seconds: 1));
-        return "他にだれが出てくる？";
-      case 4:
-        await Future.delayed(const Duration(seconds: 1));
-        return "その子はおともだち？それとも敵？";
-      default:
-        await Future.delayed(const Duration(seconds: 1));
-        return "そうしましょう！";
-    }
   }
 }

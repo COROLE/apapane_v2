@@ -23,9 +23,9 @@ class RoundedExampleButton extends StatelessWidget {
           child: ElevatedButton(
             onPressed: onPressed,
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black.withOpacity(0.8)),
+                backgroundColor: const Color.fromARGB(255, 29, 190, 35)),
             child: Container(
-              padding: EdgeInsets.symmetric(vertical: 8.0.w, horizontal: 8.0.w),
+              padding: EdgeInsets.symmetric(vertical: 8.0.w, horizontal: 4.0.w),
               alignment: Alignment.center,
               child: Text(
                 text,

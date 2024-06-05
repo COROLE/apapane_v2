@@ -48,7 +48,6 @@ class OriginalFlashBar extends StatelessWidget {
                   border: const OutlineInputBorder(),
                   hintText: hintText,
                 ),
-                onTap: () => chatModel.onTapScroll(context),
               ),
             ),
             IconButton(

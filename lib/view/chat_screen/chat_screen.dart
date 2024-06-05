@@ -1,23 +1,25 @@
 //flutter
 import 'package:apapane/details/rounded_button.dart';
+import 'package:apapane/details/rounded_mic_button.dart';
+import 'package:apapane/view/chat_screen/components/custom_chat_theme.dart';
+import 'package:apapane/view/chat_screen/components/rounded_example_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 //constants
 import 'package:apapane/constants/voids.dart' as voids;
 import 'package:apapane/constants/strings.dart';
 //components
-import 'package:apapane/details/original_flash_bar.dart';
 import 'package:apapane/details/circle_progress_indicator.dart';
 import 'package:apapane/details/create_button.dart';
-import 'package:apapane/view/chat_screen/components/chat_ui.dart';
 //models
 import 'package:apapane/model/story_model.dart';
 import 'package:apapane/model/chat_model.dart';
 
 class ChatScreen extends ConsumerWidget {
-  const ChatScreen({super.key, required this.apapaneTitle});
-  final String apapaneTitle;
+  const ChatScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,20 +52,20 @@ class ChatScreen extends ConsumerWidget {
                   color: Colors.black,
                 ),
               ),
-              actions: [
+              actions: const [
                 Padding(
-                  padding: const EdgeInsets.only(right: 11.0, top: 8),
+                  padding: EdgeInsets.only(right: 11.0, top: 8),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.auto_stories,
                         color: Colors.pink,
                         size: 10,
                       ),
-                      const SizedBox(width: 3),
+                      SizedBox(width: 3),
                       Text(
-                        apapaneTitle,
-                        style: const TextStyle(
+                        "apapane",
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                           fontSize: 10,
@@ -74,19 +76,81 @@ class ChatScreen extends ConsumerWidget {
                 )
               ],
             ),
-            body: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ChatUi(chatModel: chatModel, screenHeight: screenHeight),
-                chatModel.isComplete
-                    ? Column(
+            body: Stack(children: [
+              Chat(
+                  messages: chatModel.messages,
+                  onSendPressed: chatModel.handleSendPressed,
+                  showUserAvatars: true,
+                  showUserNames: true,
+                  user: chatModel.user,
+                  theme: const CustomChatTheme(),
+                  avatarBuilder: (user) => const CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Color.fromARGB(255, 254, 236, 236),
+                        child: CircleAvatar(
+                          backgroundImage: AssetImage(apapaneImage),
+                          radius: 25,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                  customBottomWidget:
+                      Column(mainAxisSize: MainAxisSize.min, children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        SizedBox(width: screenWidth * 0.01),
+                        const RoundedMicButton(radius: 26),
+                        SizedBox(width: screenWidth * 0.01),
+                        RoundedExampleButton(
+                            onPressed: chatModel.isCommentLoading
+                                ? () async => await voids.showFluttertoast(
+                                    msg: pleaseWaitMSG)
+                                : () => chatModel
+                                    .exampleSendPressed(chatModel.exampleText),
+                            widthRate: 0.35,
+                            text: chatModel.isExampleLoading
+                                ? '...'
+                                : chatModel.exampleText),
+                        CreateButton(
+                            width: screenWidth * 0.35,
+                            height: screenHeight * 0.045,
+                            onPressed: chatModel.isCommentLoading
+                                ? () async => await voids.showFluttertoast(
+                                    msg: pleaseWaitMSG)
+                                : () async =>
+                                    await chatModel.createButtonPressed(
+                                        context: context,
+                                        storyModel: storyModel)),
+                        SizedBox(width: screenWidth * 0.03),
+                      ],
+                    ),
+                    SizedBox(height: screenHeight * 0.01),
+                    Input(
+                      isAttachmentUploading: false,
+                      onSendPressed: (types.PartialText message) =>
+                          chatModel.handleSendPressed(message),
+                      options: const InputOptions(),
+                    ),
+                    // 必要に応じてオプションを設定
+                  ])),
+              chatModel.isShowCreate
+                  ? Container(
+                      height: screenHeight,
+                      width: screenWidth,
+                      color: Colors.black.withOpacity(0.5),
+                      child: Column(
                         children: [
+                          Icon(
+                            Icons.brightness_medium,
+                            color: Colors.white,
+                            size: screenWidth * 0.5,
+                          ),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              SizedBox(width: screenWidth * 0.03),
                               CreateButton(
-                                  width: screenWidth * 0.45,
-                                  height: screenHeight * 0.05,
+                                  width: screenWidth * 0.3,
+                                  height: screenHeight * 0.03,
                                   onPressed: chatModel.isCommentLoading
                                       ? () async => await voids
                                           .showFluttertoast(msg: pleaseWaitMSG)
@@ -94,79 +158,17 @@ class ChatScreen extends ConsumerWidget {
                                           await chatModel.createButtonPressed(
                                               context: context,
                                               storyModel: storyModel)),
-                              SizedBox(width: screenWidth * 0.05),
                               RoundedButton(
-                                  onPressed: () => chatModel
-                                      .toggleIsCompleteAndTalk(context),
+                                  onPressed: () => chatModel.cancel(),
                                   widthRate: 0.4,
                                   color: const Color.fromARGB(255, 41, 41, 41),
                                   text: "まだはなす"),
                             ],
-                          ),
-                          SizedBox(
-                            height: screenHeight * 0.15,
                           )
                         ],
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CreateButton(
-                              width: screenWidth * 0.3,
-                              height: screenHeight * 0.03,
-                              onPressed: chatModel.isCommentLoading
-                                  ? () async => await voids.showFluttertoast(
-                                      msg: pleaseWaitMSG)
-                                  : () async =>
-                                      await chatModel.createButtonPressed(
-                                          context: context,
-                                          storyModel: storyModel)),
-                          SizedBox(
-                            height: screenHeight * 0.01,
-                          ),
-                          // Row(
-                          //   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          //   children: [
-                          //     RoundedExampleButton(
-                          //         onPressed: chatModel.isCommentLoading
-                          //             ? () async => await voids
-                          //                 .showFluttertoast(msg: pleaseWaitMSG)
-                          //             : () async => await chatModel.sendMessage(
-                          //                 chatModel.exampleText, true),
-                          //         widthRate: 0.45,
-                          //         text: chatModel.isExampleLoading
-                          //             ? '...'
-                          //             : chatModel.exampleText),
-                          //     RoundedExampleButton(
-                          //         onPressed: chatModel.isCommentLoading
-                          //             ? () async => await voids
-                          //                 .showFluttertoast(msg: pleaseWaitMSG)
-                          //             : () async => await chatModel.sendMessage(
-                          //                 chatModel.exampleText2, true),
-                          //         widthRate: 0.45,
-                          //         text: chatModel.isExampleLoading
-                          //             ? '...'
-                          //             : chatModel.exampleText2),
-                          //   ],
-                          // ),
-                          OriginalFlashBar(
-                            chatModel: chatModel,
-                            controller: chatModel.textController,
-                            hintText: chatHintText,
-                            height: screenHeight * 0.1,
-                            onPressed: chatModel.isCommentLoading
-                                ? () async => await voids.showFluttertoast(
-                                    msg: pleaseWaitMSG)
-                                : () async => await chatModel
-                                    .sendMessageFromButton(context: context),
-                          ),
-                          SizedBox(
-                            height: screenHeight * 0.04,
-                          )
-                        ],
-                      ),
-              ],
-            ),
+                      ))
+                  : const SizedBox.shrink()
+            ]),
           );
   }
 }

@@ -32,12 +32,8 @@ void toStoryScreen({required BuildContext context, required bool isNew}) =>
 void toHomeScreen({required BuildContext context}) => Navigator.pushReplacement(
     context, MaterialPageRoute(builder: (context) => const HomeScreen()));
 
-void toChatScreen(
-        {required BuildContext context, required String apapaneTitle}) =>
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => ChatScreen(apapaneTitle: apapaneTitle)));
+void toChatScreen({required BuildContext context}) => Navigator.push(
+    context, MaterialPageRoute(builder: (context) => const ChatScreen()));
 
 void toFirstScreen({required BuildContext context}) =>
     Navigator.of(context).popUntil((route) => route.isFirst);

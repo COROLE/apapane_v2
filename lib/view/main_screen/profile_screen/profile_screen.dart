@@ -1,6 +1,7 @@
 //flutter
 import 'package:apapane/model/bottom_nav_bar_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';

@@ -44,6 +44,8 @@ dependencies:
   speech_to_text: ^6.6.0
   avatar_glow: ^3.0.1
   get: ^4.6.5
+  flutter_chat_ui: ^1.6.13
+  flutter_chat_types: ^3.6.2
 
 
 
