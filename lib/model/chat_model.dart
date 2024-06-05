@@ -118,7 +118,7 @@ class ChatModel extends ChangeNotifier {
     if (isVoice) {
       isListening = false;
       speechToText.stop();
-      routes.toChatScreen(context: context);
+      Navigator.pop(context);
       textController.clear();
       textController.text = "";
       notifyListeners();
@@ -571,23 +571,42 @@ class ChatModel extends ChangeNotifier {
     imageStory.remove(firstKey);
 
     // 並列処理するFutureのリストを作成
+    // 並列処理するFutureのリストを作成
     final futures = imageStory.entries.map((entry) async {
       final key = entry.key;
       final element = entry.value;
+
+      // Check if element[0] is a Map
+      if (element[0] is! Map) {
+        debugPrint('Error: Expected a Map but found ${element[0].runtimeType}');
+        return null;
+      }
+
       final String positivePrompt = elements[key]?.first ?? "positive_prompt";
       final String negativePrompt = elements[key]?.second ?? "negative_prompt";
-      final Map<String, dynamic> imageOutput = await stableDiffusion(
-          element[0][positivePrompt], element[0][negativePrompt],
-          seed: seed);
-      return {
-        "story": story[key],
-        "image": imageOutput["base64"],
-      };
+
+      debugPrint('Available keys: ${element[0].keys}');
+      debugPrint('Element data: ${element[0]}');
+
+      if (element[0].containsKey(positivePrompt) &&
+          element[0].containsKey(negativePrompt)) {
+        final Map<String, dynamic> imageOutput = await stableDiffusion(
+            element[0][positivePrompt], element[0][negativePrompt]);
+        return {
+          "story": story[key],
+          "image": imageOutput["base64"],
+        };
+      } else {
+        debugPrint('Key not found in element');
+        return null;
+      }
     }).toList();
 
     // 並列処理の結果を待ち、順番を維持したままoutputStoryに追加
     final results = await Future.wait(futures);
-    outputStory.addAll(results);
+    outputStory.addAll(results
+        .where((element) => element != null)
+        .cast<Map<String, dynamic>>());
 
     debugPrint('outputStory: $outputStory');
     return outputStory;
@@ -601,10 +620,12 @@ class ChatModel extends ChangeNotifier {
       _startLoading();
       String message = messageListToString();
       storyModel.updateMessages(message: message);
-
+      final test = await _makeStory(text: message);
+      debugPrint('test: $test');
       try {
         List<Map<String, dynamic>> newStoryMaps =
             await _makeStory(text: message);
+        debugPrint('newStoryMaps: $newStoryMaps');
         if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
           storyModel.getTitleTextAndImage(
               title: newStoryMaps[0]['story'], image: newStoryMaps[0]['image']);

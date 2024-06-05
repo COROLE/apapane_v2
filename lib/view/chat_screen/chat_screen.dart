@@ -35,7 +35,7 @@ class ChatScreen extends ConsumerWidget {
         : Scaffold(
             resizeToAvoidBottomInset: true,
             appBar: AppBar(
-              backgroundColor: const Color.fromARGB(255, 77, 175, 35),
+              backgroundColor: const Color.fromARGB(255, 35, 175, 37),
               elevation: 0,
               leading: IconButton(
                 onPressed: () => chatModel.backToHomeScreen(context: context),
@@ -45,6 +45,29 @@ class ChatScreen extends ConsumerWidget {
                   color: Color.fromARGB(255, 255, 255, 255),
                 ),
               ),
+              actions: const [
+                Padding(
+                  padding: EdgeInsets.only(right: 11.0, top: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.auto_stories,
+                        color: Color.fromARGB(255, 245, 206, 10),
+                        size: 10,
+                      ),
+                      SizedBox(width: 3),
+                      Text(
+                        "apapane",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color.fromARGB(255, 255, 255, 255),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               title: const Text(
                 makeStoryTitle,
                 style: TextStyle(
@@ -64,7 +87,7 @@ class ChatScreen extends ConsumerWidget {
                   theme: const CustomChatTheme(),
                   avatarBuilder: (user) => const CircleAvatar(
                         radius: 26,
-                        backgroundColor: Color.fromARGB(255, 254, 236, 236),
+                        backgroundColor: Color.fromARGB(255, 254, 254, 254),
                         child: CircleAvatar(
                           backgroundImage: AssetImage(apapaneImage),
                           radius: 25,
