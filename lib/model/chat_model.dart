@@ -560,14 +560,28 @@ class ChatModel extends ChangeNotifier {
         elements[firstKey]?.first ?? "positive_prompt";
     final String firstNegativePrompt =
         elements[firstKey]?.second ?? "negative_prompt";
-    final Map<String, dynamic> firstImageOutput = await stableDiffusion(
-        firstElement[0][firstPositivePrompt],
-        firstElement[0][firstNegativePrompt]);
-    final int seed = firstImageOutput["seed"];
-    outputStory.add({
-      "story": story[firstKey],
-      "image": firstImageOutput["base64"],
-    });
+
+    if (firstElement is List &&
+        firstElement.isNotEmpty &&
+        firstElement[0] is Map<String, dynamic>) {
+      if (firstElement[0].containsKey(firstPositivePrompt) &&
+          firstElement[0].containsKey(firstNegativePrompt)) {
+        final Map<String, dynamic> firstImageOutput = await stableDiffusion(
+            firstElement[0][firstPositivePrompt],
+            firstElement[0][firstNegativePrompt]);
+        final int seed = firstImageOutput["seed"];
+        debugPrint('seed: $seed');
+        outputStory.add({
+          "story": story[firstKey],
+          "image": firstImageOutput["base64"],
+        });
+      } else {
+        debugPrint(
+            'Key not found: $firstPositivePrompt or $firstNegativePrompt');
+      }
+    } else {
+      debugPrint('Error: firstElement[0] is not a Map or is empty');
+    }
     imageStory.remove(firstKey);
 
     // 並列処理するFutureのリストを作成
