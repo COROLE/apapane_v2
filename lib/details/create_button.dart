@@ -4,15 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:apapane/constants/strings.dart';
 
 class CreateButton extends StatelessWidget {
-  const CreateButton(
-      {Key? key,
-      required this.width,
-      required this.height,
-      required this.onPressed})
-      : super(key: key);
+  const CreateButton({
+    Key? key,
+    required this.isValidCreate,
+    required this.width,
+    required this.height,
+    required this.onPressed,
+    this.judgeMode = false,
+  }) : super(key: key);
+  final bool isValidCreate;
   final double width;
   final double height;
+  final bool judgeMode;
   final void Function()? onPressed;
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -22,6 +27,10 @@ class CreateButton extends StatelessWidget {
         padding: const EdgeInsets.only(left: 12),
         child: ElevatedButton(
           style: ButtonStyle(
+            shadowColor: isValidCreate
+                ? MaterialStateProperty.all(Colors.grey.withOpacity(0.5))
+                : null, // シャドウの色と透明度
+            elevation: isValidCreate ? MaterialStateProperty.all(8) : null,
             shape: MaterialStateProperty.all<RoundedRectangleBorder>(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -33,11 +42,9 @@ class CreateButton extends StatelessWidget {
           onPressed: onPressed,
           child: Ink(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFfa709a), Color.fromARGB(255, 254, 137, 64)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              color: isValidCreate
+                  ? const Color.fromARGB(255, 234, 67, 53)
+                  : Colors.grey,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Container(

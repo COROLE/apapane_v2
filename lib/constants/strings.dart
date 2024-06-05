@@ -66,6 +66,8 @@ const String apapaneImage = 'assets/images/apapane_icon_1.png';
 const String archiveImage = 'assets/images/archive_my_story.png';
 const String publicImage = 'assets/images/public_stories_image.png';
 const String circleIndicatorImage = 'assets/images/circle_indicator_image.png';
+const String apapaneKnightImage = 'assets/images/apapane_knight.png';
+const String judgeBackground = 'assets/images/judge_background.jpeg';
 
 //id
 String returnUuidV4() {

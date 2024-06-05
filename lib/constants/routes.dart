@@ -1,3 +1,5 @@
+import 'package:apapane/model/chat_model.dart';
+import 'package:apapane/view/chat_screen/components/mic_ui.dart';
 import 'package:apapane/view/main_screen/home_screen.dart';
 import 'package:flutter/material.dart';
 //pages
@@ -37,3 +39,6 @@ void toChatScreen({required BuildContext context}) => Navigator.push(
 
 void toFirstScreen({required BuildContext context}) =>
     Navigator.of(context).popUntil((route) => route.isFirst);
+
+void toMicUi({required BuildContext context}) => Navigator.push(
+    context, MaterialPageRoute(builder: (context) => const MicUi()));

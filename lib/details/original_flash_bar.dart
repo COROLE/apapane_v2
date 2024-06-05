@@ -1,20 +1,17 @@
 //flutter
-import 'package:apapane/model/chat_model.dart';
 import 'package:flutter/material.dart';
 //components
-import 'package:apapane/details/rounded_mic_button.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OriginalFlashBar extends StatelessWidget {
   const OriginalFlashBar({
     Key? key,
-    required this.chatModel,
     required this.controller,
     required this.hintText,
     required this.height,
     required this.onPressed,
   }) : super(key: key);
-  final ChatModel chatModel;
+
   final TextEditingController? controller;
   final String hintText;
   final double height;
@@ -34,20 +31,16 @@ class OriginalFlashBar extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8.w),
-              child: RoundedMicButton(
-                radius: 25.w,
-              ),
-            ),
             Expanded(
               child: TextField(
                 controller: controller,
                 decoration: InputDecoration(
-                  contentPadding: EdgeInsets.only(left: 10.w),
-                  border: const OutlineInputBorder(),
-                  hintText: hintText,
-                ),
+                    contentPadding: EdgeInsets.only(left: 10.w),
+                    border: const OutlineInputBorder(),
+                    hintText: hintText,
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.pink),
+                    )),
               ),
             ),
             IconButton(

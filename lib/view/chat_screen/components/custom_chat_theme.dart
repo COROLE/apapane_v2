@@ -13,7 +13,7 @@ class CustomChatTheme extends DefaultChatTheme {
             hintText: 'こたえよう!!', // ヒントテキスト
             border: InputBorder.none, // アンダーバーを消す
           ),
-          primaryColor: const Color.fromARGB(255, 29, 190, 35),
+          primaryColor: const Color.fromARGB(255, 52, 168, 83),
           receivedMessageBodyTextStyle: const TextStyle(
             color: Color.fromARGB(255, 19, 19, 19), // 任意の色
             fontSize: 16, // 任意のフォントサイズ

@@ -51,6 +51,7 @@ class EndStoryScreen extends StatelessWidget {
                               storyModel.confirmAction = ConfirmAction.save;
                               Navigator.of(innerContext).pop();
                               Navigator.of(context).pop();
+
                               await storyModel.endButtonPressed(
                                   context: innerContext,
                                   mainModel:

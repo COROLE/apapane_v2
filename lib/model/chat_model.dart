@@ -54,6 +54,7 @@ class ChatModel extends ChangeNotifier {
   bool isShowCreate = false;
   bool isCommentLoading = false;
   bool isExampleLoading = false;
+  bool isValidCreate = false;
   int chatCount = 4;
   String _exampleText = "";
   String get exampleText => _exampleText.trim().length > 6
@@ -64,13 +65,18 @@ class ChatModel extends ChangeNotifier {
     _messages = [];
     isShowCreate = false;
     isCommentLoading = true;
+    chatCount = 4;
+    isListening = false;
     _exampleText = "";
+    isExampleLoading = false;
+    isValidCreate = false;
+    textController.clear();
+    textController.text = "";
     notifyListeners();
     routes.toChatScreen(context: context);
     _replyMessage();
     await Future.delayed(const Duration(milliseconds: 500));
     _replyMessage();
-    // ignore: use_build_context_synchronously
   }
 
   void cancel() {
@@ -99,7 +105,8 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  void exampleSendPressed(String text) {
+  void exampleAndVoiceSendPressed(String text,
+      {bool isVoice = false, required BuildContext context}) {
     if (isExampleLoading) return;
     final textMessage = types.TextMessage(
       author: _user,
@@ -108,6 +115,14 @@ class ChatModel extends ChangeNotifier {
       text: text,
     );
     _addMessage(textMessage);
+    if (isVoice) {
+      isListening = false;
+      speechToText.stop();
+      routes.toChatScreen(context: context);
+      textController.clear();
+      textController.text = "";
+      notifyListeners();
+    }
     if (!isShowCreate) {
       _replyMessage(text: text);
     }
@@ -208,7 +223,7 @@ class ChatModel extends ChangeNotifier {
       _addMessage(replyMessage);
     } else {
       if (isShowCreate) return;
-      text = await talk(text);
+      text = await _talk(text);
       final replyMessage = types.TextMessage(
         author: _apapane,
         createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -217,6 +232,7 @@ class ChatModel extends ChangeNotifier {
       );
       _addMessage(replyMessage);
     }
+    if (isListening) stopListening();
     _endCommentLoading();
     if (_messages.length == 1) return;
     _startExampleLoading();
@@ -240,6 +256,8 @@ class ChatModel extends ChangeNotifier {
         return "他にだれが出てくる？";
       case 7:
         await Future.delayed(const Duration(milliseconds: 600));
+        isValidCreate = true;
+        notifyListeners();
         return "その子はおともだち？それとも敵？";
       default:
         await Future.delayed(const Duration(milliseconds: 600));
@@ -247,7 +265,7 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  Future<String> talk(String text) async {
+  Future<String> _talk(String text) async {
     const String prompt = '''
       You are a friendly interviewer who asks children about the stories they imagine.
       Speak in a friendly, frank tone, without using honorifics.
@@ -341,8 +359,8 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  //storymakerを使用
-  Future<List<Map<String, dynamic>>> makeStory({required String text}) async {
+  //_makeStory
+  Future<List<Map<String, dynamic>>> _makeStory({required String text}) async {
     final String prompt = '''
     <chatlog>
     $text
@@ -396,7 +414,7 @@ class ChatModel extends ChangeNotifier {
     var retries = 0;
     const int maxRetries = 3;
     Map<String, dynamic> story = {};
-
+    int seconds = 2;
     while (retries < maxRetries) {
       try {
         // APIリクエストを行う
@@ -414,7 +432,8 @@ class ChatModel extends ChangeNotifier {
       }
 
       retries++;
-      await Future.delayed(const Duration(seconds: 2)); // 2秒待機してリトライ
+      await Future.delayed(Duration(seconds: seconds)); // 2秒待機してリトライ
+      seconds += 4;
     }
 
     if (retries >= maxRetries) {
@@ -585,7 +604,7 @@ class ChatModel extends ChangeNotifier {
 
       try {
         List<Map<String, dynamic>> newStoryMaps =
-            await makeStory(text: message);
+            await _makeStory(text: message);
         if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
           storyModel.getTitleTextAndImage(
               title: newStoryMaps[0]['story'], image: newStoryMaps[0]['image']);
@@ -600,6 +619,7 @@ class ChatModel extends ChangeNotifier {
       } catch (e) {
         debugPrint('Error fetching story: $e');
         voids.showFluttertoast(msg: "エラーが発生しました。後ほど再試行してください。");
+        routes.toHomeScreen(context: context);
       } finally {
         _endLoading();
         _messages.clear();
@@ -632,6 +652,10 @@ class ChatModel extends ChangeNotifier {
     }
 
     return messageListString;
+  }
+
+  void toMicUi({required BuildContext context}) {
+    routes.toMicUi(context: context);
   }
 
   void startListening({required String localeId}) async {
