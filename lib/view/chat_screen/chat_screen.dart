@@ -140,8 +140,10 @@ class ChatScreen extends ConsumerWidget {
                     SizedBox(height: screenHeight * 0.01),
                     Input(
                       isAttachmentUploading: false,
-                      onSendPressed: (types.PartialText message) =>
-                          chatModel.handleSendPressed(message),
+                      onSendPressed: (types.PartialText message) {
+                        chatModel.handleSendPressed(message);
+                        FocusScope.of(context).unfocus();
+                      },
                       options: const InputOptions(),
                     ),
                   ])),

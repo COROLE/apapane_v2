@@ -94,10 +94,13 @@ class StoryModel extends ChangeNotifier {
       {required BuildContext context, required MainModel mainModel}) async {
     // tts.stop();
     player.stop();
-
     try {
       switch (confirmAction) {
         case ConfirmAction.save:
+          String saveTitleImage = titleImage;
+          String saveTitleText = titleText;
+          List<Map<String, dynamic>> saveStoryPages = storyPages;
+
           final DocumentSnapshot<Map<String, dynamic>> currentUserDoc =
               mainModel.currentUserDoc;
           final FirestoreUser firestoreUser = mainModel.firestoreUser;
@@ -130,17 +133,17 @@ class StoryModel extends ChangeNotifier {
           List<Map<String, dynamic>> updatedStoryPages = [];
           try {
             // 画像がある場合のみ保存する
-            if (titleImage != '') {
-              titleImage = await saveImageFromBase64(
+            if (saveTitleImage != '') {
+              saveTitleImage = await saveImageFromBase64(
                 activeUid: activeUid,
                 storyId: id,
-                base64Image: titleImage,
+                base64Image: saveTitleImage,
               );
               // 新しいダウンロードURLで更新
               notifyListeners();
             }
 
-            for (final storyPage in storyPages) {
+            for (final storyPage in saveStoryPages) {
               if (storyPage['image'] != null) {
                 String base64Image = storyPage['image'] as String;
                 String downloadUrl = await saveImageFromBase64(
@@ -160,16 +163,16 @@ class StoryModel extends ChangeNotifier {
             debugPrint('Error in endButtonPressed: $e');
           }
           // Firestoreに保存するためにstoryPagesを更新
-          storyPages = updatedStoryPages;
+          List<Map<String, dynamic>> lastUpdatedStoryPages = updatedStoryPages;
           final Story story = Story(
               createdAt: now,
               chatLogRef: chatLogRef,
               isPublic: true,
               isFavorite: false,
-              stories: storyPages,
+              stories: lastUpdatedStoryPages,
               storyId: id,
-              titleImage: titleImage,
-              titleText: titleText,
+              titleImage: saveTitleImage,
+              titleText: saveTitleText,
               uid: activeUid,
               userImageURL: firestoreUser.userImageURL,
               userName: firestoreUser.userName,
@@ -181,6 +184,10 @@ class StoryModel extends ChangeNotifier {
             showFluttertoast(msg: 'バグってる');
           }
           debugPrint('storyPages: $storyPages');
+          saveTitleImage = '';
+          saveTitleText = '';
+          saveStoryPages = [];
+          lastUpdatedStoryPages = [];
           storyPages = [];
           updatedStoryPages = [];
           break;
