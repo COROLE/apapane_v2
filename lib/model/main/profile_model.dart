@@ -25,9 +25,8 @@ class ProfileModel extends ChangeNotifier {
     'assets/images/dragon_boy.png',
     'assets/images/fairy.png',
     'assets/images/girl_rabbit.png',
-    'assets/images/ninja.png',
     'assets/images/venture.png',
-  ];
+  ]..shuffle();
 
   Query<Map<String, dynamic>> returnQuery() {
     final User? currentUser = returnAuthUser();

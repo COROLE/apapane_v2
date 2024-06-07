@@ -123,13 +123,14 @@ class ChatModel extends ChangeNotifier {
       textController.text = "";
       notifyListeners();
     }
+    FocusScope.of(context).unfocus();
     if (!isShowCreate) {
       _replyMessage(text: text);
     }
     _startExampleLoading();
   }
 
-  void handleSendPressed(types.PartialText message) {
+  void handleSendPressed(BuildContext context, types.PartialText message) {
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
@@ -137,6 +138,7 @@ class ChatModel extends ChangeNotifier {
       text: message.text,
     );
     _addMessage(textMessage);
+    FocusScope.of(context).unfocus();
     if (!isShowCreate) {
       _replyMessage(text: message.text);
     }

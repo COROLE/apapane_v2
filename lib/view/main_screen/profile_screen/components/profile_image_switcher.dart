@@ -12,6 +12,7 @@ class ProfileImageSwitcher extends StatefulWidget {
       : super(key: key);
 
   @override
+  // ignore: library_private_types_in_public_api
   _ProfileImageSwitcherState createState() => _ProfileImageSwitcherState();
 }
 
@@ -43,7 +44,7 @@ class _ProfileImageSwitcherState extends State<ProfileImageSwitcher>
       }
 
       // 最初の実行後、2000ms間隔のタイマーを設定
-      _timer = Timer.periodic(const Duration(milliseconds: 8000), (timer) {
+      _timer = Timer.periodic(const Duration(milliseconds: 4000), (timer) {
         setState(() {
           _currentIndex =
               (_currentIndex + 1) % widget.profileModel.imagesList.length;

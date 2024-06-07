@@ -80,7 +80,8 @@ class ChatScreen extends ConsumerWidget {
             body: Stack(children: [
               Chat(
                   messages: chatModel.messages,
-                  onSendPressed: chatModel.handleSendPressed,
+                  onSendPressed: (message) =>
+                      chatModel.handleSendPressed(context, message),
                   showUserAvatars: true,
                   showUserNames: true,
                   user: chatModel.user,
@@ -141,8 +142,7 @@ class ChatScreen extends ConsumerWidget {
                     Input(
                       isAttachmentUploading: false,
                       onSendPressed: (types.PartialText message) {
-                        chatModel.handleSendPressed(message);
-                        FocusScope.of(context).unfocus();
+                        chatModel.handleSendPressed(context, message);
                       },
                       options: const InputOptions(),
                     ),
