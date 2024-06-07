@@ -180,7 +180,7 @@ class ChatModel extends ChangeNotifier {
       }
     } else {
       const String responseData = "error";
-      debugPrint('Error response: $response');
+      debugPrint('Error response: ${response.statusCode}, ${response.body}');
       return responseData;
     }
   }
@@ -202,8 +202,11 @@ class ChatModel extends ChangeNotifier {
     <input_prompt>Provide a single-word response in hiragana to stimulate a child's imagination, appropriate to the context. Context:</input_prompt>
 </prompt>
     ''';
+    
     final String response = await _claude(
         text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY_SHOTA");
+        // text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY");
+    // final String response = "example";
     _exampleText = response;
     notifyListeners();
     return response;
@@ -266,7 +269,17 @@ class ChatModel extends ChangeNotifier {
   }
 
   Future<String> _talk(String text) async {
-    const String prompt = '''
+    final String prompt = '''
+      <chatlog>
+      $text
+      </chatlog>
+
+      <instruction>
+        Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
+        Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
+        We have already asked about the name of the main character and location, so please start with other questions.
+      </instruction>
+
       You are a friendly interviewer who asks children about the stories they imagine.
       Speak in a friendly, frank tone, without using honorifics.
       Do not repeat questions already asked in the conversation history.
@@ -276,11 +289,9 @@ class ChatModel extends ChangeNotifier {
       Omit preambles and output only agreement (e.g., "I see, so the main character is ~!", "Nice!") and a question.
       Follow these instructions to react to the user's last statement in the chatlog and ask another question regarding the story setting.
       Focus on questions that help the child unpack their thoughts step by step, and avoid repeating questions already asked.
+
     ''';
     final String systemPrompt = '''
-    <chatlog>
-      $text
-    </chatlog>
     <instruction>
       Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
       Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
@@ -368,6 +379,44 @@ class ChatModel extends ChangeNotifier {
 
     Create a narrative based on the [[chatlog]].Make it fun and exciting for kids!
 
+    <storyline>
+    *Stories that delve deeply into the inner life, emotions, surprising secrets, and backgrounds of the main character and other characters
+    *Stories with unexpected events and foreshadowing
+    *A story in which the protagonist faces unexpected difficulties or obstacles and manages to overcome them with innovative solutions
+    *A story in which the protagonists realize their inner power and demonstrate it to create an unexpected turn of events
+    *A story in which unexpected events occur as the protagonist confronts and overcomes his or her own weaknesses and shortcomings
+    *A touching story in which unexpected encounters and events occur as the protagonist strives to achieve his or her dreams and goals
+    *A story in which unexpected relationships between characters are revealed
+    </storyline>
+
+    <instruction>
+    *Describe in detail the names of the characters, what kind of creatures they are, their appearance, personalities, etc., using your imagination.
+    *Describe in detail the location of the story, the scenery, the surroundings, etc., using your imagination.
+    *Avoid mediocre storylines.
+    *As far as possible, describe the characters in detail and clearly in words.For example, instead of abstract and vague descriptions such as 'a large monster with magical powers', use clear and detailed descriptions such as 'a 10m long dragon that breathes fire'.
+    *Include lots of specific lines and words spoken by the characters.
+    *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
+    </instruction>
+
+    <OutputExample>
+    {
+      "introduction": "ここにIntroductionの章が入る",
+      "development": "ここにDevelopmentの章が入る",
+      "turn": "ここにTurnの章が入る",
+      "conclusion": "ここにConclusionの章が入る"
+    }
+    </OutputExample>
+
+    Output a story in easy Japanese that can be understood by middle school students
+    The ratio of kanji to hiragana should be about 1:4. Avoid difficult-to-read kanji characters.
+    The story consists of four paragraphs.
+    Use JSON format with the keys "introduction", "development", "turn", and "conclusion".
+    Output only JSON.
+    Please refer to [[OutputExample]] for the output format.
+
+    Write a story with interesting twists and turns as described in the [[storyline]].
+    Follow the [[instruction]] to create a story.
+
     Output:
     ''';
     const String systemPrompt = '''
@@ -382,16 +431,16 @@ class ChatModel extends ChangeNotifier {
     </storyline>
 
     <instruction>
-    *The title should be a title that best describes the entire four-paragraph story in one word. The title must be no more than 15 words.
     *Describe in detail the names of the characters, what kind of creatures they are, their appearance, personalities, etc., using your imagination.
     *Describe in detail the location of the story, the scenery, the surroundings, etc., using your imagination.
     *Avoid mediocre storylines.
     *As far as possible, describe the characters in detail and clearly in words.For example, instead of abstract and vague descriptions such as 'a large monster with magical powers', use clear and detailed descriptions such as 'a 10m long dragon that breathes fire'.
+    *Include lots of specific lines and words spoken by the characters.
+    *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
     </instruction>
 
     <OutputExample>
     {
-      "title": "ここに物語のタイトルが入る",
       "introduction": "ここにIntroductionの章が入る",
       "development": "ここにDevelopmentの章が入る",
       "turn": "ここにTurnの章が入る",
@@ -402,8 +451,7 @@ class ChatModel extends ChangeNotifier {
     Output a story in easy Japanese that can be understood by middle school students
     The ratio of kanji to hiragana should be about 1:4. Avoid difficult-to-read kanji characters.
     The story consists of four paragraphs.
-    Output the title of the whole story and four paragraphs.
-    Use JSON format with the keys "title", "introduction", "development", "turn", and "conclusion".
+    Use JSON format with the keys "introduction", "development", "turn", and "conclusion".
     Output only JSON.
     Please refer to [[OutputExample]] for the output format.
 
@@ -455,11 +503,50 @@ class ChatModel extends ChangeNotifier {
     low quality, cartoon-like, 2d, text, logo, watermark, vague, blurred
     </negative>
 
+    First, figure out who and what each of the main character and other characters in the [[story]] look like.
+    Generate positive_prompt_characters and negative_prompt_characters to have stablediffusion generate images of what the main character and the other characters look like.
+    Include positive_prompt_characters in the "prompt" of all four paragraphs and negative_prompt_characters in the "negative_prompt" of all four paragraphs.
+    In other words, the images are generated so that the protagonist consistently has the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    For each of the other characters, the images are generated so that they consistently have the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    The same characters should appear consistently across all four paragraphs.
+
     Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
     The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
     Positive prompts should include the words in [[positive]] and negative prompts should include the words in [[negative]]. Other words can of course be included as well.
     Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
     I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
+
+    Please output in JSON format as in the following [[OutputExample]].
+    <OutputExample>
+    {
+      “introduction”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “development”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “turn”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “conclusion”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ]
+    }
+    </OutputExample>
+
+    Output only JSON.
 
     Output:
     ''';
@@ -474,8 +561,10 @@ class ChatModel extends ChangeNotifier {
     First, figure out who and what each of the main character and other characters in the [[story]] look like.
     Generate positive_prompt_characters and negative_prompt_characters to have stablediffusion generate images of what the main character and the other characters look like.
     Include positive_prompt_characters in the "prompt" of all four paragraphs and negative_prompt_characters in the "negative_prompt" of all four paragraphs.
-    In other words, generate images so that the main character and each of the characters have the same look and feel in all paragraphs. The same characters should appear consistently across all four paragraphs.
-    
+    In other words, the images are generated so that the protagonist consistently has the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    For each of the other characters, the images are generated so that they consistently have the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    The same characters should appear consistently across all four paragraphs.
+
     Please output in JSON format as in the following [[OutputExample]].
     <OutputExample>
     {
