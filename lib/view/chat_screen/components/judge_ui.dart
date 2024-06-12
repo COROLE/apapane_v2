@@ -123,7 +123,7 @@ class _JudgeUiState extends State<JudgeUi> with SingleTickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   RoundedButton(
-                    onPressed: () => widget.chatModel.cancel(),
+                    onPressed: () => widget.chatModel.cancel(context),
                     widthRate: 0.4,
                     color:
                         const Color.fromARGB(255, 66, 133, 244), // Blue color

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 //flutter
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 //packages
@@ -56,10 +57,12 @@ class ChatModel extends ChangeNotifier {
   bool isExampleLoading = false;
   bool isValidCreate = false;
   int chatCount = 4;
+  String _summary = '';
   String _exampleText = "";
-  String get exampleText => _exampleText.trim().length > 6
-      ? _exampleText.trim().substring(0, 6)
+  String get exampleText => _exampleText.trim().length > 9
+      ? _exampleText.trim().substring(0, 9)
       : _exampleText.trim();
+  String _lastQuestion = "";
 
   void init(BuildContext context) async {
     _messages = [];
@@ -68,36 +71,40 @@ class ChatModel extends ChangeNotifier {
     chatCount = 4;
     isListening = false;
     _exampleText = "";
+    _lastQuestion = "";
+    _summary = '';
     isExampleLoading = false;
     isValidCreate = false;
     textController.clear();
     textController.text = "";
     notifyListeners();
     routes.toChatScreen(context: context);
-    _replyMessage();
+    _replyMessage(context);
     await Future.delayed(const Duration(milliseconds: 500));
-    _replyMessage();
+    _replyMessage(context);
   }
 
-  void cancel() {
+  void cancel(BuildContext context) {
     isShowCreate = false;
     if (_messages.isNotEmpty && _messages.last is types.TextMessage) {
-      _replyMessage(text: (_messages.last as types.TextMessage).text);
+      _replyMessage(context,
+          lastText: (_messages.last as types.TextMessage).text);
     }
     notifyListeners();
   }
 
-  void _addMessage(types.Message message) {
+  void _addMessage(BuildContext context, types.Message message) {
     _messages.insert(0, message);
-    _checkMessagesLength();
+    _checkMessagesLength(context);
     notifyListeners();
     Future.delayed(const Duration(milliseconds: 500));
   }
 
-  void _checkMessagesLength() {
+  void _checkMessagesLength(BuildContext context) {
     int userMessageCount =
         _messages.where((message) => message.author.id == _user.id).length;
     if (userMessageCount > 0 && userMessageCount % chatCount == 0) {
+      FocusScope.of(context).unfocus();
       isShowCreate = true;
       chatCount += 4;
     } else {
@@ -107,15 +114,16 @@ class ChatModel extends ChangeNotifier {
 
   void exampleAndVoiceSendPressed(String text,
       {bool isVoice = false, required BuildContext context}) {
-    if (isExampleLoading) return;
+    if (isExampleLoading || isCommentLoading) return;
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: const Uuid().v4(),
       text: text,
     );
-    _addMessage(textMessage);
+    _addMessage(context, textMessage);
     if (isVoice) {
+      FocusScope.of(context).unfocus();
       isListening = false;
       speechToText.stop();
       Navigator.pop(context);
@@ -123,24 +131,25 @@ class ChatModel extends ChangeNotifier {
       textController.text = "";
       notifyListeners();
     }
-    FocusScope.of(context).unfocus();
+
     if (!isShowCreate) {
-      _replyMessage(text: text);
+      _replyMessage(context, lastText: text);
     }
     _startExampleLoading();
   }
 
   void handleSendPressed(BuildContext context, types.PartialText message) {
+    if (isExampleLoading || isCommentLoading) return;
     final textMessage = types.TextMessage(
       author: _user,
       createdAt: DateTime.now().millisecondsSinceEpoch,
       id: const Uuid().v4(),
       text: message.text,
     );
-    _addMessage(textMessage);
-    FocusScope.of(context).unfocus();
+    _addMessage(context, textMessage);
+
     if (!isShowCreate) {
-      _replyMessage(text: message.text);
+      _replyMessage(context, lastText: message.text);
     }
   }
 
@@ -182,12 +191,13 @@ class ChatModel extends ChangeNotifier {
       }
     } else {
       const String responseData = "error";
-      debugPrint('Error response: ${response.statusCode}, ${response.body}');
+      debugPrint(
+          'Error response: ${response.statusCode}, ${response.body} in _claude');
       return responseData;
     }
   }
 
-  Future<String> _example(String text) async {
+  Future<void> _example(String text) async {
     const String prompt = '''
    <prompt>
     <role>Assistant to boost children's imagination</role>
@@ -204,46 +214,62 @@ class ChatModel extends ChangeNotifier {
     <input_prompt>Provide a single-word response in hiragana to stimulate a child's imagination, appropriate to the context. Context:</input_prompt>
 </prompt>
     ''';
-    
-    final String response = await _claude(
-        text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY_SHOTA");
-        // text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY");
+    const systemPrompt =
+        "Please reply in Japanese and return a solid one-word response to a question.";
+    final String response =
+        await _claude(text + prompt, systemPrompt, "ANTHROPIC_API_KEY_SHOTA");
+    // text + prompt, "Please reply in Japanese.", "ANTHROPIC_API_KEY");
     // final String response = "example";
     _exampleText = response;
     notifyListeners();
-    return response;
   }
 
-  void _replyMessage({String text = ""}) async {
+  void _replyMessage(BuildContext context, {String lastText = ""}) async {
     _startCommentLoading();
+    final createdAt = DateTime.now().millisecondsSinceEpoch;
+    final id = const Uuid().v4();
+    String reply = "";
     if (_messages.length < 8) {
-      text = await _replyTemplate(_messages.length);
+      reply = await _replyTemplate(_messages.length);
       final replyMessage = types.TextMessage(
         author: _apapane,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        id: const Uuid().v4(),
-        text: text,
+        createdAt: createdAt,
+        id: id,
+        text: reply,
       );
-
-      _addMessage(replyMessage);
+      _lastQuestion = reply;
+      _addMessage(context, replyMessage);
     } else {
       if (isShowCreate) return;
-      text = await _talk(text);
+      String summarySettings = _summaryInitSettings();
+      final chatLogs = _messageListToString();
+      if (_messages.length == 9) {
+        final newChatLogs =
+            '$summarySettings And last Q&A Q:$_lastQuestion A:$lastText';
+        reply = await _talk(newChatLogs);
+      } else {
+        debugPrint('chatLogs: $chatLogs');
+        debugPrint('summarySettings: $summarySettings');
+        final chatLogsPlusSummary =
+            '$chatLogs And $summarySettings And last Q&A Q:$_lastQuestion  $lastText';
+        reply = await _talk(chatLogsPlusSummary);
+      }
+
       final replyMessage = types.TextMessage(
         author: _apapane,
-        createdAt: DateTime.now().millisecondsSinceEpoch,
-        id: const Uuid().v4(),
-        text: text,
+        createdAt: createdAt,
+        id: id,
+        text: reply,
       );
-      _addMessage(replyMessage);
+      _lastQuestion = reply;
+      // ignore: use_build_context_synchronously
+      _addMessage(context, replyMessage);
     }
     if (isListening) stopListening();
     _endCommentLoading();
     if (_messages.length == 1) return;
     _startExampleLoading();
-    Future.delayed(const Duration(milliseconds: 500));
-    debugPrint("text: $text");
-    await _example(text);
+    await _example(reply);
     _endExampleLoading();
   }
 
@@ -270,34 +296,76 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  Future<String> _talk(String text) async {
+  String _summaryInitSettings() {
+    if (_messages.length > 9) return _summary;
+    if (_messages.length > 2) {
+      _summary +=
+          'Main character of this story: ${(_messages[_messages.length - 3] as types.TextMessage).text}\n';
+    }
+    if (_messages.length > 4) {
+      _summary +=
+          'Location of this story: ${(_messages[_messages.length - 5] as types.TextMessage).text}\n';
+    }
+    if (_messages.length > 6) {
+      _summary +=
+          'Other characters of this story: ${(_messages[_messages.length - 7] as types.TextMessage).text}\n';
+    }
+    if (_messages.length > 8) {
+      _summary +=
+          'The Other characters is: ${(_messages[_messages.length - 9] as types.TextMessage).text} in this story. \n';
+    }
+    return _summary;
+  }
+
+  Future<String> _summaryAll(String chatLogs) async {
     final String prompt = '''
-      <chatlog>
-      $text
-      </chatlog>
-
+      <chatlogs>
+      $chatLogs
+      </chatlogs>
       <instruction>
-        Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
-        Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
-        We have already asked about the name of the main character and location, so please start with other questions.
+      The answer text after the question was answered by the child.
+      Summarize the content of the child's worldview answer in light of the question.
+      Never delete the content of the child's setting.
+      Here is an example. Output the following as a sample
       </instruction>
+      <example>
+      The main character is: Takashi
+      Location: Mountain
+      Other characters: Bear
+      </example>
+''';
+    const String systemPrompt =
+        'Please reply in Japanese And Avoid difficult expressions.';
+    final String response =
+        await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY_SHOTA");
+    return response;
+  }
 
+  Future<String> _talk(String chatLogs) async {
+    final String prompt = '''
+      <chatlogs>
+      $chatLogs
+      </chatlogs>
+      <instruction>
       You are a friendly interviewer who asks children about the stories they imagine.
       Speak in a friendly, frank tone, without using honorifics.
-      Do not repeat questions already asked in the conversation history.
+      Do not repeat questions already asked in the [[chatLogs]].
       Answer in easy-to-understand Japanese, using no more than 30 characters per sentence.
       The ratio of kanji to hiragana should be about 1:4.
       Avoid difficult-to-read kanji characters.
-      Omit preambles and output only agreement (e.g., "I see, so the main character is ~!", "Nice!") and a question.
-      Follow these instructions to react to the user's last statement in the chatlog and ask another question regarding the story setting.
+      Follow these instructions to react to the user's last statement in the [[chatLogs]] and ask another question regarding the story setting.
       Focus on questions that help the child unpack their thoughts step by step, and avoid repeating questions already asked.
-
+      </instruction>
     ''';
-    final String systemPrompt = '''
+    const String systemPrompt = '''
     <instruction>
       Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
       Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
-      We have already asked about the name of the main character and location, so please start with other questions.
+      [[NOTE: The main character, the stage, and one of the characters have already been heard. ]]]
+      so please start with other questions.
+      [[Be sure to limit the number of questions to one question!]] [[What is your personality? , What is its color? , What is the shape? etc.]]
+      And consider fully the latest kid's answers on [[chatLogs]]
+      Rough without honorifics!
     </instruction>
     ''';
     final String response =
@@ -325,61 +393,72 @@ class ChatModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<Map<String, dynamic>> stableDiffusion(
+  Future<Map<String, dynamic>> _stableDiffusion(
       String prompt, String negativePrompt,
       {int seed = 0}) async {
     const String url =
         "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image";
     final String apiKey = dotenv.get("STABLE_DIFFUSION_API_KEY");
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $apiKey',
+        },
+        body: jsonEncode({
+          'text_prompts': [
+            {
+              'text': prompt,
+              'weight': 1.0,
+            },
+            {
+              'text': negativePrompt,
+              'weight': -1.0,
+            }
+          ],
+          'cfg_scale': 7,
+          'height': 1344,
+          'width': 768,
+          'samples': 1,
+          'steps': 30,
+          'seed': seed,
+        }),
+      );
 
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $apiKey',
-      },
-      body: jsonEncode({
-        'text_prompts': [
-          {
-            'text': prompt,
-            'weight': 1.0,
-          },
-          {
-            'text': negativePrompt,
-            'weight': -1.0,
-          }
-        ],
-        'cfg_scale': 7,
-        'height': 1344,
-        'width': 768,
-        'samples': 1,
-        'steps': 30,
-        'seed': seed,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> responseData = jsonDecode(response.body);
-        return responseData["artifacts"][0];
-      } catch (e) {
-        debugPrint('Error decoding image: $e');
+      if (response.statusCode == 200) {
+        try {
+          final Map<String, dynamic> responseData = jsonDecode(response.body);
+          return responseData["artifacts"][0];
+        } catch (e) {
+          debugPrint('Error decoding image: $e');
+          return {};
+        }
+      } else {
+        debugPrint(
+            'Error response: ${response.statusCode}, ${response.body} in _stablediffusion');
         return {};
       }
-    } else {
+    } catch (e) {
+      debugPrint('Error in stableDiffusion: $e');
       return {};
     }
   }
 
   //_makeStory
-  Future<List<Map<String, dynamic>>> _makeStory({required String text}) async {
+  Future<List<Map<String, dynamic>>> _makeStory(
+      {required String chatLogs}) async {
     final String prompt = '''
-    <chatlog>
-    $text
-    </chatlog>
+    <chatLogs>
+    $chatLogs
+    </chatLogs>
 
-    Create a narrative based on the [[chatlog]].Make it fun and exciting for kids!
+    <storyMainSettings>
+    $_summary
+    </storyMainSettings>
+
+    Create a narrative based on the [[chatlogs]].Make it fun and exciting for kids!
 
     <storyline>
     *Stories that delve deeply into the inner life, emotions, surprising secrets, and backgrounds of the main character and other characters
@@ -397,11 +476,13 @@ class ChatModel extends ChangeNotifier {
     *Avoid mediocre storylines.
     *As far as possible, describe the characters in detail and clearly in words.For example, instead of abstract and vague descriptions such as 'a large monster with magical powers', use clear and detailed descriptions such as 'a 10m long dragon that breathes fire'.
     *Include lots of specific lines and words spoken by the characters.
+    *Write an exciting title that fits the story.
     *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
     </instruction>
 
     <OutputExample>
     {
+      "title": "ここにtitleが入る",
       "introduction": "ここにIntroductionの章が入る",
       "development": "ここにDevelopmentの章が入る",
       "turn": "ここにTurnの章が入る",
@@ -412,13 +493,13 @@ class ChatModel extends ChangeNotifier {
     Output a story in easy Japanese that can be understood by middle school students
     The ratio of kanji to hiragana should be about 1:4. Avoid difficult-to-read kanji characters.
     The story consists of four paragraphs.
-    Use JSON format with the keys "introduction", "development", "turn", and "conclusion".
+    Use JSON format with the keys "title", "introduction", "development", "turn", and "conclusion".
     Output only JSON.
     Please refer to [[OutputExample]] for the output format.
 
     Write a story with interesting twists and turns as described in the [[storyline]].
     Follow the [[instruction]] to create a story.
-
+    {{Output only JSON.}}
     Output:
     ''';
     const String systemPrompt = '''
@@ -438,11 +519,13 @@ class ChatModel extends ChangeNotifier {
     *Avoid mediocre storylines.
     *As far as possible, describe the characters in detail and clearly in words.For example, instead of abstract and vague descriptions such as 'a large monster with magical powers', use clear and detailed descriptions such as 'a 10m long dragon that breathes fire'.
     *Include lots of specific lines and words spoken by the characters.
+    *Write an exciting title that fits the story.
     *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
     </instruction>
 
     <OutputExample>
     {
+      "title": "ここにtitleが入る",
       "introduction": "ここにIntroductionの章が入る",
       "development": "ここにDevelopmentの章が入る",
       "turn": "ここにTurnの章が入る",
@@ -459,11 +542,12 @@ class ChatModel extends ChangeNotifier {
 
     Write a story with interesting twists and turns as described in the [[storyline]].
     Follow the [[instruction]] to create a story.
+    {{Output only JSON.}}
     ''';
 
     var retries = 0;
     const int maxRetries = 3;
-    Map<String, dynamic> story = {};
+    Map<String, dynamic> storyText = {};
     int seconds = 2;
     while (retries < maxRetries) {
       try {
@@ -471,11 +555,12 @@ class ChatModel extends ChangeNotifier {
         final data = await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY");
 
         // レスポンスをJSONとしてデコードする
-        story = jsonDecode(data);
+        storyText = jsonDecode(data);
         break;
       } on FormatException catch (e) {
         // JSONデコードに失敗した場合はリトライする
-        debugPrint('Invalid JSON response, retrying... (${e.message})');
+        debugPrint(
+            'Invalid JSON response in storyText, retrying... (${e.message}) And retrying count: $retries');
       } catch (e) {
         // その他の例外をキャッチし、適切に処理する
         debugPrint('Error occurred: $e');
@@ -491,10 +576,10 @@ class ChatModel extends ChangeNotifier {
       throw Exception('Maximum retries exceeded');
     }
 
-    debugPrint('story: $story');
+    debugPrint('story: $storyText');
     final String imagePrompt = '''
     <story>
-    $story
+    $storyText
     </story>
 
     <positive>
@@ -521,54 +606,12 @@ class ChatModel extends ChangeNotifier {
     Please output in JSON format as in the following [[OutputExample]].
     <OutputExample>
     {
-      “introduction”: [
+      "title": [
         {
           'prompt: 'text',
           'nagetive_prompt': 'text',
         }
       ], }
-      “development”: [
-        {
-          'prompt: 'text',
-          'nagetive_prompt': 'text',
-        }
-      ], }
-      “turn”: [
-        {
-          'prompt: 'text',
-          'nagetive_prompt': 'text',
-        }
-      ], }
-      “conclusion”: [
-        {
-          'prompt: 'text',
-          'nagetive_prompt': 'text',
-        }
-      ]
-    }
-    </OutputExample>
-
-    Output only JSON.
-
-    Output:
-    ''';
-
-    const String imageSystemPrompt = '''
-    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
-    The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
-    Positive prompts should include the words in [[positive]] and negative prompts should include the words in [[negative]]. Other words can of course be included as well.
-    Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
-    I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
-    
-    First, figure out who and what each of the main character and other characters in the [[story]] look like.
-    Generate positive_prompt_characters and negative_prompt_characters to have stablediffusion generate images of what the main character and the other characters look like.
-    Include positive_prompt_characters in the "prompt" of all four paragraphs and negative_prompt_characters in the "negative_prompt" of all four paragraphs.
-    In other words, the images are generated so that the protagonist consistently has the same look, the same mood, the same clothes and the same face in all paragraphs. 
-    For each of the other characters, the images are generated so that they consistently have the same look, the same mood, the same clothes and the same face in all paragraphs. 
-    The same characters should appear consistently across all four paragraphs.
-
-    Please output in JSON format as in the following [[OutputExample]].
-    <OutputExample>
     {
       “introduction”: [
         {
@@ -597,11 +640,67 @@ class ChatModel extends ChangeNotifier {
     }
     </OutputExample>
 
-    Output only JSON.
+    {{Output only JSON.}}
+
+    Output:
+    ''';
+
+    const String imageSystemPrompt = '''
+    Please output positive and negative prompts in English for StableDiffusion to generate an image of the scene depicted in [[paragraph]], down to the actions and characters.
+    The [[story]] is divided into 4 paragraphs in json format and I would like you to output positive and negative prompts in English for each of them. In other words, I would like you to output 8 prompts in total.
+    Positive prompts should include the words in [[positive]] and negative prompts should include the words in [[negative]]. Other words can of course be included as well.
+    Please faithfully reproduce the characterization, atmosphere and worldview of the main character. Please include detailed instructions from the name of the main character to describe in detail what you specifically imagine it to look like.
+    I want StableDiffusion to generate an image that shows at a glance even the actions of what the main character is doing.
+    
+    First, figure out who and what each of the main character and other characters in the [[story]] look like.
+    Generate positive_prompt_characters and negative_prompt_characters to have stablediffusion generate images of what the main character and the other characters look like.
+    Include positive_prompt_characters in the "prompt" of all four paragraphs and negative_prompt_characters in the "negative_prompt" of all four paragraphs.
+    In other words, the images are generated so that the protagonist consistently has the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    For each of the other characters, the images are generated so that they consistently have the same look, the same mood, the same clothes and the same face in all paragraphs. 
+    The same characters should appear consistently across all four paragraphs.
+
+    Please output in JSON format as in the following [[OutputExample]].
+    <OutputExample>
+    {
+      "title": [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+    {
+      “introduction”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “development”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “turn”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ], }
+      “conclusion”: [
+        {
+          'prompt: 'text',
+          'nagetive_prompt': 'text',
+        }
+      ]
+    }
+    </OutputExample>
+
+   {{Output only JSON.}}
     ''';
 
     retries = 0;
-    Map<String, dynamic> imageStory = {};
+    Map<String, dynamic> storyImagesPrompt = {};
 
     while (retries < maxRetries) {
       try {
@@ -611,11 +710,12 @@ class ChatModel extends ChangeNotifier {
             await _claude(imagePrompt, imageSystemPrompt, "ANTHROPIC_API_KEY");
 
         // レスポンスをJSONとしてデコードする
-        imageStory = jsonDecode(data);
+        storyImagesPrompt = jsonDecode(data);
         break;
       } on FormatException catch (e) {
         // JSONデコードに失敗した場合はリトライする
-        debugPrint('Invalid JSON response, retrying... (${e.message})');
+        debugPrint(
+            'Invalid JSON response in storyImagesPrompt, retrying... (${e.message}) And retrying count: $retries');
       } catch (e) {
         // その他の例外をキャッチし、適切に処理する
         debugPrint('Error occurred: $e');
@@ -629,85 +729,107 @@ class ChatModel extends ChangeNotifier {
       // 最大リトライ回数を超えた場合はエラー
       throw Exception('Maximum retries exceeded');
     }
-
+    debugPrint('storyImagesPrompt: $storyImagesPrompt');
     Map<String, Pair<String, String>> elements = {};
 
-    imageStory.forEach((key, value) {
+// elementsマップの初期化
+    storyImagesPrompt.forEach((key, value) {
       if (value is List) {
         for (var item in value) {
           if (item is Map<String, dynamic>) {
             List<String> keys = item.keys.toList();
-            elements[key] = Pair(keys[0], keys[1]);
+            if (keys.length >= 2) {
+              elements[key] = Pair(keys[0], keys[1]);
+            } else {
+              debugPrint('Error: Not enough keys in map for key: $key');
+            }
+          } else {
+            debugPrint('Error: Value is not a Map for key: $key');
           }
         }
+      } else {
+        debugPrint('Error: Value is not a List for key: $key');
       }
     });
 
     final List<Map<String, dynamic>> outputStory = [];
 
-    final firstKey = imageStory.keys.first;
-    final firstElement = imageStory[firstKey];
-    final String firstPositivePrompt =
-        elements[firstKey]?.first ?? "positive_prompt";
+// storyImagesPromptが空でないことを確認
+    if (storyImagesPrompt.isEmpty) {
+      throw Exception('No story images found');
+    }
+
+    final firstKey = storyImagesPrompt.keys.first;
+    final firstElement = storyImagesPrompt[firstKey];
+
+// firstElementがnullまたは空でないことを確認
+    if (firstElement == null || firstElement.isEmpty) {
+      throw Exception('First element is null or empty');
+    }
+
+    final String firstPositivePrompt = elements[firstKey]?.first ?? "prompt";
     final String firstNegativePrompt =
         elements[firstKey]?.second ?? "negative_prompt";
 
-    if (firstElement is List &&
-        firstElement.isNotEmpty &&
-        firstElement[0] is Map<String, dynamic>) {
-      if (firstElement[0].containsKey(firstPositivePrompt) &&
-          firstElement[0].containsKey(firstNegativePrompt)) {
-        final Map<String, dynamic> firstImageOutput = await stableDiffusion(
-            firstElement[0][firstPositivePrompt],
-            firstElement[0][firstNegativePrompt]);
+// firstElementがMapのリストであることを確認
+    if (firstElement is List && firstElement[0] is Map<String, dynamic>) {
+      final firstElementMap = firstElement[0] as Map<String, dynamic>;
+      if (firstElementMap.containsKey(firstPositivePrompt) &&
+          firstElementMap.containsKey(firstNegativePrompt)) {
+        final Map<String, dynamic> firstImageOutput = await _stableDiffusion(
+            firstElementMap[firstPositivePrompt],
+            firstElementMap[firstNegativePrompt]);
         final int seed = firstImageOutput["seed"];
         debugPrint('seed: $seed');
         outputStory.add({
-          "story": story[firstKey],
+          "story": storyText[firstKey],
           "image": firstImageOutput["base64"],
         });
       } else {
         debugPrint(
-            'Key not found: $firstPositivePrompt or $firstNegativePrompt');
+            'Key not found: $firstPositivePrompt or $firstNegativePrompt for key: $firstKey');
       }
     } else {
-      debugPrint('Error: firstElement[0] is not a Map or is empty');
+      debugPrint(
+          'Error: firstElement[0] is not a Map or is empty for key: $firstKey');
     }
-    imageStory.remove(firstKey);
 
-    // 並列処理するFutureのリストを作成
-    // 並列処理するFutureのリストを作成
-    final futures = imageStory.entries.map((entry) async {
+    storyImagesPrompt.remove(firstKey);
+
+// 並列処理するFutureのリストを作成
+    final futures = storyImagesPrompt.entries.map((entry) async {
       final key = entry.key;
       final element = entry.value;
 
-      // Check if element[0] is a Map
-      if (element[0] is! Map) {
-        debugPrint('Error: Expected a Map but found ${element[0].runtimeType}');
+      // elementがnullまたは空でないことを確認
+      if (element == null || element.isEmpty || element[0] is! Map) {
+        debugPrint(
+            'Error: Expected a non-empty list with a Map as first element for key $key');
         return null;
       }
 
-      final String positivePrompt = elements[key]?.first ?? "positive_prompt";
+      final String positivePrompt = elements[key]?.first ?? "prompt";
       final String negativePrompt = elements[key]?.second ?? "negative_prompt";
+      final elementMap = element[0] as Map<String, dynamic>;
 
-      debugPrint('Available keys: ${element[0].keys}');
-      debugPrint('Element data: ${element[0]}');
+      debugPrint('Available keys: ${elementMap.keys}');
+      debugPrint('Element data: $elementMap');
 
-      if (element[0].containsKey(positivePrompt) &&
-          element[0].containsKey(negativePrompt)) {
-        final Map<String, dynamic> imageOutput = await stableDiffusion(
-            element[0][positivePrompt], element[0][negativePrompt]);
+      if (elementMap.containsKey(positivePrompt) &&
+          elementMap.containsKey(negativePrompt)) {
+        final Map<String, dynamic> imageOutput = await _stableDiffusion(
+            elementMap[positivePrompt], elementMap[negativePrompt]);
         return {
-          "story": story[key],
+          "story": storyText[key],
           "image": imageOutput["base64"],
         };
       } else {
-        debugPrint('Key not found in element');
+        debugPrint('Key not found in element for key: $key');
         return null;
       }
     }).toList();
 
-    // 並列処理の結果を待ち、順番を維持したままoutputStoryに追加
+// 並列処理の結果を待ち、nullでない要素をoutputStoryに追加
     final results = await Future.wait(futures);
     outputStory.addAll(results
         .where((element) => element != null)
@@ -723,13 +845,11 @@ class ChatModel extends ChangeNotifier {
         _messages.where((message) => message.author.id == _user.id).length;
     if (countIsMeMessages > 2) {
       _startLoading();
-      String message = messageListToString();
+      String message = _messageListToString();
       storyModel.updateMessages(message: message);
-      final test = await _makeStory(text: message);
-      debugPrint('test: $test');
       try {
         List<Map<String, dynamic>> newStoryMaps =
-            await _makeStory(text: message);
+            await _makeStory(chatLogs: message);
         debugPrint('newStoryMaps: $newStoryMaps');
         if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
           storyModel.getTitleTextAndImage(
@@ -745,6 +865,7 @@ class ChatModel extends ChangeNotifier {
       } catch (e) {
         debugPrint('Error fetching story: $e');
         voids.showFluttertoast(msg: "エラーが発生しました。後ほど再試行してください。");
+        // ignore: use_build_context_synchronously
         routes.toHomeScreen(context: context);
       } finally {
         _endLoading();
@@ -764,14 +885,15 @@ class ChatModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  String messageListToString() {
+  String _messageListToString() {
     messageListString = "";
-    messageListString += '#会話履歴です。絶対子供の世界観を参考にしてください。\n';
+    messageListString +=
+        'Conversation History. Please refer to the absolute child\'s view of the world.\n';
 
     for (var message in _messages) {
       if (message.author.id == _user.id) {
         messageListString +=
-            "物語を作成したい子供:${(message as types.TextMessage).text}\n";
+            "Child who want to create a story:${(message as types.TextMessage).text}\n";
       } else {
         messageListString += "AI:${(message as types.TextMessage).text}\n";
       }

@@ -21,6 +21,7 @@ class StoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final MainModel mainModel = ref.watch(mainProvider);
     final StoryModel storyModel = ref.watch(storyProvider);
+
     // ここでstoryModelからstoryPagesを取得し、それぞれのページをリストに追加します。
     final pagesList = <Widget>[
       StartStoryScreen(
@@ -49,6 +50,7 @@ class StoryScreen extends ConsumerWidget {
                 return const Center(child: CircularProgressIndicator());
               });
         }
+
         String base64Image = page["image"];
         // Base64文字列の長さが4の倍数になるように調整
         // while (base64Image.length % 4 != 0) {
