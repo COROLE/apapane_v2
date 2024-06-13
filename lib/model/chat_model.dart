@@ -57,11 +57,11 @@ class ChatModel extends ChangeNotifier {
   bool isExampleLoading = false;
   bool isValidCreate = false;
   int chatCount = 4;
-  String _summary = '';
+  String _summaryMainSettings = '';
   String _exampleText = "";
-  String get exampleText => _exampleText.trim().length > 9
-      ? _exampleText.trim().substring(0, 9)
-      : _exampleText.trim();
+  String get exampleText => _exampleText.trim().replaceAll("。", "").length > 9
+      ? _exampleText.trim().replaceAll("。", "").substring(0, 9)
+      : _exampleText.trim().replaceAll("。", "");
   String _lastQuestion = "";
 
   void init(BuildContext context) async {
@@ -72,7 +72,7 @@ class ChatModel extends ChangeNotifier {
     isListening = false;
     _exampleText = "";
     _lastQuestion = "";
-    _summary = '';
+    _summaryMainSettings = '';
     isExampleLoading = false;
     isValidCreate = false;
     textController.clear();
@@ -260,7 +260,7 @@ class ChatModel extends ChangeNotifier {
       _addMessage(context, replyMessage);
     } else {
       if (isShowCreate) return;
-      String summarySettings = _summaryInitSettings();
+      String summarySettings = _summaryMainSettingsInitSettings();
       final chatLogs = _messageListToString();
       if (_messages.length == 9) {
         final newChatLogs =
@@ -315,56 +315,64 @@ class ChatModel extends ChangeNotifier {
     }
   }
 
-  String _summaryInitSettings() {
-    if (_messages.length > 9) return _summary;
+  String _summaryMainSettingsInitSettings() {
+    if (_messages.length > 9) return _summaryMainSettings;
     if (_messages.length > 2) {
-      _summary +=
+      _summaryMainSettings +=
           'Main character of this story: ${(_messages[_messages.length - 3] as types.TextMessage).text}\n';
     }
     if (_messages.length > 4) {
-      _summary +=
+      _summaryMainSettings +=
           'Location of this story: ${(_messages[_messages.length - 5] as types.TextMessage).text}\n';
     }
     if (_messages.length > 6) {
-      _summary +=
+      _summaryMainSettings +=
           'Other characters of this story: ${(_messages[_messages.length - 7] as types.TextMessage).text}\n';
     }
     if (_messages.length > 8) {
-      _summary +=
+      _summaryMainSettings +=
           'The Other characters is: ${(_messages[_messages.length - 9] as types.TextMessage).text} in this story. \n';
     }
-    return _summary;
+    return _summaryMainSettings;
   }
 
-  Future<String> _summaryAll(String chatLogs) async {
+  Future<String> _summaryStoryAllSettings(String chatLogs) async {
     final String prompt = '''
-      <chatlogs>
+      <chatLogs>
       $chatLogs
-      </chatlogs>
+      </chatLogs>
+
+      <storyMainSettings>
+      $_summaryMainSettings
+      </storyMainSettings>
+
       <instruction>
       The answer text after the question was answered by the child.
       Summarize the content of the child's worldview answer in light of the question.
+      Summarize the development of the story in detail.
       Never delete the content of the child's setting.
       Here is an example. Output the following as a sample
+      Summarize the contents of [[chatLogs]] in a synopsis style, strictly adhering to and taking into account the content of [[storyMainSettings]].
       </instruction>
       <example>
       The main character is: Takashi
       Location: Mountain
       Other characters: Bear
+      Other settings: Takashi is so brave boy. He is going to the mountain to find a treasure. He met a bear in the mountain. The bear is a kind bear. Takashi and the bear are going to find the treasure together.
       </example>
 ''';
     const String systemPrompt =
-        'Please reply in Japanese And Avoid difficult expressions.';
+        'Carefully and rigorously set up <storyMainSettings> and <chatLogs> stories and put them together in every detail';
     final String response =
         await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY_SHOTA");
     return response;
   }
 
-  Future<String> _talk(String chatLogs) async {
+  Future<String> _talk(String summary) async {
     final String prompt = '''
-      <chatlogs>
-      $chatLogs
-      </chatlogs>
+      <chatLogs>
+      $summary
+      </chatLogs>
       <instruction>
       You are a friendly interviewer who asks children about the stories they imagine.
       Speak in a friendly, frank tone, without using honorifics.
@@ -378,8 +386,8 @@ class ChatModel extends ChangeNotifier {
     ''';
     const String systemPrompt = '''
     <instruction>
-      Please look at the conversation history so far in [[chatlog]] and output only the Assistant's next reply. 
-      Assistant should output a reaction to Human's last statement in [[chatlog]] and another additional question regarding the setting of the story. 
+      Please look at the conversation history so far in [[chatLogs]] and output only the Assistant's next reply. 
+      Assistant should output a reaction to Human's last statement in [[chatLogs]] and another additional question regarding the setting of the story. 
       [[NOTE: The main character, the stage, and one of the characters have already been heard. ]]]
       so please start with other questions.
       [[Be sure to limit the number of questions to one question!]] [[What is your personality? , What is its color? , What is the shape? etc.]]
@@ -468,16 +476,17 @@ class ChatModel extends ChangeNotifier {
   //_makeStory
   Future<List<Map<String, dynamic>>> _makeStory(
       {required String chatLogs}) async {
+    debugPrint('summary: $_summaryMainSettings');
     final String prompt = '''
     <chatLogs>
     $chatLogs
     </chatLogs>
 
     <storyMainSettings>
-    $_summary
+    $_summaryMainSettings
     </storyMainSettings>
 
-    Create a narrative based on the [[chatlogs]].Make it fun and exciting for kids!
+    Create a narrative based on the [[chatLogs]].Make it fun and exciting for kids!
 
     <storyline>
     *Stories that delve deeply into the inner life, emotions, surprising secrets, and backgrounds of the main character and other characters
@@ -497,6 +506,7 @@ class ChatModel extends ChangeNotifier {
     *Include lots of specific lines and words spoken by the characters.
     *Write an exciting title that fits the story.
     *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
+    *Create your story in strict adherence to [[storyMainSettings]] and [[chatLogs]]. Incorrect setting of the story will result in the death of innocent people.
     </instruction>
 
     <OutputExample>
@@ -540,6 +550,7 @@ class ChatModel extends ChangeNotifier {
     *Include lots of specific lines and words spoken by the characters.
     *Write an exciting title that fits the story.
     *Write very concrete stories, not abstract. Come up with a clear and detailed setting for all characters and explain it in writing.
+    *Create your story in strict adherence to [[storyMainSettings]] and [[chatLogs]]. Incorrect setting of the story will result in the death of innocent people.
     </instruction>
 
     <OutputExample>
@@ -846,13 +857,12 @@ class ChatModel extends ChangeNotifier {
         _messages.where((message) => message.author.id == _user.id).length;
     if (countIsMeMessages > 2) {
       _startLoading(); // isLoading を true に設定
-      String message = _messageListToString();
-      storyModel.updateMessages(message: message);
+      String chatLogs = _messageListToString();
+      storyModel.updateChatLogs(chatLogs: chatLogs);
 
       try {
-        debugPrint('Starting _makeStory');
         List<Map<String, dynamic>> newStoryMaps =
-            await _makeStory(chatLogs: message);
+            await _makeStory(chatLogs: chatLogs);
         for (var story in newStoryMaps) {
           debugPrint('newStoryMaps: $story');
         }

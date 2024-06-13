@@ -4,18 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OriginalFlashBar extends StatelessWidget {
-  const OriginalFlashBar({
-    Key? key,
-    required this.controller,
-    required this.hintText,
-    required this.height,
-    required this.onPressed,
-  }) : super(key: key);
+  const OriginalFlashBar(
+      {Key? key,
+      required this.controller,
+      required this.hintText,
+      required this.height,
+      required this.onPressed,
+      this.isSend = true})
+      : super(key: key);
 
   final TextEditingController? controller;
   final String hintText;
   final double height;
   final void Function()? onPressed;
+  final bool isSend;
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
@@ -43,12 +45,14 @@ class OriginalFlashBar extends StatelessWidget {
                     )),
               ),
             ),
-            IconButton(
-              onPressed: onPressed,
-              icon: const Icon(Icons.send),
-              color: Colors.pink,
-              iconSize: 35.w,
-            ),
+            isSend
+                ? IconButton(
+                    onPressed: onPressed,
+                    icon: const Icon(Icons.send),
+                    color: Colors.pink,
+                    iconSize: 35.w,
+                  )
+                : const SizedBox.shrink()
           ],
         ),
       ),

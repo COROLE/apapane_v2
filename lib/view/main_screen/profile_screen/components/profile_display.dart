@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 //constants
 import 'package:apapane/constants/strings.dart';
+import 'package:apapane/constants/routes.dart' as routes;
 //components
 import 'package:apapane/details/story_icon.dart';
 import 'package:apapane/details/icon_image.dart';
@@ -62,9 +63,10 @@ class ProfileDisplay extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(left: 15.0.w),
               child: RoundedButton(
-                  onPressed: () {},
+                  onPressed: () => routes.toEditProfileScreen(context: context),
                   widthRate: 0.65,
-                  color: Colors.grey,
+                  color:
+                      const Color.fromARGB(255, 242, 0, 255).withOpacity(0.6),
                   text: editProfileText),
             ),
             SizedBox(height: 20.h),

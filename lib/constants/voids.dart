@@ -7,7 +7,7 @@ import 'package:apapane/constants/bools.dart';
 
 //onRefreshの内部
 Future<void> processNewDocs(
-    {required List<String> muteUids,
+    {List<String> muteUids = const [],
     required List<DocumentSnapshot<Map<String, dynamic>>> docs,
     required Query<Map<String, dynamic>> query}) async {
   if (docs.isNotEmpty) {
@@ -23,7 +23,7 @@ Future<void> processNewDocs(
 
 //onReloadの内部
 Future<void> processBasicDocs(
-    {required List<String> muteUids,
+    {List<String> muteUids = const [],
     required List<DocumentSnapshot<Map<String, dynamic>>> docs,
     required Query<Map<String, dynamic>> query}) async {
   final qshot = await query.limit(30).get();
@@ -38,7 +38,7 @@ Future<void> processBasicDocs(
 
 //onLoadingの内部
 Future<void> processOldDocs(
-    {required List<String> muteUids,
+    {List<String> muteUids = const [],
     required List<DocumentSnapshot<Map<String, dynamic>>> docs,
     required Query<Map<String, dynamic>> query}) async {
   if (docs.isNotEmpty) {

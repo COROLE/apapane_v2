@@ -27,14 +27,14 @@ class StoryScreen extends ConsumerWidget {
       ),
       ...storyModel.storyPages.map((page) {
         if (!isNew) {
-          return FutureBuilder<Uint8List>(
+          return FutureBuilder<Uint8List?>(
               future: storyModel.fetchImageData(page["image"]),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.done) {
                   if (snapshot.hasData) {
                     return RoundedStoryScreen(
                       storyModel: storyModel,
-                      picture: snapshot.data!,
+                      picture: snapshot.data,
                       sentence: page['story'].toString(),
                     );
                   } else if (snapshot.hasError) {
@@ -52,8 +52,9 @@ class StoryScreen extends ConsumerWidget {
             sentence: page['story'].toString(),
           );
         }
-        String base64Image = page["image"];
-        Uint8List image = base64Decode(base64Image);
+        String? base64Image = page["image"];
+        Uint8List? image =
+            base64Image != null ? base64Decode(base64Image) : null;
 
         return RoundedStoryScreen(
           storyModel: storyModel,

@@ -20,7 +20,7 @@ class IconImage extends StatelessWidget {
             child: Icon(
               Icons.person,
               size: length,
-              color: Color.fromARGB(255, 209, 208, 208),
+              color: const Color.fromARGB(255, 209, 208, 208),
             ),
           )
         : CircleImage(length: length, image: NetworkImage(iconImageURL));

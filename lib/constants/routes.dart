@@ -1,5 +1,6 @@
 import 'package:apapane/view/chat_screen/components/mic_ui.dart';
 import 'package:apapane/view/main_screen/home_screen.dart';
+import 'package:apapane/view/main_screen/profile_screen/components/edit_profile_screen.dart';
 import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/main.dart';
@@ -50,3 +51,23 @@ void toFirstScreen({required BuildContext context}) =>
 
 void toMicUi({required BuildContext context}) => Navigator.push(
     context, MaterialPageRoute(builder: (context) => const MicUi()));
+
+void toEditProfileScreen({required BuildContext context}) => Navigator.push(
+    context,
+    PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            EditProfileScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = 0.0;
+          const end = 1.0;
+          const curve = Curves.ease;
+
+          var tween =
+              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+          var scaleAnimation = animation.drive(tween);
+
+          return ScaleTransition(
+            scale: scaleAnimation,
+            child: child,
+          );
+        }));

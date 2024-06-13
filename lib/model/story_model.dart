@@ -31,7 +31,7 @@ class StoryModel extends ChangeNotifier {
   final FlutterTts tts = FlutterTts();
   ConfirmAction confirmAction = ConfirmAction.initialValue;
   ToStoryPageType toStoryPageType = ToStoryPageType.initialValue;
-  String messages = "";
+  String chatLogs = "";
   bool isVolume = false;
   bool isVoiceDownloading = false;
   final player = AudioPlayer();
@@ -85,8 +85,8 @@ class StoryModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateMessages({required String message}) {
-    messages = message;
+  void updateChatLogs({required String chatLogs}) {
+    chatLogs = chatLogs;
     notifyListeners();
   }
 
@@ -113,7 +113,7 @@ class StoryModel extends ChangeNotifier {
           );
 
           final ChatLog chatLog = ChatLog(
-            chatLog: messages,
+            chatLog: chatLogs,
             chatLogId: id,
             createdAt: now,
             uid: activeUid,
@@ -316,10 +316,11 @@ class StoryModel extends ChangeNotifier {
     }
   }
 
-  Future<Uint8List> fetchImageData(String imageUrl) async {
+  Future<Uint8List?> fetchImageData(String? imageUrl) async {
     if (_imageCache.containsKey(imageUrl)) {
       return _imageCache[imageUrl]!;
     } else {
+      if (imageUrl == null) return null;
       final response = await http.get(Uri.parse(imageUrl));
       if (response.statusCode == 200) {
         Uint8List imageData = response.bodyBytes;

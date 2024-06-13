@@ -30,7 +30,7 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       body: Stack(
         children: [
-          ProfileImageSwitcher(profileModel: profileModel), // ここで使用されています
+          ProfileImageSwitcher(profileModel: profileModel),
           Container(
             color: const Color.fromARGB(255, 34, 34, 34).withOpacity(0.5),
           ),

@@ -2,7 +2,7 @@
 import 'package:apapane/view/main_screen/home_screen.dart';
 import 'package:apapane/view/main_screen/archive_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:persistent_bottom_nav_bar/persistent-tab-view.dart';
+import 'package:persistent_bottom_nav_bar/persistent_tab_view.dart';
 
 final pages = <Widget>[
   const HomeScreen(),
