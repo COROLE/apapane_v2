@@ -6,7 +6,7 @@ import 'package:persistent_bottom_nav_bar/persistent_tab_view.dart';
 
 final pages = <Widget>[
   const HomeScreen(),
-  ArchiveScreen(),
+  const ArchiveScreen(),
 ];
 
 class BottomNavBar extends StatelessWidget {
