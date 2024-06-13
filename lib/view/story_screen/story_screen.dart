@@ -1,14 +1,9 @@
-//flutter
 import 'dart:convert';
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-//packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-//models
 import 'package:apapane/model/story_model.dart';
 import 'package:apapane/model/main_model.dart';
-//components
 import 'package:apapane/view/story_screen/components/rounded_story_screen.dart';
 import 'package:apapane/view/story_screen/components/end_story_screen.dart';
 import 'package:apapane/view/story_screen/components/start_story_screen.dart';
@@ -19,10 +14,10 @@ class StoryScreen extends ConsumerWidget {
   final bool isNew;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    debugPrint('StoryScreen built, isNew: $isNew');
     final MainModel mainModel = ref.watch(mainProvider);
     final StoryModel storyModel = ref.watch(storyProvider);
 
-    // ここでstoryModelからstoryPagesを取得し、それぞれのページをリストに追加します。
     final pagesList = <Widget>[
       StartStoryScreen(
         seconds: 30,
@@ -50,12 +45,14 @@ class StoryScreen extends ConsumerWidget {
                 return const Center(child: CircularProgressIndicator());
               });
         }
-
+        if (page["image"] == null) {
+          return RoundedStoryScreen(
+            storyModel: storyModel,
+            picture: null,
+            sentence: page['story'].toString(),
+          );
+        }
         String base64Image = page["image"];
-        // Base64文字列の長さが4の倍数になるように調整
-        // while (base64Image.length % 4 != 0) {
-        //   base64Image += '=';
-        // }
         Uint8List image = base64Decode(base64Image);
 
         return RoundedStoryScreen(

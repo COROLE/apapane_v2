@@ -1,10 +1,6 @@
-//flutter
 import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-//packages
 import 'package:apapane/details/rounded_sentence.dart';
-//models
 import 'package:apapane/model/story_model.dart';
 
 class RoundedStoryScreen extends StatelessWidget {
@@ -15,8 +11,9 @@ class RoundedStoryScreen extends StatelessWidget {
       required this.sentence})
       : super(key: key);
   final StoryModel storyModel;
-  final Uint8List picture;
+  final Uint8List? picture;
   final String sentence;
+
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;
@@ -25,18 +22,31 @@ class RoundedStoryScreen extends StatelessWidget {
     Widget imageWidget;
 
     try {
-      final decodedImage = picture;
-      imageWidget = Container(
-        width: screenWidth,
-        height: screenHeight,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          image: DecorationImage(
-              image: MemoryImage(decodedImage), fit: BoxFit.cover),
-        ),
-      );
+      if (picture == null) {
+        debugPrint('Picture is null');
+        imageWidget = Container(
+          width: screenWidth,
+          height: screenHeight,
+          color: Colors.grey,
+          child: const Center(
+            child: Text('画像を表示できません'),
+          ),
+        );
+      } else {
+        final decodedImage = picture;
+        imageWidget = Container(
+          width: screenWidth,
+          height: screenHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            image: DecorationImage(
+                image: MemoryImage(decodedImage!), fit: BoxFit.cover),
+          ),
+        );
+      }
     } catch (e) {
       // デコードに失敗した場合のフォールバックとして、エラーメッセージを表示
+      debugPrint('Failed to decode image: $e');
       imageWidget = Container(
         width: screenWidth,
         height: screenHeight,

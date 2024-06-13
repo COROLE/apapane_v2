@@ -91,6 +91,11 @@ class ChatModel extends ChangeNotifier {
           lastText: (_messages.last as types.TextMessage).text);
     }
     notifyListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   void _addMessage(BuildContext context, types.Message message) {
@@ -126,7 +131,11 @@ class ChatModel extends ChangeNotifier {
       FocusScope.of(context).unfocus();
       isListening = false;
       speechToText.stop();
-      Navigator.pop(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+      });
       textController.clear();
       textController.text = "";
       notifyListeners();
@@ -174,27 +183,37 @@ class ChatModel extends ChangeNotifier {
       ]
     });
 
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: body,
-    );
+    int retries = 0;
+    const int maxRetries = 3;
+    while (retries < maxRetries) {
+      final response = await http.post(
+        url,
+        headers: headers,
+        body: body,
+      );
 
-    if (response.statusCode == 200) {
-      try {
-        final Map<String, dynamic> responseData =
-            jsonDecode(utf8.decode(response.bodyBytes));
-        return responseData['content'][0]['text'];
-      } catch (e) {
-        debugPrint('Error decoding response: $e');
-        return "";
+      if (response.statusCode == 200) {
+        try {
+          final Map<String, dynamic> responseData =
+              jsonDecode(utf8.decode(response.bodyBytes));
+          return responseData['content'][0]['text'];
+        } catch (e) {
+          debugPrint('Error decoding response: $e');
+          return "";
+        }
+      } else if (response.statusCode == 529) {
+        // Handle overload error with retry
+        retries++;
+        await Future.delayed(Duration(seconds: 2 * retries));
+        debugPrint('Retrying due to overloaded error. Retry count: $retries');
+      } else {
+        const String responseData = "error";
+        debugPrint(
+            'Error response: ${response.statusCode}, ${response.body} in _claude');
+        return responseData;
       }
-    } else {
-      const String responseData = "error";
-      debugPrint(
-          'Error response: ${response.statusCode}, ${response.body} in _claude');
-      return responseData;
     }
+    return "error";
   }
 
   Future<void> _example(String text) async {
@@ -289,7 +308,7 @@ class ChatModel extends ChangeNotifier {
         await Future.delayed(const Duration(milliseconds: 600));
         isValidCreate = true;
         notifyListeners();
-        return "その子はおともだち？それとも敵？";
+        return "その子はおともだち？敵？それとも他の何か？";
       default:
         await Future.delayed(const Duration(milliseconds: 600));
         return "そうしましょう！";
@@ -544,26 +563,23 @@ class ChatModel extends ChangeNotifier {
     Follow the [[instruction]] to create a story.
     {{Output only JSON.}}
     ''';
+    debugPrint('Starting _makeStory with chatLogs: $chatLogs');
 
     var retries = 0;
     const int maxRetries = 3;
     Map<String, dynamic> storyText = {};
     int seconds = 2;
+
     while (retries < maxRetries) {
       try {
-        // APIリクエストを行う
         final data = await _claude(prompt, systemPrompt, "ANTHROPIC_API_KEY");
-
-        // レスポンスをJSONとしてデコードする
         storyText = jsonDecode(data);
         break;
       } on FormatException catch (e) {
-        // JSONデコードに失敗した場合はリトライする
         debugPrint(
             'Invalid JSON response in storyText, retrying... (${e.message}) And retrying count: $retries');
       } catch (e) {
-        // その他の例外をキャッチし、適切に処理する
-        debugPrint('Error occurred: $e');
+        debugPrint('Error occurred in _makeStory: $e');
       }
 
       retries++;
@@ -572,7 +588,6 @@ class ChatModel extends ChangeNotifier {
     }
 
     if (retries >= maxRetries) {
-      // 最大リトライ回数を超えた場合はエラー
       throw Exception('Maximum retries exceeded');
     }
 
@@ -698,27 +713,20 @@ class ChatModel extends ChangeNotifier {
 
    {{Output only JSON.}}
     ''';
-
     retries = 0;
     Map<String, dynamic> storyImagesPrompt = {};
 
     while (retries < maxRetries) {
       try {
-        // APIリクエストを行う
-
         final data =
             await _claude(imagePrompt, imageSystemPrompt, "ANTHROPIC_API_KEY");
-
-        // レスポンスをJSONとしてデコードする
         storyImagesPrompt = jsonDecode(data);
         break;
       } on FormatException catch (e) {
-        // JSONデコードに失敗した場合はリトライする
         debugPrint(
             'Invalid JSON response in storyImagesPrompt, retrying... (${e.message}) And retrying count: $retries');
       } catch (e) {
-        // その他の例外をキャッチし、適切に処理する
-        debugPrint('Error occurred: $e');
+        debugPrint('Error occurred in _makeStory: $e');
       }
 
       retries++;
@@ -726,13 +734,12 @@ class ChatModel extends ChangeNotifier {
     }
 
     if (retries >= maxRetries) {
-      // 最大リトライ回数を超えた場合はエラー
       throw Exception('Maximum retries exceeded');
     }
+
     debugPrint('storyImagesPrompt: $storyImagesPrompt');
     Map<String, Pair<String, String>> elements = {};
 
-// elementsマップの初期化
     storyImagesPrompt.forEach((key, value) {
       if (value is List) {
         for (var item in value) {
@@ -754,7 +761,6 @@ class ChatModel extends ChangeNotifier {
 
     final List<Map<String, dynamic>> outputStory = [];
 
-// storyImagesPromptが空でないことを確認
     if (storyImagesPrompt.isEmpty) {
       throw Exception('No story images found');
     }
@@ -762,7 +768,6 @@ class ChatModel extends ChangeNotifier {
     final firstKey = storyImagesPrompt.keys.first;
     final firstElement = storyImagesPrompt[firstKey];
 
-// firstElementがnullまたは空でないことを確認
     if (firstElement == null || firstElement.isEmpty) {
       throw Exception('First element is null or empty');
     }
@@ -771,7 +776,6 @@ class ChatModel extends ChangeNotifier {
     final String firstNegativePrompt =
         elements[firstKey]?.second ?? "negative_prompt";
 
-// firstElementがMapのリストであることを確認
     if (firstElement is List && firstElement[0] is Map<String, dynamic>) {
       final firstElementMap = firstElement[0] as Map<String, dynamic>;
       if (firstElementMap.containsKey(firstPositivePrompt) &&
@@ -796,12 +800,10 @@ class ChatModel extends ChangeNotifier {
 
     storyImagesPrompt.remove(firstKey);
 
-// 並列処理するFutureのリストを作成
     final futures = storyImagesPrompt.entries.map((entry) async {
       final key = entry.key;
       final element = entry.value;
 
-      // elementがnullまたは空でないことを確認
       if (element == null || element.isEmpty || element[0] is! Map) {
         debugPrint(
             'Error: Expected a non-empty list with a Map as first element for key $key');
@@ -829,7 +831,6 @@ class ChatModel extends ChangeNotifier {
       }
     }).toList();
 
-// 並列処理の結果を待ち、nullでない要素をoutputStoryに追加
     final results = await Future.wait(futures);
     outputStory.addAll(results
         .where((element) => element != null)
@@ -839,39 +840,59 @@ class ChatModel extends ChangeNotifier {
     return outputStory;
   }
 
-  Future<void> createButtonPressed(
+  void createButtonPressed(
       {required BuildContext context, required StoryModel storyModel}) async {
     int countIsMeMessages =
         _messages.where((message) => message.author.id == _user.id).length;
     if (countIsMeMessages > 2) {
-      _startLoading();
+      _startLoading(); // isLoading を true に設定
       String message = _messageListToString();
       storyModel.updateMessages(message: message);
+
       try {
+        debugPrint('Starting _makeStory');
         List<Map<String, dynamic>> newStoryMaps =
             await _makeStory(chatLogs: message);
-        debugPrint('newStoryMaps: $newStoryMaps');
+        for (var story in newStoryMaps) {
+          debugPrint('newStoryMaps: $story');
+        }
+
         if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
           storyModel.getTitleTextAndImage(
               title: newStoryMaps[0]['story'], image: newStoryMaps[0]['image']);
           storyModel.updateStoryMaps(newStoryMaps: newStoryMaps);
           storyModel.toStoryPageType = ToStoryPageType.newStory;
-          // ignore: use_build_context_synchronously
-          routes.toStoryScreenReplacement(context: context, isNew: true);
+
+          if (context.mounted) {
+            // コンテキストが有効かどうかを確認
+            routes.toStoryScreenReplacement(context: context, isNew: true);
+            debugPrint('Navigating to StoryScreen');
+          } else {
+            debugPrint('not mounted!');
+          }
         } else {
           debugPrint('No stories or images returned');
-          voids.showFluttertoast(msg: "物語を取得できませんでした。");
+          await voids.showFluttertoast(msg: "物語を取得できませんでした。");
         }
       } catch (e) {
         debugPrint('Error fetching story: $e');
-        voids.showFluttertoast(msg: "エラーが発生しました。後ほど再試行してください。");
-        // ignore: use_build_context_synchronously
-        routes.toHomeScreen(context: context);
+        if (context.mounted) {
+          await voids.showFluttertoast(msg: "エラーが発生しました。後ほど再試行してください。");
+          debugPrint('Error encountered, navigating back');
+          Navigator.pop(context);
+        }
       } finally {
-        _endLoading();
-        _messages.clear();
-        notifyListeners();
+        if (context.mounted) {
+          debugPrint('Ending loading');
+          _endLoading(); // isLoading を false に設定
+          _messages.clear();
+          notifyListeners();
+        } else {
+          debugPrint('Context is not mounted during finally');
+        }
       }
+    } else {
+      debugPrint('Not enough messages to proceed');
     }
   }
 
@@ -939,12 +960,10 @@ class ChatModel extends ChangeNotifier {
   void backToHomeScreen({required BuildContext context}) {
     messageListString = "";
     _messages.clear();
-    Navigator.pop(context);
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    notifyListeners();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+    });
   }
 }

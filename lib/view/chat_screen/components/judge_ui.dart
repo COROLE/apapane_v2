@@ -1,31 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:apapane/constants/strings.dart';
 import 'package:apapane/details/create_button.dart';
 import 'package:apapane/details/rounded_button.dart';
 import 'package:apapane/model/chat_model.dart';
-import 'package:apapane/model/story_model.dart';
-import 'package:apapane/constants/voids.dart' as voids;
-import 'package:flutter/widgets.dart';
 
-class JudgeUi extends StatefulWidget {
+class JudgeUi extends ConsumerStatefulWidget {
   const JudgeUi({
-    super.key,
+    Key? key,
     required this.screenHeight,
     required this.screenWidth,
+    required this.onPressed,
     required this.chatModel,
-    required this.storyModel,
-  });
-
+  }) : super(key: key);
   final double screenHeight, screenWidth;
+  final void Function() onPressed;
   final ChatModel chatModel;
-  final StoryModel storyModel;
 
   @override
   // ignore: library_private_types_in_public_api
   _JudgeUiState createState() => _JudgeUiState();
 }
 
-class _JudgeUiState extends State<JudgeUi> with SingleTickerProviderStateMixin {
+class _JudgeUiState extends ConsumerState<JudgeUi>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
   late Animation<double> _scaleTextAnimation;
@@ -71,49 +69,49 @@ class _JudgeUiState extends State<JudgeUi> with SingleTickerProviderStateMixin {
             Positioned(
               bottom: widget.screenHeight * 0.4,
               child: const CircleAvatar(
-                radius: 100, // Adjust the size as needed
-                backgroundImage: AssetImage(
-                    judgeBackground), // Replace 'your_image.png' with your asset image
+                radius: 100,
+                backgroundImage: AssetImage(judgeBackground),
               ),
             ),
             Positioned(
-                bottom: widget.screenHeight * 0.6,
-                child: ScaleTransition(
-                  scale: _scaleTextAnimation,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 56, 157, 80),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color.fromARGB(255, 255, 255, 255)
-                              .withOpacity(0.6),
-                          spreadRadius: 1,
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: const Text(
-                      selectTitle,
-                      style: TextStyle(
-                        fontFamily: 'ZenMaruGothic',
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+              bottom: widget.screenHeight * 0.6,
+              child: ScaleTransition(
+                scale: _scaleTextAnimation,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 56, 157, 80),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color.fromARGB(255, 255, 255, 255)
+                            .withOpacity(0.6),
+                        spreadRadius: 1,
+                        blurRadius: 4,
                       ),
+                    ],
+                  ),
+                  child: const Text(
+                    selectTitle,
+                    style: TextStyle(
+                      fontFamily: 'ZenMaruGothic',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
                     ),
                   ),
-                )),
+                ),
+              ),
+            ),
             Positioned(
               bottom: widget.screenHeight * 0.27,
               child: ScaleTransition(
                 scale: _animation,
                 child: Image.asset(
                   apapaneKnightImage,
-                  height: widget.screenHeight * 0.45, // Reduced height
-                  width: widget.screenWidth * 0.45, // Reduced width
+                  height: widget.screenHeight * 0.45,
+                  width: widget.screenWidth * 0.45,
                 ),
               ),
             ),
@@ -125,25 +123,15 @@ class _JudgeUiState extends State<JudgeUi> with SingleTickerProviderStateMixin {
                   RoundedButton(
                     onPressed: () => widget.chatModel.cancel(context),
                     widthRate: 0.4,
-                    color:
-                        const Color.fromARGB(255, 66, 133, 244), // Blue color
+                    color: const Color.fromARGB(255, 66, 133, 244),
                     text: 'まだはなす',
                   ),
                   CreateButton(
-                    judgeMode: true,
-                    isValidCreate: widget.chatModel.isValidCreate,
-                    width: widget.screenWidth * 0.4,
-                    height: widget.screenHeight * 0.06,
-                    onPressed: widget.chatModel.isCommentLoading
-                        ? () async => await voids.showFluttertoast(
-                              msg: pleaseWaitMSG,
-                            )
-                        : () async =>
-                            await widget.chatModel.createButtonPressed(
-                              context: context,
-                              storyModel: widget.storyModel,
-                            ),
-                  ),
+                      judgeMode: true,
+                      isValidCreate: widget.chatModel.isValidCreate,
+                      width: widget.screenWidth * 0.4,
+                      height: widget.screenHeight * 0.06,
+                      onPressed: widget.onPressed),
                 ],
               ),
             ),

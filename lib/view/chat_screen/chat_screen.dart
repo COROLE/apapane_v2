@@ -1,4 +1,3 @@
-//flutter
 import 'package:apapane/details/rounded_mic_button.dart';
 import 'package:apapane/view/chat_screen/components/custom_chat_theme.dart';
 import 'package:apapane/view/chat_screen/components/judge_ui.dart';
@@ -9,14 +8,10 @@ import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
 import 'package:flutter_chat_ui/flutter_chat_ui.dart';
 import 'package:apapane/constants/voids.dart' as voids;
 
-//packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-//constants
 import 'package:apapane/constants/strings.dart';
-//components
 import 'package:apapane/details/circle_progress_indicator.dart';
 import 'package:apapane/details/create_button.dart';
-//models
 import 'package:apapane/model/story_model.dart';
 import 'package:apapane/model/chat_model.dart';
 
@@ -131,10 +126,8 @@ class ChatScreen extends ConsumerWidget {
                             onPressed: chatModel.isCommentLoading
                                 ? () async => await voids.showFluttertoast(
                                     msg: pleaseWaitMSG)
-                                : () async =>
-                                    await chatModel.createButtonPressed(
-                                        context: context,
-                                        storyModel: storyModel)),
+                                : () => chatModel.createButtonPressed(
+                                    context: context, storyModel: storyModel)),
                         SizedBox(width: screenWidth * 0.03),
                       ],
                     ),
@@ -151,8 +144,16 @@ class ChatScreen extends ConsumerWidget {
                   ? JudgeUi(
                       screenHeight: screenHeight,
                       screenWidth: screenWidth,
+                      onPressed: chatModel.isCommentLoading
+                          ? () async => await voids.showFluttertoast(
+                                msg: pleaseWaitMSG,
+                              )
+                          : () => chatModel.createButtonPressed(
+                                context: context,
+                                storyModel: storyModel,
+                              ),
                       chatModel: chatModel,
-                      storyModel: storyModel)
+                    )
                   : const SizedBox.shrink()
             ]),
           );

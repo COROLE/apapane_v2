@@ -225,7 +225,7 @@ class StoryModel extends ChangeNotifier {
   //   }
   //   notifyListeners();
   // }
-  onVolumePressed({required String sentence}) async {
+  void onVolumePressed({required String sentence}) async {
     isVolume = !isVolume;
     if (!isVolume) {
       player.stop(); // 音声の呼び上げを停止する
