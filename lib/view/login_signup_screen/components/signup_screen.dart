@@ -12,7 +12,7 @@ import 'package:apapane/details/rounded_text_field.dart';
 import 'package:apapane/model/signup_model.dart';
 
 class SignUpScreen extends ConsumerWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

@@ -16,7 +16,7 @@ import 'package:apapane/details/reload_screen.dart';
 import 'package:apapane/domain/story/story.dart';
 
 class PublicScreen extends ConsumerWidget {
-  const PublicScreen({Key? key}) : super(key: key);
+  const PublicScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

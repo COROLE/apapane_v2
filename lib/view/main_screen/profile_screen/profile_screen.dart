@@ -15,7 +15,7 @@ import 'package:apapane/model/main/profile_model.dart';
 import 'package:apapane/model/main_model.dart';
 
 class ProfileScreen extends ConsumerWidget {
-  const ProfileScreen({Key? key, required this.mainModel}) : super(key: key);
+  const ProfileScreen({super.key, required this.mainModel});
   final MainModel mainModel;
   @override
   Widget build(BuildContext context, WidgetRef ref) {

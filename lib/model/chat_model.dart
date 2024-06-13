@@ -81,6 +81,7 @@ class ChatModel extends ChangeNotifier {
     routes.toChatScreen(context: context);
     _replyMessage(context);
     await Future.delayed(const Duration(milliseconds: 500));
+    // ignore: use_build_context_synchronously
     _replyMessage(context);
   }
 

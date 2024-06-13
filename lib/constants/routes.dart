@@ -9,7 +9,7 @@ import 'package:apapane/view/chat_screen/chat_screen.dart';
 import 'package:apapane/view/story_screen/story_screen.dart';
 
 void toMyApp({required BuildContext context}) => Navigator.pushReplacement(
-    context, MaterialPageRoute(builder: (context) => MyApp()));
+    context, MaterialPageRoute(builder: (context) => const MyApp()));
 
 void toLoginSignupScreen({required BuildContext context}) =>
     Navigator.pushReplacement(context,

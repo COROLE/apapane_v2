@@ -6,7 +6,7 @@ import 'package:apapane/constants/strings.dart';
 import 'package:apapane/details/rounded_button.dart';
 
 class ReloadScreen extends StatelessWidget {
-  const ReloadScreen({Key? key, required this.onReload}) : super(key: key);
+  const ReloadScreen({super.key, required this.onReload});
   final void Function()? onReload;
   @override
   Widget build(BuildContext context) {

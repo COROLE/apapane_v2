@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 class RectangleImage extends StatelessWidget {
-  const RectangleImage({Key? key, required this.imageUrl}) : super(key: key);
+  const RectangleImage({super.key, required this.imageUrl});
   final String imageUrl;
   @override
   Widget build(BuildContext context) {

@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 
 class LibraryInkWell extends StatelessWidget {
   const LibraryInkWell(
-      {Key? key,
+      {super.key,
       required this.height,
       required this.width,
       required this.onTap,
       required this.storyImageURL,
-      required this.titleText})
-      : super(key: key);
+      required this.titleText});
   final double height, width;
   final void Function()? onTap;
   final String storyImageURL, titleText;

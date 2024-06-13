@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:apapane/constants/strings.dart';
 
 class CircleProgressIndicator extends StatelessWidget {
-  const CircleProgressIndicator({Key? key, required this.message})
-      : super(key: key);
+  const CircleProgressIndicator({super.key, required this.message});
   final String message;
   @override
   Widget build(BuildContext context) {

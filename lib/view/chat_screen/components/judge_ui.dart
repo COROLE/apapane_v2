@@ -7,12 +7,12 @@ import 'package:apapane/model/chat_model.dart';
 
 class JudgeUi extends ConsumerStatefulWidget {
   const JudgeUi({
-    Key? key,
+    super.key,
     required this.screenHeight,
     required this.screenWidth,
     required this.onPressed,
     required this.chatModel,
-  }) : super(key: key);
+  });
   final double screenHeight, screenWidth;
   final void Function() onPressed;
   final ChatModel chatModel;

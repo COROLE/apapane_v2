@@ -5,12 +5,11 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class RefreshScreen extends StatelessWidget {
   const RefreshScreen(
-      {Key? key,
+      {super.key,
       required this.onRefresh,
       required this.onLoading,
       required this.refreshController,
-      required this.child})
-      : super(key: key);
+      required this.child});
 
   final void Function()? onRefresh;
   final void Function()? onLoading;

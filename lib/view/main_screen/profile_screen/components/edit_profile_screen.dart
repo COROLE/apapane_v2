@@ -8,7 +8,7 @@ import 'package:apapane/details/icon_image.dart';
 import 'package:apapane/details/original_flash_bar.dart';
 
 class EditProfileScreen extends ConsumerWidget {
-  EditProfileScreen({Key? key}) : super(key: key);
+  EditProfileScreen({super.key});
 
   final TextEditingController _nameController = TextEditingController();
 
@@ -37,10 +37,7 @@ class EditProfileScreen extends ConsumerWidget {
                   child: InkWell(
                     splashColor:
                         const Color.fromARGB(255, 239, 42, 137), // Splash color
-                    onTap: () {
-                      // Logic to handle album icon button press
-                      print('Album icon button pressed');
-                    },
+                    onTap: () {},
                     child: Container(
                       color: const Color.fromARGB(0, 252, 80, 246),
                       width: 48, // Button size
@@ -60,10 +57,7 @@ class EditProfileScreen extends ConsumerWidget {
                   controller: _nameController,
                   hintText: mainModel.firestoreUser.userName,
                   height: 60,
-                  onPressed: () {
-                    // Save name logic or API call
-                    print('Name saved: ${_nameController.text}');
-                  },
+                  onPressed: () {},
                   isSend: false,
                 ),
               ),

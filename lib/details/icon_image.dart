@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:apapane/details/circle_image.dart';
 
 class IconImage extends StatelessWidget {
-  const IconImage({Key? key, required this.length, required this.iconImageURL})
-      : super(key: key);
+  const IconImage(
+      {super.key, required this.length, required this.iconImageURL});
   final double length;
   final String iconImageURL;
   @override

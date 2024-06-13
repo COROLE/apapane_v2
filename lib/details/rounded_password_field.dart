@@ -7,14 +7,14 @@ import 'package:apapane/details/text_field_container.dart';
 
 class RoundedPasswordField extends StatelessWidget {
   const RoundedPasswordField({
-    Key? key,
+    super.key,
     required this.onChanged,
     required this.passwordController,
     required this.obscureText,
     required this.toggleObscureText,
     required this.borderColor,
     required this.shadowColor,
-  }) : super(key: key);
+  });
   final void Function(String)? onChanged;
   final TextEditingController passwordController;
   final bool obscureText;

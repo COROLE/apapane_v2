@@ -6,8 +6,8 @@ import 'package:apapane/constants/bottom_nav_bar_element.dart';
 import 'package:apapane/model/bottom_nav_bar_model.dart';
 
 class BottomNavigationBars extends StatelessWidget {
-  const BottomNavigationBars({Key? key, required this.bottomNavigationBarModel})
-      : super(key: key);
+  const BottomNavigationBars(
+      {super.key, required this.bottomNavigationBarModel});
 
   final BottomNavigationBarModel bottomNavigationBarModel;
 

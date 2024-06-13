@@ -16,12 +16,11 @@ import 'package:apapane/model/main_model.dart';
 
 class ProfileDisplay extends StatelessWidget {
   const ProfileDisplay(
-      {Key? key,
+      {super.key,
       required this.length,
       required this.mainModel,
       required this.profileModel,
-      required this.storyModel})
-      : super(key: key);
+      required this.storyModel});
   final double length;
   final MainModel mainModel;
   final ProfileModel profileModel;

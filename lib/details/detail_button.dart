@@ -2,8 +2,7 @@
 import 'package:flutter/material.dart';
 
 class DetailButton extends StatelessWidget {
-  const DetailButton({Key? key, required this.onPressed, required this.size})
-      : super(key: key);
+  const DetailButton({super.key, required this.onPressed, required this.size});
   final void Function()? onPressed;
   final double size;
 

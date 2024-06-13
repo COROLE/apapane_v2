@@ -3,7 +3,7 @@ import 'package:bordered_text/bordered_text.dart';
 import 'package:flutter/material.dart';
 
 class RoundedSentence extends StatelessWidget {
-  const RoundedSentence({Key? key, required this.sentence}) : super(key: key);
+  const RoundedSentence({super.key, required this.sentence});
   final String sentence;
   @override
   Widget build(BuildContext context) {

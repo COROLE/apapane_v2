@@ -5,13 +5,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OriginalFlashBar extends StatelessWidget {
   const OriginalFlashBar(
-      {Key? key,
+      {super.key,
       required this.controller,
       required this.hintText,
       required this.height,
       required this.onPressed,
-      this.isSend = true})
-      : super(key: key);
+      this.isSend = true});
 
   final TextEditingController? controller;
   final String hintText;

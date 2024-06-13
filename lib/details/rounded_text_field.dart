@@ -5,14 +5,14 @@ import 'package:apapane/details/text_field_container.dart';
 
 class RoundedTextField extends StatelessWidget {
   const RoundedTextField({
-    Key? key,
+    super.key,
     required this.keyboardType,
     required this.onChanged,
     required this.controller,
     required this.borderColor,
     required this.shadowColor,
     required this.hintText,
-  }) : super(key: key);
+  });
   final TextInputType keyboardType;
   final void Function(String) onChanged;
   final TextEditingController controller;

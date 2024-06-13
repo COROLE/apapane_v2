@@ -8,8 +8,7 @@ import 'package:apapane/model/main/profile_model.dart';
 class ProfileImageSwitcher extends StatefulWidget {
   final ProfileModel profileModel;
 
-  const ProfileImageSwitcher({Key? key, required this.profileModel})
-      : super(key: key);
+  const ProfileImageSwitcher({super.key, required this.profileModel});
 
   @override
   // ignore: library_private_types_in_public_api

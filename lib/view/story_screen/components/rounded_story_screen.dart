@@ -5,11 +5,10 @@ import 'package:apapane/model/story_model.dart';
 
 class RoundedStoryScreen extends StatelessWidget {
   const RoundedStoryScreen(
-      {Key? key,
+      {super.key,
       required this.storyModel,
       required this.picture,
-      required this.sentence})
-      : super(key: key);
+      required this.sentence});
   final StoryModel storyModel;
   final Uint8List? picture;
   final String sentence;

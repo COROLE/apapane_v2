@@ -12,7 +12,7 @@ import 'package:apapane/details/rounded_text_field.dart';
 import 'package:apapane/model/login_model.dart';
 
 class LoginScreen extends ConsumerWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final LoginModel loginModel = ref.watch(loginProvider);

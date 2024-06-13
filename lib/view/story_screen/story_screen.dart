@@ -10,7 +10,7 @@ import 'package:apapane/view/story_screen/components/start_story_screen.dart';
 import 'package:apapane/details/rounded_title.dart';
 
 class StoryScreen extends ConsumerWidget {
-  const StoryScreen({Key? key, required this.isNew}) : super(key: key);
+  const StoryScreen({super.key, required this.isNew});
   final bool isNew;
   @override
   Widget build(BuildContext context, WidgetRef ref) {

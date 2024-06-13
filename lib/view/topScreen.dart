@@ -6,7 +6,7 @@ import 'package:apapane/view/login_signup_screen/login_signup_screen.dart';
 import 'package:flutter/material.dart';
 
 class TopScreen extends StatefulWidget {
-  const TopScreen({Key? key}) : super(key: key);
+  const TopScreen({super.key});
 
   @override
   State<TopScreen> createState() => _TopScreenState();
@@ -26,7 +26,7 @@ class _TopScreenState extends State<TopScreen> {
       body: AnimatedSwitcher(
         duration: const Duration(seconds: 1), // アニメーションの時間
         child: showChatScreen
-            ? LoginSignUpScreen()
+            ? const LoginSignUpScreen()
             : buildTopScreen(), // TopScreenを表示
       ),
     );

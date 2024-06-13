@@ -16,7 +16,7 @@ import 'package:apapane/details/reload_screen.dart';
 import 'package:apapane/domain/story/story.dart';
 
 class ArchiveScreen extends ConsumerWidget {
-  const ArchiveScreen({Key? key}) : super(key: key);
+  const ArchiveScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

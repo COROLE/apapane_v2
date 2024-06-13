@@ -7,7 +7,7 @@ import 'package:apapane/view/login_signup_screen/components/login_screen.dart';
 import 'package:apapane/view/login_signup_screen/components/signup_screen.dart';
 
 class LoginSignUpScreen extends ConsumerWidget {
-  const LoginSignUpScreen({Key? key}) : super(key: key);
+  const LoginSignUpScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

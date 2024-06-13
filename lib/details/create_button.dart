@@ -5,13 +5,13 @@ import 'package:apapane/constants/strings.dart';
 
 class CreateButton extends StatelessWidget {
   const CreateButton({
-    Key? key,
+    super.key,
     required this.isValidCreate,
     required this.width,
     required this.height,
     required this.onPressed,
     this.judgeMode = false,
-  }) : super(key: key);
+  });
   final bool isValidCreate;
   final double width;
   final double height;

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class RoundedStartButton extends StatelessWidget {
-  const RoundedStartButton({Key? key, required this.startTitle})
-      : super(key: key);
+  const RoundedStartButton({super.key, required this.startTitle});
   final String startTitle;
   @override
   Widget build(BuildContext context) {

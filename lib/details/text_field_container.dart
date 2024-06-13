@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 class TextFieldContainer extends StatelessWidget {
   const TextFieldContainer({
-    Key? key,
+    super.key,
     required this.borderColor,
     required this.child,
     required this.shadowColor,
     this.vertical = 0.0,
-  }) : super(key: key);
+  });
 
   final Color borderColor;
   final Color shadowColor;
@@ -28,7 +28,7 @@ class TextFieldContainer extends StatelessWidget {
           BoxShadow(
             color: shadowColor.withOpacity(0.25),
             blurRadius: 10.0,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
         borderRadius: BorderRadius.circular(30.0),

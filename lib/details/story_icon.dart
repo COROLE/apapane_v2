@@ -3,7 +3,7 @@ import 'package:apapane/details/rectangle_image.dart';
 import 'package:flutter/material.dart';
 
 class StoryIcon extends StatelessWidget {
-  const StoryIcon({Key? key, required this.storyImageURL}) : super(key: key);
+  const StoryIcon({super.key, required this.storyImageURL});
   final String storyImageURL;
   @override
   Widget build(BuildContext context) {

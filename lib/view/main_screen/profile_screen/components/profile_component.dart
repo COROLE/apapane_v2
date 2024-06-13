@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 
 class ProfileComponent extends StatelessWidget {
-  const ProfileComponent({Key? key, required this.image}) : super(key: key);
+  const ProfileComponent({super.key, required this.image});
   final String image;
   @override
   Widget build(BuildContext context) {

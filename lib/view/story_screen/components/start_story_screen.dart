@@ -2,9 +2,10 @@ import 'package:apapane/constants/strings.dart';
 import 'package:flutter/material.dart';
 
 class StartStoryScreen extends StatefulWidget {
-  const StartStoryScreen({Key? key, required this.child, required this.seconds})
-      : super(key: key);
+  const StartStoryScreen(
+      {super.key, required this.child, required this.seconds});
   @override
+  // ignore: library_private_types_in_public_api
   _StartStoryScreenState createState() => _StartStoryScreenState();
   final Widget child;
   final int seconds;
@@ -48,8 +49,8 @@ class _StartStoryScreenState extends State<StartStoryScreen>
     return Scaffold(
       body: Stack(children: [
         SingleChildScrollView(
-          physics: NeverScrollableScrollPhysics(), // Disable scrolling
-          child: Container(
+          physics: const NeverScrollableScrollPhysics(), // Disable scrolling
+          child: SizedBox(
             height: screenHeight * 2,
             child: Stack(
               children: <Widget>[
@@ -75,7 +76,7 @@ class _StartStoryScreenState extends State<StartStoryScreen>
           ),
         ),
         Container(
-          color: Color.fromARGB(255, 34, 34, 34).withOpacity(0.3),
+          color: const Color.fromARGB(255, 34, 34, 34).withOpacity(0.3),
           width: screenWidth,
           height: screenHeightMax,
         ),

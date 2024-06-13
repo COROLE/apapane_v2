@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 
 class RoundedTitle extends StatelessWidget {
   const RoundedTitle({
-    Key? key,
+    super.key,
     required this.storyTitle,
-  }) : super(key: key);
+  });
   final String storyTitle;
   @override
   Widget build(BuildContext context) {

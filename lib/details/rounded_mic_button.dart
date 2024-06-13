@@ -8,11 +8,10 @@ import 'package:apapane/model/chat_model.dart';
 
 class RoundedMicButton extends ConsumerWidget {
   const RoundedMicButton(
-      {Key? key,
+      {super.key,
       required this.radius,
       required this.isValid,
-      required this.color})
-      : super(key: key);
+      required this.color});
   final double radius;
   final bool isValid;
   final Color color;

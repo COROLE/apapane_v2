@@ -12,8 +12,7 @@ import 'package:apapane/model/story_model.dart';
 
 class EndStoryScreen extends StatelessWidget {
   const EndStoryScreen(
-      {Key? key, required this.storyModel, required this.mainModel})
-      : super(key: key);
+      {super.key, required this.storyModel, required this.mainModel});
   final StoryModel storyModel;
   final MainModel mainModel;
 

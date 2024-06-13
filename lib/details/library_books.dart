@@ -7,7 +7,7 @@ import 'package:apapane/view/refresh_screen.dart';
 
 class LibraryBooks extends StatelessWidget {
   const LibraryBooks(
-      {Key? key,
+      {super.key,
       required this.image,
       required this.titleText,
       required this.height,
@@ -15,8 +15,7 @@ class LibraryBooks extends StatelessWidget {
       required this.refreshController,
       required this.child,
       required this.onRefresh,
-      required this.onLoading})
-      : super(key: key);
+      required this.onLoading});
   final String image, titleText;
   final double height, width;
   final RefreshController refreshController;
