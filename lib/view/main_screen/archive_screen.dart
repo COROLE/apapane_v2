@@ -42,14 +42,16 @@ class ArchiveScreen extends ConsumerWidget {
                     final storyDoc = storyDocs[index];
                     final Story story = Story.fromJson(storyDoc.data()!);
                     return LibraryInkWell(
-                        height: height,
-                        width: width,
-                        onTap: () async => await archiveModel.getMyStories(
-                            context: context,
-                            storyModel: storyModel,
-                            storyDoc: storyDoc),
-                        storyImageURL: story.titleImage,
-                        titleText: story.titleText);
+                      height: height,
+                      width: width,
+                      onTap: () async => await archiveModel.getMyStories(
+                          context: context,
+                          storyModel: storyModel,
+                          storyDoc: storyDoc),
+                      storyImageURL: story.titleImage,
+                      titleText: story.titleText,
+                      isArchive: true,
+                    );
                   },
                 ),
               ));

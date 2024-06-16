@@ -56,7 +56,7 @@ void toEditProfileScreen({required BuildContext context}) => Navigator.push(
     context,
     PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            EditProfileScreen(),
+            const EditProfileScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = 0.0;
           const end = 1.0;

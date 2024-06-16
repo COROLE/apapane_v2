@@ -88,6 +88,7 @@ flutter:
     - assets/images/dog.png
     - assets/images/apapane_knight.png
     - assets/images/judge_background.jpeg
+    - assets/images/update_profile_image.png
 
     #削除
     - assets/a.json

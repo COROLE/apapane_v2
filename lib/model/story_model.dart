@@ -100,6 +100,7 @@ class StoryModel extends ChangeNotifier {
           String saveTitleImage = titleImage;
           String saveTitleText = titleText;
           List<Map<String, dynamic>> saveStoryPages = storyPages;
+          String newChatLogs = chatLogs;
 
           final DocumentSnapshot<Map<String, dynamic>> currentUserDoc =
               mainModel.currentUserDoc;
@@ -113,7 +114,7 @@ class StoryModel extends ChangeNotifier {
           );
 
           final ChatLog chatLog = ChatLog(
-            chatLog: chatLogs,
+            chatLog: newChatLogs,
             chatLogId: id,
             createdAt: now,
             uid: activeUid,

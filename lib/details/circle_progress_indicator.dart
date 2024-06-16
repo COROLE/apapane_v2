@@ -1,11 +1,12 @@
 //flutter
 import 'package:flutter/material.dart';
 //constants
-import 'package:apapane/constants/strings.dart';
 
 class CircleProgressIndicator extends StatelessWidget {
-  const CircleProgressIndicator({super.key, required this.message});
+  const CircleProgressIndicator(
+      {super.key, required this.message, required this.circleIndicatorImage});
   final String message;
+  final String circleIndicatorImage;
   @override
   Widget build(BuildContext context) {
     double screenHeight = MediaQuery.of(context).size.height;

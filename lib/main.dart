@@ -74,13 +74,11 @@ class MyHomePage extends ConsumerWidget {
                 onPageChanged: (index) =>
                     bottomNavigationBarModel.onPageChanged(index: index),
                 //childrenの個数はElementsの個数と同じ
-                children: [
-                  const HomeScreen(),
-                  const PublicScreen(),
-                  const ArchiveScreen(),
-                  ProfileScreen(
-                    mainModel: mainModel,
-                  ),
+                children: const [
+                  HomeScreen(),
+                  PublicScreen(),
+                  ArchiveScreen(),
+                  ProfileScreen(),
                 ],
               ),
         bottomNavigationBar: BottomNavigationBars(

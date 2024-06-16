@@ -15,8 +15,8 @@ class LoginModel extends ChangeNotifier {
 
   Future<void> login({required BuildContext context}) async {
     try {
-      await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password);
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: email.trim(), password: password.trim());
       routes.toMyApp(context: context);
     } on FirebaseAuthException catch (e) {
       String errorMessage = _getErrorMessage(e.code);

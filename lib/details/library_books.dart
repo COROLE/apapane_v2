@@ -6,16 +6,17 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:apapane/view/refresh_screen.dart';
 
 class LibraryBooks extends StatelessWidget {
-  const LibraryBooks(
-      {super.key,
-      required this.image,
-      required this.titleText,
-      required this.height,
-      required this.width,
-      required this.refreshController,
-      required this.child,
-      required this.onRefresh,
-      required this.onLoading});
+  const LibraryBooks({
+    super.key,
+    required this.image,
+    required this.titleText,
+    required this.height,
+    required this.width,
+    required this.refreshController,
+    required this.child,
+    required this.onRefresh,
+    required this.onLoading,
+  });
   final String image, titleText;
   final double height, width;
   final RefreshController refreshController;

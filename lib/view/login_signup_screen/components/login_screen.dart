@@ -21,37 +21,39 @@ class LoginScreen extends ConsumerWidget {
     final TextEditingController passwordController =
         TextEditingController(text: loginModel.password);
     final double screenHeight = MediaQuery.of(context).size.height;
-    return Column(
-      children: [
-        SizedBox(
-          height: screenHeight * 0.1,
-        ),
-        const Text(mailAddressText, style: TextStyle(color: Colors.grey)),
-        RoundedTextField(
-            keyboardType: TextInputType.emailAddress,
-            onChanged: (text) => loginModel.email = text,
-            controller: emailController,
-            borderColor: Colors.blueAccent,
-            shadowColor: Colors.blueAccent.withOpacity(0.5),
-            hintText: mailAddressText),
-        const Text(passwordText, style: TextStyle(color: Colors.grey)),
-        RoundedPasswordField(
-          onChanged: (text) => loginModel.password = text,
-          passwordController: passwordController,
-          obscureText: loginModel.isObscure,
-          toggleObscureText: () => loginModel.toggleIsObscure(),
-          borderColor: Colors.lightBlue,
-          shadowColor: Colors.lightBlue.withOpacity(0.5),
-        ),
-        SizedBox(
-          height: screenHeight * 0.03,
-        ),
-        RoundedButton(
-            onPressed: () => loginModel.login(context: context),
-            widthRate: 0.85,
-            color: Colors.lightBlue.withOpacity(0.5),
-            text: loginText)
-      ],
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          SizedBox(
+            height: screenHeight * 0.1,
+          ),
+          const Text(mailAddressText, style: TextStyle(color: Colors.grey)),
+          RoundedTextField(
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (text) => loginModel.email = text,
+              controller: emailController,
+              borderColor: Colors.blueAccent,
+              shadowColor: Colors.blueAccent.withOpacity(0.5),
+              hintText: mailAddressText),
+          const Text(passwordText, style: TextStyle(color: Colors.grey)),
+          RoundedPasswordField(
+            onChanged: (text) => loginModel.password = text,
+            passwordController: passwordController,
+            obscureText: loginModel.isObscure,
+            toggleObscureText: () => loginModel.toggleIsObscure(),
+            borderColor: Colors.lightBlue,
+            shadowColor: Colors.lightBlue.withOpacity(0.5),
+          ),
+          SizedBox(
+            height: screenHeight * 0.03,
+          ),
+          RoundedButton(
+              onPressed: () => loginModel.login(context: context),
+              widthRate: 0.85,
+              color: Colors.lightBlue.withOpacity(0.5),
+              text: loginText)
+        ],
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 //flutter
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 //packages
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 //constants
@@ -13,21 +14,21 @@ import 'package:apapane/details/rounded_button.dart';
 import 'package:apapane/model/main/profile_model.dart';
 import 'package:apapane/model/story_model.dart';
 import 'package:apapane/model/main_model.dart';
+import 'package:apapane/model/edit_profile_model.dart';
 
-class ProfileDisplay extends StatelessWidget {
+class ProfileDisplay extends ConsumerWidget {
   const ProfileDisplay(
-      {super.key,
-      required this.length,
-      required this.mainModel,
-      required this.profileModel,
-      required this.storyModel});
+      {super.key, required this.length, required this.profileModel});
   final double length;
-  final MainModel mainModel;
   final ProfileModel profileModel;
-  final StoryModel storyModel;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final MainModel mainModel = ref.watch(mainProvider);
+    final EditProfileModel editProfileModel = ref.watch(editProfileProvider);
+    final StoryModel storyModel = ref.watch(storyProvider);
+
     final firestoreUser = mainModel.firestoreUser;
+
     return ScreenUtilInit(
         designSize: const Size(360, 690),
         child: Column(
@@ -35,7 +36,8 @@ class ProfileDisplay extends StatelessWidget {
           children: [
             Row(
               children: [
-                IconImage(length: length, iconImageURL: ''),
+                IconImage(
+                    length: length, iconImageData: firestoreUser.userImageURL),
                 SizedBox(width: 20.w),
                 SizedBox(
                   width: 150.w,
@@ -62,7 +64,10 @@ class ProfileDisplay extends StatelessWidget {
             Padding(
               padding: EdgeInsets.only(left: 15.0.w),
               child: RoundedButton(
-                  onPressed: () => routes.toEditProfileScreen(context: context),
+                  onPressed: () {
+                    editProfileModel.init(mainModel);
+                    routes.toEditProfileScreen(context: context);
+                  },
                   widthRate: 0.65,
                   color:
                       const Color.fromARGB(255, 242, 0, 255).withOpacity(0.6),

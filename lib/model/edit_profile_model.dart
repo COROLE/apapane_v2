@@ -1,79 +1,126 @@
 //flutter
-import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:apapane/constants/strings.dart';
+import 'package:apapane/domain/firestore_user/firestore_user.dart';
+import 'package:apapane/model/bottom_nav_bar_model.dart';
+import 'package:apapane/model/main_model.dart';
+import 'package:apapane/ui_core/file_core.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:image_cropper/image_cropper.dart';
 //packages
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
 //constants
-import 'package:apapane/constants/enums.dart';
-import 'package:apapane/constants/routes.dart' as routes;
-import 'package:apapane/constants/voids.dart' as voids;
 import 'package:apapane/constants/others.dart';
-//models
-import 'package:apapane/model/story_model.dart';
 
 final editProfileProvider = ChangeNotifierProvider((ref) => EditProfileModel());
 
 class EditProfileModel extends ChangeNotifier {
   List<DocumentSnapshot<Map<String, dynamic>>> storyDocs = [];
-  final RefreshController refreshController = RefreshController();
+  final TextEditingController _nameController = TextEditingController();
+  TextEditingController get nameController => _nameController;
   bool isLoading = false;
+  bool isChanged = false;
+  String newUserName = '';
+  dynamic croppedImage;
+  dynamic oldCroppedImage;
 
-  Future<void> updateUserName(String newUserName) async {
+  void init(MainModel mainModel) {
+    isLoading = false;
+    isChanged = false;
     final User? currentUser = returnAuthUser();
-    if (currentUser != null) {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .update({'userName': newUserName});
+    if (currentUser == null) return;
+    _nameController.text = currentUser.displayName ?? '';
+    newUserName = currentUser.displayName ?? '';
+    croppedImage = mainModel.firestoreUser.userImageURL;
+    oldCroppedImage = mainModel.firestoreUser.userImageURL;
+    notifyListeners();
+  }
+
+  Future<void> selectImage() async {
+    croppedImage = await FileCore.getImage();
+    if (croppedImage == null) {
+      croppedImage = oldCroppedImage;
+      isChanged = false;
+      return;
+    }
+    isChanged = true;
+    notifyListeners();
+  }
+
+  void saveButtonPressed(BuildContext context, MainModel mainModel,
+      BottomNavigationBarModel bottomNavigationBarModel) async {
+    startLoading();
+    await _updateUserName(mainModel.firestoreUser);
+    await _updateProfileImage();
+    if (isChanged) {
+      mainModel.init();
+    }
+    bottomNavigationBarModel.profileSavedAction();
+    endLoading();
+    // ignore: use_build_context_synchronously
+    Navigator.pop(context);
+  }
+
+  Future<void> _updateUserName(FirestoreUser firestoreUser) async {
+    final User? currentUser = returnAuthUser();
+    if (currentUser == null) return;
+    final String newUserName = _nameController.text;
+    if (newUserName.trim().isEmpty || newUserName == firestoreUser.userName) {
+      return;
+    }
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .update({'userName': newUserName});
+    isChanged = true;
+    notifyListeners();
+  }
+
+  Future<void> _updateProfileImage() async {
+    final User? currentUser = returnAuthUser();
+    if (currentUser == null) return;
+    if (croppedImage == null) return;
+    if (oldCroppedImage == croppedImage) return;
+    final String fileName = returnJpgFileName();
+    final downloadUrl = await _uploadImageToFirebase(
+        activeUid: currentUser.uid,
+        imageData: croppedImage!,
+        fileName: fileName);
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .update({'userImageURL': downloadUrl});
+  }
+
+  Future<String> _uploadImageToFirebase({
+    required String activeUid,
+    required Uint8List imageData,
+    required String fileName,
+  }) async {
+    Reference storageRef =
+        FirebaseStorage.instance.ref().child('users/$activeUid/$fileName');
+    UploadTask uploadTask = storageRef.putData(imageData);
+
+    // アップロードが完了するのを待つ
+    await uploadTask;
+
+    // アップロードが成功したかどうかを確認
+    if (uploadTask.snapshot.state == TaskState.success) {
+      String downloadUrl = await storageRef.getDownloadURL();
+      return downloadUrl;
+    } else {
+      // アップロードが失敗した場合の処理
+      throw Exception('ファイルのアップロードに失敗しました');
     }
   }
 
-  // Future<void> updateProfileImage() async {
-  //   final User? currentUser = returnAuthUser();
-  //   final ImagePicker picker = ImagePicker();
-  //   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-  //   if (image != null) {
-  //     final CroppedFile? croppedImage = await ImageCropper.cropImage(
-  //       sourcePath: image.path,
-  //       aspectRatio: const CropAspectRatio(ratioX: 1.0, ratioY: 1.0),
-  //     );
-  //     if (croppedImage != null) {
-  //       final String fileName = 'profile_${currentUser!.uid}';
-  //       final Reference firebaseStorageRef =
-  //           FirebaseStorage.instance.ref().child('profile_images/$fileName');
-  //       final UploadTask uploadTask =
-  //           firebaseStorageRef.putFile(File(croppedImage.path));
-  //       final TaskSnapshot taskSnapshot = await uploadTask;
-  //       final String downloadUrl = await taskSnapshot.ref.getDownloadURL();
-  //       await FirebaseFirestore.instance
-  //           .collection('users')
-  //           .doc(currentUser.uid)
-  //           .update({'imageURL': downloadUrl});
-  //     }
-  //   }
-  // }
-
-  Query<Map<String, dynamic>> returnQuery() {
-    final User? currentUser = returnAuthUser();
-    return FirebaseFirestore.instance
-        .collectionGroup('stories')
-        .where('uid', isEqualTo: currentUser!.uid)
-        .orderBy('createdAt', descending: true);
-  }
-
-  editProfileModel() {
-    init();
-  }
-
-  void init() {
-    onReload();
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
   }
 
   void startLoading() {
@@ -84,36 +131,5 @@ class EditProfileModel extends ChangeNotifier {
   void endLoading() {
     isLoading = false;
     notifyListeners();
-  }
-
-  Future<void> onRefresh() async {
-    refreshController.refreshCompleted();
-    await voids.processNewDocs(docs: storyDocs, query: returnQuery());
-    notifyListeners();
-  }
-
-  Future<void> onReload() async {
-    startLoading();
-    await voids.processBasicDocs(docs: storyDocs, query: returnQuery());
-    endLoading();
-  }
-
-  Future<void> onLoading() async {
-    refreshController.loadComplete();
-    await voids.processOldDocs(docs: storyDocs, query: returnQuery());
-    notifyListeners();
-  }
-
-  Future<void> getMyStories(
-      {required BuildContext context,
-      required StoryModel storyModel,
-      required DocumentSnapshot<Map<String, dynamic>> storyDoc}) async {
-    final List<dynamic> myStoryMaps = storyDoc['stories'] as List<dynamic>;
-    storyModel.getTitleTextAndImage(
-        title: storyDoc['titleText'], image: storyDoc['titleImage']);
-    storyModel.updateStoryMaps(
-        newStoryMaps: myStoryMaps.cast<Map<String, dynamic>>());
-    storyModel.toStoryPageType = ToStoryPageType.memoryStory;
-    routes.toStoryScreen(context: context, isNew: false);
   }
 }

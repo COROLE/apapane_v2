@@ -45,7 +45,8 @@ class SignUpModel extends ChangeNotifier {
   Future<void> createUser({required BuildContext context}) async {
     try {
       UserCredential result = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
+          .createUserWithEmailAndPassword(
+              email: email.trim(), password: password.trim());
 
       final User? user = result.user;
       final String uid = user!.uid;

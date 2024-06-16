@@ -26,7 +26,8 @@ class ChatScreen extends ConsumerWidget {
     double screenWidth = MediaQuery.of(context).size.width;
 
     return chatModel.isLoading
-        ? const CircleProgressIndicator(message: makingMSG)
+        ? const CircleProgressIndicator(
+            message: makingMSG, circleIndicatorImage: circleIndicatorImage)
         : Scaffold(
             resizeToAvoidBottomInset: true,
             appBar: AppBar(

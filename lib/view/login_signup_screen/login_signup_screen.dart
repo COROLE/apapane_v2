@@ -11,27 +11,33 @@ class LoginSignUpScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return DefaultTabController(
-        length: 2,
-        child: Scaffold(
-          appBar: AppBar(
-            title: const Text('Apapane', style: TextStyle(color: Colors.black)),
-            bottom: TabBar(
-              indicatorColor: Colors.pinkAccent,
-              labelColor: Colors.pink[300],
-              unselectedLabelColor: Colors.grey[600],
-              tabs: const [
-                Tab(text: 'ログイン'),
-                Tab(text: '新規登録'),
+    // ignore: deprecated_member_use
+    return WillPopScope(
+      onWillPop: () async => false, // Prevents the user from going back
+      child: DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              title:
+                  const Text('Apapane', style: TextStyle(color: Colors.black)),
+              bottom: TabBar(
+                indicatorColor: Colors.pinkAccent,
+                labelColor: Colors.pink[300],
+                unselectedLabelColor: Colors.grey[600],
+                tabs: const [
+                  Tab(text: 'ログイン'),
+                  Tab(text: '新規登録'),
+                ],
+              ),
+            ),
+            body: const TabBarView(
+              children: [
+                LoginScreen(),
+                SignUpScreen(),
               ],
             ),
-          ),
-          body: const TabBarView(
-            children: [
-              LoginScreen(),
-              SignUpScreen(),
-            ],
-          ),
-        ));
+          )),
+    );
   }
 }

@@ -14,6 +14,12 @@ class BottomNavigationBarModel extends ChangeNotifier {
     init();
   }
 
+  void profileSavedAction() {
+    currentIndex = 0;
+    pageController.jumpToPage(0); // PageControllerも更新
+    notifyListeners();
+  }
+
   void init() {
     currentIndex = 0;
     pageController = PageController(initialPage: currentIndex, keepPage: false);

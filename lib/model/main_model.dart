@@ -62,6 +62,7 @@ class MainModel extends ChangeNotifier {
     required BuildContext context,
     required BottomNavigationBarModel bottomNavBarModel,
   }) async {
+    Navigator.of(context).pop();
     routes.toLoginSignupScreen(context: context);
     await FirebaseAuth.instance.signOut();
     setCurrentUser(bottomNavBarModel);

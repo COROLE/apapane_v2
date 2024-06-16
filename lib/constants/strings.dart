@@ -68,6 +68,7 @@ const String publicImage = 'assets/images/public_stories_image.png';
 const String circleIndicatorImage = 'assets/images/circle_indicator_image.png';
 const String apapaneKnightImage = 'assets/images/apapane_knight.png';
 const String judgeBackground = 'assets/images/judge_background.jpeg';
+const String updateProfileImage = 'assets/images/update_profile_image.png';
 
 //id
 String returnUuidV4() {

@@ -9,7 +9,7 @@ class OriginalFlashBar extends StatelessWidget {
       required this.controller,
       required this.hintText,
       required this.height,
-      required this.onPressed,
+      this.onPressed,
       this.isSend = true});
 
   final TextEditingController? controller;
