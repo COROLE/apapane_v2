@@ -26,6 +26,7 @@ class SignUpModel extends ChangeNotifier {
         createdAt: now,
         followerCount: 0,
         followingCount: 0,
+        favoriteMyStoryCount: 0,
         isAdmin: false,
         updatedAt: now,
         userName: 'Alice',

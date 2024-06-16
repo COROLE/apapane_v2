@@ -1,6 +1,9 @@
+import 'package:apapane/domain/firestore_user/firestore_user.dart';
+import 'package:apapane/view/admin_screen.dart';
 import 'package:apapane/view/chat_screen/components/mic_ui.dart';
 import 'package:apapane/view/main_screen/home_screen.dart';
 import 'package:apapane/view/main_screen/profile_screen/components/edit_profile_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/main.dart';
@@ -51,6 +54,16 @@ void toFirstScreen({required BuildContext context}) =>
 
 void toMicUi({required BuildContext context}) => Navigator.push(
     context, MaterialPageRoute(builder: (context) => const MicUi()));
+
+void toAdminScreen(
+        {required BuildContext context,
+        required DocumentSnapshot<Map<String, dynamic>> currentUserDoc,
+        required FirestoreUser firestoreUser}) =>
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => AdminScreen(
+                currentUserDoc: currentUserDoc, firestoreUser: firestoreUser)));
 
 void toEditProfileScreen({required BuildContext context}) => Navigator.push(
     context,

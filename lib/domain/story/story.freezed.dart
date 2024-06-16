@@ -12,7 +12,7 @@ part of 'story.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#custom-getters-and-methods');
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 Story _$StoryFromJson(Map<String, dynamic> json) {
   return _Story.fromJson(json);
@@ -23,7 +23,6 @@ mixin _$Story {
   dynamic get createdAt => throw _privateConstructorUsedError;
   dynamic get chatLogRef => throw _privateConstructorUsedError;
   bool get isPublic => throw _privateConstructorUsedError;
-  bool get isFavorite => throw _privateConstructorUsedError;
   List<Map<String, dynamic>> get stories => throw _privateConstructorUsedError;
   String get storyId => throw _privateConstructorUsedError;
   String get titleImage => throw _privateConstructorUsedError;
@@ -47,7 +46,6 @@ abstract class $StoryCopyWith<$Res> {
       {dynamic createdAt,
       dynamic chatLogRef,
       bool isPublic,
-      bool isFavorite,
       List<Map<String, dynamic>> stories,
       String storyId,
       String titleImage,
@@ -74,7 +72,6 @@ class _$StoryCopyWithImpl<$Res, $Val extends Story>
     Object? createdAt = freezed,
     Object? chatLogRef = freezed,
     Object? isPublic = null,
-    Object? isFavorite = null,
     Object? stories = null,
     Object? storyId = null,
     Object? titleImage = null,
@@ -96,10 +93,6 @@ class _$StoryCopyWithImpl<$Res, $Val extends Story>
       isPublic: null == isPublic
           ? _value.isPublic
           : isPublic // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isFavorite: null == isFavorite
-          ? _value.isFavorite
-          : isFavorite // ignore: cast_nullable_to_non_nullable
               as bool,
       stories: null == stories
           ? _value.stories
@@ -148,7 +141,6 @@ abstract class _$$StoryImplCopyWith<$Res> implements $StoryCopyWith<$Res> {
       {dynamic createdAt,
       dynamic chatLogRef,
       bool isPublic,
-      bool isFavorite,
       List<Map<String, dynamic>> stories,
       String storyId,
       String titleImage,
@@ -173,7 +165,6 @@ class __$$StoryImplCopyWithImpl<$Res>
     Object? createdAt = freezed,
     Object? chatLogRef = freezed,
     Object? isPublic = null,
-    Object? isFavorite = null,
     Object? stories = null,
     Object? storyId = null,
     Object? titleImage = null,
@@ -195,10 +186,6 @@ class __$$StoryImplCopyWithImpl<$Res>
       isPublic: null == isPublic
           ? _value.isPublic
           : isPublic // ignore: cast_nullable_to_non_nullable
-              as bool,
-      isFavorite: null == isFavorite
-          ? _value.isFavorite
-          : isFavorite // ignore: cast_nullable_to_non_nullable
               as bool,
       stories: null == stories
           ? _value._stories
@@ -243,7 +230,6 @@ class _$StoryImpl implements _Story {
       {required this.createdAt,
       required this.chatLogRef,
       required this.isPublic,
-      required this.isFavorite,
       required final List<Map<String, dynamic>> stories,
       required this.storyId,
       required this.titleImage,
@@ -263,8 +249,6 @@ class _$StoryImpl implements _Story {
   final dynamic chatLogRef;
   @override
   final bool isPublic;
-  @override
-  final bool isFavorite;
   final List<Map<String, dynamic>> _stories;
   @override
   List<Map<String, dynamic>> get stories {
@@ -290,7 +274,7 @@ class _$StoryImpl implements _Story {
 
   @override
   String toString() {
-    return 'Story(createdAt: $createdAt, chatLogRef: $chatLogRef, isPublic: $isPublic, isFavorite: $isFavorite, stories: $stories, storyId: $storyId, titleImage: $titleImage, titleText: $titleText, uid: $uid, userImageURL: $userImageURL, userName: $userName, updatedAt: $updatedAt)';
+    return 'Story(createdAt: $createdAt, chatLogRef: $chatLogRef, isPublic: $isPublic, stories: $stories, storyId: $storyId, titleImage: $titleImage, titleText: $titleText, uid: $uid, userImageURL: $userImageURL, userName: $userName, updatedAt: $updatedAt)';
   }
 
   @override
@@ -303,8 +287,6 @@ class _$StoryImpl implements _Story {
                 .equals(other.chatLogRef, chatLogRef) &&
             (identical(other.isPublic, isPublic) ||
                 other.isPublic == isPublic) &&
-            (identical(other.isFavorite, isFavorite) ||
-                other.isFavorite == isFavorite) &&
             const DeepCollectionEquality().equals(other._stories, _stories) &&
             (identical(other.storyId, storyId) || other.storyId == storyId) &&
             (identical(other.titleImage, titleImage) ||
@@ -326,7 +308,6 @@ class _$StoryImpl implements _Story {
       const DeepCollectionEquality().hash(createdAt),
       const DeepCollectionEquality().hash(chatLogRef),
       isPublic,
-      isFavorite,
       const DeepCollectionEquality().hash(_stories),
       storyId,
       titleImage,
@@ -355,7 +336,6 @@ abstract class _Story implements Story {
       {required final dynamic createdAt,
       required final dynamic chatLogRef,
       required final bool isPublic,
-      required final bool isFavorite,
       required final List<Map<String, dynamic>> stories,
       required final String storyId,
       required final String titleImage,
@@ -373,8 +353,6 @@ abstract class _Story implements Story {
   dynamic get chatLogRef;
   @override
   bool get isPublic;
-  @override
-  bool get isFavorite;
   @override
   List<Map<String, dynamic>> get stories;
   @override

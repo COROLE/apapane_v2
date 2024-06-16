@@ -1,4 +1,5 @@
 //flutter
+import 'package:apapane/constants/voids.dart' as voids;
 import 'package:apapane/details/story_icon.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,11 +12,17 @@ class LibraryInkWell extends StatelessWidget {
       required this.onTap,
       required this.storyImageURL,
       required this.titleText,
-      this.isArchive = false});
+      this.isArchive = false,
+      this.isFavorite = false,
+      this.isPublic = false,
+      this.isFavoriteLoading = false,
+      this.onChanged,
+      this.favoriteButtonPressed});
   final double height, width;
-  final bool isArchive;
-  final void Function()? onTap;
+  final void Function()? onTap, favoriteButtonPressed;
   final String storyImageURL, titleText;
+  final bool isArchive, isFavorite, isPublic, isFavoriteLoading;
+  final void Function(bool)? onChanged;
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -53,10 +60,12 @@ class LibraryInkWell extends StatelessWidget {
                   Column(
                     children: [
                       IconButton(
-                          onPressed: () {},
-                          icon: const Icon(
-                            Icons.favorite,
-                            color: Colors.white,
+                          onPressed: () => !isFavoriteLoading
+                              ? favoriteButtonPressed!()
+                              : voids.showFluttertoast(msg: 'ちょっと待ってね'),
+                          icon: Icon(
+                            isFavoriteLoading ? Icons.circle : Icons.favorite,
+                            color: isFavorite ? Colors.red : Colors.white,
                             size: 30,
                           )),
                       const Text('おきにいり',
@@ -70,10 +79,8 @@ class LibraryInkWell extends StatelessWidget {
                     children: [
                       CupertinoSwitch(
                           focusColor: Colors.green,
-                          value: true,
-                          onChanged: (bool value) {
-                            value = !value;
-                          }),
+                          value: isPublic,
+                          onChanged: onChanged),
                       const Text('みんなにみせる',
                           style: TextStyle(
                               color: Colors.white,

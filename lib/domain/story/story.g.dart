@@ -10,7 +10,6 @@ _$StoryImpl _$$StoryImplFromJson(Map<String, dynamic> json) => _$StoryImpl(
       createdAt: json['createdAt'],
       chatLogRef: json['chatLogRef'],
       isPublic: json['isPublic'] as bool,
-      isFavorite: json['isFavorite'] as bool,
       stories: (json['stories'] as List<dynamic>)
           .map((e) => e as Map<String, dynamic>)
           .toList(),
@@ -28,7 +27,6 @@ Map<String, dynamic> _$$StoryImplToJson(_$StoryImpl instance) =>
       'createdAt': instance.createdAt,
       'chatLogRef': instance.chatLogRef,
       'isPublic': instance.isPublic,
-      'isFavorite': instance.isFavorite,
       'stories': instance.stories,
       'storyId': instance.storyId,
       'titleImage': instance.titleImage,

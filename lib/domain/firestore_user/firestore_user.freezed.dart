@@ -12,7 +12,7 @@ part of 'firestore_user.dart';
 T _$identity<T>(T value) => value;
 
 final _privateConstructorUsedError = UnsupportedError(
-    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#custom-getters-and-methods');
+    'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 FirestoreUser _$FirestoreUserFromJson(Map<String, dynamic> json) {
   return _FirestoreUser.fromJson(json);
@@ -22,6 +22,7 @@ FirestoreUser _$FirestoreUserFromJson(Map<String, dynamic> json) {
 mixin _$FirestoreUser {
   int get age => throw _privateConstructorUsedError;
   dynamic get createdAt => throw _privateConstructorUsedError;
+  int get favoriteMyStoryCount => throw _privateConstructorUsedError;
   int get followerCount => throw _privateConstructorUsedError;
   int get followingCount => throw _privateConstructorUsedError;
   bool get isAdmin => throw _privateConstructorUsedError;
@@ -45,6 +46,7 @@ abstract class $FirestoreUserCopyWith<$Res> {
   $Res call(
       {int age,
       dynamic createdAt,
+      int favoriteMyStoryCount,
       int followerCount,
       int followingCount,
       bool isAdmin,
@@ -69,6 +71,7 @@ class _$FirestoreUserCopyWithImpl<$Res, $Val extends FirestoreUser>
   $Res call({
     Object? age = null,
     Object? createdAt = freezed,
+    Object? favoriteMyStoryCount = null,
     Object? followerCount = null,
     Object? followingCount = null,
     Object? isAdmin = null,
@@ -86,6 +89,10 @@ class _$FirestoreUserCopyWithImpl<$Res, $Val extends FirestoreUser>
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
               as dynamic,
+      favoriteMyStoryCount: null == favoriteMyStoryCount
+          ? _value.favoriteMyStoryCount
+          : favoriteMyStoryCount // ignore: cast_nullable_to_non_nullable
+              as int,
       followerCount: null == followerCount
           ? _value.followerCount
           : followerCount // ignore: cast_nullable_to_non_nullable
@@ -129,6 +136,7 @@ abstract class _$$FirestoreUserImplCopyWith<$Res>
   $Res call(
       {int age,
       dynamic createdAt,
+      int favoriteMyStoryCount,
       int followerCount,
       int followingCount,
       bool isAdmin,
@@ -151,6 +159,7 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
   $Res call({
     Object? age = null,
     Object? createdAt = freezed,
+    Object? favoriteMyStoryCount = null,
     Object? followerCount = null,
     Object? followingCount = null,
     Object? isAdmin = null,
@@ -168,6 +177,10 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
           ? _value.createdAt
           : createdAt // ignore: cast_nullable_to_non_nullable
               as dynamic,
+      favoriteMyStoryCount: null == favoriteMyStoryCount
+          ? _value.favoriteMyStoryCount
+          : favoriteMyStoryCount // ignore: cast_nullable_to_non_nullable
+              as int,
       followerCount: null == followerCount
           ? _value.followerCount
           : followerCount // ignore: cast_nullable_to_non_nullable
@@ -206,6 +219,7 @@ class _$FirestoreUserImpl implements _FirestoreUser {
   const _$FirestoreUserImpl(
       {required this.age,
       required this.createdAt,
+      required this.favoriteMyStoryCount,
       required this.followerCount,
       required this.followingCount,
       required this.isAdmin,
@@ -221,6 +235,8 @@ class _$FirestoreUserImpl implements _FirestoreUser {
   final int age;
   @override
   final dynamic createdAt;
+  @override
+  final int favoriteMyStoryCount;
   @override
   final int followerCount;
   @override
@@ -238,7 +254,7 @@ class _$FirestoreUserImpl implements _FirestoreUser {
 
   @override
   String toString() {
-    return 'FirestoreUser(age: $age, createdAt: $createdAt, followerCount: $followerCount, followingCount: $followingCount, isAdmin: $isAdmin, updatedAt: $updatedAt, userName: $userName, userImageURL: $userImageURL, uid: $uid)';
+    return 'FirestoreUser(age: $age, createdAt: $createdAt, favoriteMyStoryCount: $favoriteMyStoryCount, followerCount: $followerCount, followingCount: $followingCount, isAdmin: $isAdmin, updatedAt: $updatedAt, userName: $userName, userImageURL: $userImageURL, uid: $uid)';
   }
 
   @override
@@ -248,6 +264,8 @@ class _$FirestoreUserImpl implements _FirestoreUser {
             other is _$FirestoreUserImpl &&
             (identical(other.age, age) || other.age == age) &&
             const DeepCollectionEquality().equals(other.createdAt, createdAt) &&
+            (identical(other.favoriteMyStoryCount, favoriteMyStoryCount) ||
+                other.favoriteMyStoryCount == favoriteMyStoryCount) &&
             (identical(other.followerCount, followerCount) ||
                 other.followerCount == followerCount) &&
             (identical(other.followingCount, followingCount) ||
@@ -267,6 +285,7 @@ class _$FirestoreUserImpl implements _FirestoreUser {
       runtimeType,
       age,
       const DeepCollectionEquality().hash(createdAt),
+      favoriteMyStoryCount,
       followerCount,
       followingCount,
       isAdmin,
@@ -293,6 +312,7 @@ abstract class _FirestoreUser implements FirestoreUser {
   const factory _FirestoreUser(
       {required final int age,
       required final dynamic createdAt,
+      required final int favoriteMyStoryCount,
       required final int followerCount,
       required final int followingCount,
       required final bool isAdmin,
@@ -308,6 +328,8 @@ abstract class _FirestoreUser implements FirestoreUser {
   int get age;
   @override
   dynamic get createdAt;
+  @override
+  int get favoriteMyStoryCount;
   @override
   int get followerCount;
   @override

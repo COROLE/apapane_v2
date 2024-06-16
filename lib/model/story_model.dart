@@ -169,7 +169,6 @@ class StoryModel extends ChangeNotifier {
               createdAt: now,
               chatLogRef: chatLogRef,
               isPublic: true,
-              isFavorite: false,
               stories: lastUpdatedStoryPages,
               storyId: id,
               titleImage: saveTitleImage,

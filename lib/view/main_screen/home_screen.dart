@@ -22,7 +22,6 @@ class HomeScreen extends ConsumerWidget {
       DeviceOrientation.portraitDown,
     ]);
     final ChatModel chatModel = ref.watch(chatProvider);
-
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
     return Scaffold(

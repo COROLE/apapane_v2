@@ -9,7 +9,6 @@ class Story with _$Story {
     required dynamic createdAt,
     required dynamic chatLogRef,
     required bool isPublic,
-    required bool isFavorite,
     required List<Map<String, dynamic>> stories,
     required String storyId,
     required String titleImage,

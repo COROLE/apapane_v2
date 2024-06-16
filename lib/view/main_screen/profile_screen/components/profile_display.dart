@@ -1,4 +1,5 @@
 //flutter
+import 'package:apapane/view/main_screen/profile_screen/components/favorite_story_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 //packages
@@ -7,7 +8,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:apapane/constants/strings.dart';
 import 'package:apapane/constants/routes.dart' as routes;
 //components
-import 'package:apapane/details/story_icon.dart';
 import 'package:apapane/details/icon_image.dart';
 import 'package:apapane/details/rounded_button.dart';
 //models
@@ -32,10 +32,11 @@ class ProfileDisplay extends ConsumerWidget {
     return ScreenUtilInit(
         designSize: const Size(360, 690),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(
               children: [
+                SizedBox(width: 50.w),
                 IconImage(
                     length: length, iconImageData: firestoreUser.userImageURL),
                 SizedBox(width: 20.w),
@@ -80,20 +81,10 @@ class ProfileDisplay extends ConsumerWidget {
                     fontSize: 15.sp,
                     fontWeight: FontWeight.bold)),
             SizedBox(
-              height: 20.h,
+              height: 10.h,
             ),
-            InkWell(
-              onTap: () => profileModel.getMyStories(
-                  context: context,
-                  storyModel: storyModel,
-                  storyDoc: profileModel.favoriteStoryDocs[0]),
-              child: StoryIcon(
-                  storyImageURL: profileModel.favoriteStoryDocs.isNotEmpty
-                      ? profileModel.favoriteStoryDocs[0]
-                          .data()!['titleImage']
-                          .toString()
-                      : ''),
-            ),
+            FavoriteStoryIcons(
+                storyModel: storyModel, profileModel: profileModel)
           ],
         ));
   }

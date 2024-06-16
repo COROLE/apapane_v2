@@ -1,3 +1,4 @@
+import 'package:apapane/constants/routes.dart' as routes;
 import 'package:apapane/constants/strings.dart';
 import 'package:apapane/details/circle_progress_indicator.dart';
 import 'package:apapane/details/rounded_button.dart';
@@ -61,63 +62,77 @@ class EditProfileScreen extends ConsumerWidget {
                 ),
                 SingleChildScrollView(
                   child: Center(
-                    child: Column(
-                      children: [
-                        SizedBox(height: screenWidth * 0.35),
-                        RoundedProfileIcon(
-                          child: IconImage(
-                            length: 120,
-                            iconImageData: editProfileModel.croppedImage,
+                    child: Column(children: [
+                      SizedBox(height: screenWidth * 0.35),
+                      RoundedProfileIcon(
+                        child: IconImage(
+                          length: 120,
+                          iconImageData: editProfileModel.croppedImage,
+                        ),
+                      ),
+                      SizedBox(height: screenWidth * 0.02),
+                      InkWell(
+                        splashColor: const Color.fromARGB(
+                            255, 239, 42, 137), // Splash color
+                        onTap: editProfileModel.selectImage,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color.fromARGB(133, 230, 255, 7)
+                                .withOpacity(0.9),
+                            shape: BoxShape.circle,
+                          ),
+                          width: 48, // Button size
+                          height: 48, // Button size
+                          child: const Icon(
+                            Icons.photo_camera_back,
+                            color: Color.fromARGB(255, 45, 45, 45),
+                            size: 30,
                           ),
                         ),
-                        SizedBox(height: screenWidth * 0.02),
-                        InkWell(
-                          splashColor: const Color.fromARGB(
-                              255, 239, 42, 137), // Splash color
-                          onTap: editProfileModel.selectImage,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color.fromARGB(133, 230, 255, 7)
-                                  .withOpacity(0.9),
-                              shape: BoxShape.circle,
-                            ),
-                            width: 48, // Button size
-                            height: 48, // Button size
-                            child: const Icon(
-                              Icons.photo_camera_back,
-                              color: Color.fromARGB(255, 45, 45, 45),
-                              size: 30,
-                            ),
-                          ),
+                      ),
+                      SizedBox(height: screenWidth * 0.03),
+                      SizedBox(
+                        width: screenWidth * 0.7,
+                        child: OriginalFlashBar(
+                          controller: editProfileModel.nameController,
+                          hintText: mainModel.firestoreUser.userName,
+                          height: 60,
+                          onPressed: () {},
+                          isSend: false,
                         ),
-                        SizedBox(height: screenWidth * 0.03),
-                        SizedBox(
-                          width: screenWidth * 0.7,
-                          child: OriginalFlashBar(
-                            controller: editProfileModel.nameController,
-                            hintText: mainModel.firestoreUser.userName,
-                            height: 60,
-                            onPressed: () {},
-                            isSend: false,
-                          ),
-                        ),
-                        SizedBox(height: screenWidth * 0.1),
-                        RoundedButton(
-                            onPressed: () => editProfileModel.saveButtonPressed(
-                                context, mainModel, bottomNavBarModel),
-                            widthRate: 0.5,
-                            color: (editProfileModel
-                                        .nameController.text.isNotEmpty ||
-                                    editProfileModel.isChanged)
-                                ? Colors.red
-                                : Colors.green,
-                            text: (editProfileModel
-                                        .nameController.text.isNotEmpty ||
-                                    editProfileModel.isChanged)
-                                ? 'ほぞんする'
-                                : 'ホームへもどる'),
-                      ],
-                    ),
+                      ),
+                      SizedBox(height: screenWidth * 0.1),
+                      RoundedButton(
+                          onPressed: () => editProfileModel.saveButtonPressed(
+                              context, mainModel, bottomNavBarModel),
+                          widthRate: 0.5,
+                          color: (editProfileModel
+                                      .nameController.text.isNotEmpty ||
+                                  editProfileModel.isChanged)
+                              ? Colors.red
+                              : Colors.green,
+                          text: (editProfileModel
+                                      .nameController.text.isNotEmpty ||
+                                  editProfileModel.isChanged)
+                              ? 'ほぞんする'
+                              : 'ホームへもどる'),
+                      mainModel.firestoreUser.isAdmin
+                          ? Column(
+                              children: [
+                                SizedBox(height: screenWidth * 0.05),
+                                RoundedButton(
+                                    onPressed: () => routes.toAdminScreen(
+                                        context: context,
+                                        currentUserDoc:
+                                            mainModel.currentUserDoc,
+                                        firestoreUser: mainModel.firestoreUser),
+                                    widthRate: 0.5,
+                                    color: Colors.black,
+                                    text: 'アドミン画面へ'),
+                              ],
+                            )
+                          : const SizedBox.shrink()
+                    ]),
                   ),
                 ),
               ],

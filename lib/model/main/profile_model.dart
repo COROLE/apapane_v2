@@ -31,9 +31,9 @@ class ProfileModel extends ChangeNotifier {
   Query<Map<String, dynamic>> returnQuery() {
     final User? currentUser = returnAuthUser();
     return FirebaseFirestore.instance
-        .collectionGroup('stories')
-        .where('uid', isEqualTo: currentUser!.uid)
-        .where('isFavorite', isEqualTo: true);
+        .collection('users')
+        .doc(currentUser!.uid)
+        .collection('favoriteStories');
   }
 
   late List<Widget> imagesList;
@@ -48,9 +48,26 @@ class ProfileModel extends ChangeNotifier {
     onReload();
   }
 
+  void addFavoriteStoryDocs(
+      {required DocumentSnapshot<Map<String, dynamic>> storyDoc}) {
+    favoriteStoryDocs.add(storyDoc);
+    notifyListeners();
+    debugPrint(
+        'favoriteStoryDocs.length: ${favoriteStoryDocs.map((e) => e['titleText'])}');
+  }
+
+  void removeFavoriteStoryDocs(
+      {required DocumentSnapshot<Map<String, dynamic>> storyDoc}) {
+    favoriteStoryDocs
+        .removeWhere((doc) => doc['titleText'] == storyDoc['titleText']);
+    notifyListeners();
+    debugPrint(
+        'favoriteStoryDocs.length: ${favoriteStoryDocs.map((e) => e['titleText'])}');
+  }
+
   Future<void> onReload() async {
     final query = returnQuery();
-    final qshot = await query.limit(1).get();
+    final qshot = await query.limit(5).get();
     qshot.docs.map((e) => favoriteStoryDocs.add(e)).toList();
     notifyListeners();
   }

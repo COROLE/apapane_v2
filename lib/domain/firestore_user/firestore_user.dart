@@ -8,6 +8,7 @@ abstract class FirestoreUser with _$FirestoreUser {
   const factory FirestoreUser({
     required int age,
     required dynamic createdAt,
+    required int favoriteMyStoryCount,
     required int followerCount,
     required int followingCount,
     required bool isAdmin,

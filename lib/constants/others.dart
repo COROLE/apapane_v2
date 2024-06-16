@@ -5,6 +5,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 //returnAuthUser
 User? returnAuthUser() => FirebaseAuth.instance.currentUser;
 
+DocumentReference<Map<String, dynamic>> userDocToFavoriteStoriesRef(
+    {required DocumentSnapshot<Map<String, dynamic>> userDoc,
+    required String storyId}) {
+  return userDoc.reference.collection('favoriteStories').doc(storyId);
+}
+
 DocumentReference<Map<String, dynamic>> userDocToChatLogIdRef(
     {required DocumentSnapshot<Map<String, dynamic>> userDoc,
     required String id}) {

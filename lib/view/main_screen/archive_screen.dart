@@ -1,6 +1,8 @@
 //flutter
 import 'package:apapane/details/library_books.dart';
 import 'package:apapane/details/library_ink_well.dart';
+import 'package:apapane/model/main/profile_model.dart';
+import 'package:apapane/model/main_model.dart';
 import 'package:flutter/material.dart';
 //packages
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,8 +12,6 @@ import 'package:apapane/model/main/archive_model.dart';
 import 'package:apapane/model/story_model.dart';
 //constants
 import 'package:apapane/constants/strings.dart';
-//components
-import 'package:apapane/details/reload_screen.dart';
 //domain
 import 'package:apapane/domain/story/story.dart';
 
@@ -22,38 +22,72 @@ class ArchiveScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final StoryModel storyModel = ref.watch(storyProvider);
     final ArchiveModel archiveModel = ref.watch(archiveProvider);
+    final MainModel mainModel = ref.watch(mainProvider);
+    final ProfileModel profileModel = ref.watch(profileProvider);
+
     final storyDocs = archiveModel.storyDocs;
     final double height = MediaQuery.of(context).size.height;
     final double width = MediaQuery.of(context).size.width;
+
+    if (storyDocs.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Text('データがありません。'),
+        ),
+      );
+    }
+
     return Scaffold(
-        body: storyDocs.isEmpty
-            ? ReloadScreen(onReload: () async => await archiveModel.onReload())
-            : LibraryBooks(
-                image: archiveImage,
-                titleText: archiveText,
-                height: height,
-                width: width,
-                refreshController: archiveModel.refreshController,
-                onRefresh: () async => await archiveModel.onRefresh(),
-                onLoading: () async => await archiveModel.onLoading(),
-                child: ListView.builder(
-                  itemCount: storyDocs.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    final storyDoc = storyDocs[index];
-                    final Story story = Story.fromJson(storyDoc.data()!);
-                    return LibraryInkWell(
-                      height: height,
-                      width: width,
-                      onTap: () async => await archiveModel.getMyStories(
-                          context: context,
-                          storyModel: storyModel,
-                          storyDoc: storyDoc),
-                      storyImageURL: story.titleImage,
-                      titleText: story.titleText,
-                      isArchive: true,
-                    );
-                  },
-                ),
-              ));
+      body: LibraryBooks(
+        image: archiveImage,
+        titleText: archiveText,
+        height: height,
+        width: width,
+        refreshController: archiveModel.refreshController,
+        onRefresh: () async => await archiveModel.onRefresh(),
+        onLoading: () async => await archiveModel.onLoading(),
+        child: ListView.builder(
+          itemCount: storyDocs.length,
+          itemBuilder: (BuildContext context, int index) {
+            final storyDoc = storyDocs[index];
+            final Story story = Story.fromJson(storyDoc.data()!);
+            return LibraryInkWell(
+              height: height,
+              width: width,
+              onTap: () async => await archiveModel.getMyStories(
+                  context: context, storyModel: storyModel, storyDoc: storyDoc),
+              storyImageURL: story.titleImage,
+              titleText: story.titleText,
+              isArchive: true,
+              isPublic: story.isPublic,
+              // ignore: collection_methods_unrelated_type
+              isFavoriteLoading: archiveModel.isFavoriteLoading,
+              isFavorite: archiveModel.favoriteStoryIds.contains(storyDoc.id),
+              favoriteButtonPressed: () async {
+                if (archiveModel.isFavoriteLoading) return;
+                if (archiveModel.favoriteStoryIds.contains(storyDoc.id)) {
+                  await archiveModel.unlike(
+                      context: context,
+                      storyModel: storyModel,
+                      mainModel: mainModel,
+                      index: index);
+                  profileModel.removeFavoriteStoryDocs(storyDoc: storyDoc);
+                } else {
+                  if (archiveModel.favoriteStoryIds.length <
+                      archiveModel.maxFavoriteCount) {
+                    profileModel.addFavoriteStoryDocs(storyDoc: storyDoc);
+                  }
+                  await archiveModel.like(
+                      context: context,
+                      storyModel: storyModel,
+                      mainModel: mainModel,
+                      index: index);
+                }
+              },
+            );
+          },
+        ),
+      ),
+    );
   }
 }

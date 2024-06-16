@@ -29,7 +29,7 @@ class ProfileScreen extends ConsumerWidget {
             left: screenWidth * 0.05.w,
             child: Container(
               width: screenWidth * 0.82.w,
-              height: screenHeight * 0.7,
+              height: screenHeight * 0.74,
               decoration: BoxDecoration(
                 color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.3),
                 borderRadius: BorderRadius.circular(20),
@@ -38,7 +38,6 @@ class ProfileScreen extends ConsumerWidget {
           ),
           Positioned(
               top: screenHeight * 0.16.w,
-              left: screenWidth * 0.12.w,
               child: ProfileDisplay(
                 length: screenWidth * 0.25,
                 profileModel: profileModel,
