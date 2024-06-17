@@ -66,7 +66,7 @@ class LibraryInkWell extends StatelessWidget {
                           icon: Icon(
                             isFavoriteLoading ? Icons.circle : Icons.favorite,
                             color: isFavorite ? Colors.red : Colors.white,
-                            size: 30,
+                            size: isFavoriteLoading ? 20 : 30,
                           )),
                       const Text('おきにいり',
                           style: TextStyle(

@@ -31,7 +31,7 @@ class RoundedTitle extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.5),
-            offset: Offset(4, 6),
+            offset: const Offset(4, 6),
             blurRadius: 10,
           ),
         ],
@@ -39,7 +39,7 @@ class RoundedTitle extends StatelessWidget {
       child: Text(
         storyTitle,
         style: const TextStyle(
-          fontSize: 20, // フォントサイズを大きく
+          fontSize: 17, // フォントサイズを大きく
           fontWeight: FontWeight.bold,
           color: Colors.white,
           shadows: [

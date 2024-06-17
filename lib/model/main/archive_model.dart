@@ -1,4 +1,6 @@
 //flutter
+import 'dart:ffi';
+
 import 'package:apapane/domain/story/story.dart';
 import 'package:apapane/model/main_model.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +22,7 @@ final archiveProvider = ChangeNotifierProvider((ref) => ArchiveModel());
 class ArchiveModel extends ChangeNotifier {
   List<DocumentSnapshot<Map<String, dynamic>>> storyDocs = [];
   List<String> favoriteStoryIds = [];
+  List<String> publicStoryIds = [];
   List<String> muteUids = [];
   final RefreshController refreshController = RefreshController();
   bool isLoading = false;
@@ -76,6 +79,10 @@ class ArchiveModel extends ChangeNotifier {
     refreshController.refreshCompleted();
     await voids.processNewDocs(
         muteUids: muteUids, docs: storyDocs, query: returnQuery());
+    publicStoryIds = storyDocs
+        .where((element) => element['isPublic'] == true)
+        .map((e) => e.id)
+        .toList();
     notifyListeners();
   }
 
@@ -83,6 +90,10 @@ class ArchiveModel extends ChangeNotifier {
     startLoading();
     await voids.processBasicDocs(
         muteUids: muteUids, docs: storyDocs, query: returnQuery());
+    publicStoryIds = storyDocs
+        .where((element) => element['isPublic'] == true)
+        .map((e) => e.id)
+        .toList();
     final query = returnFavoriteQuery();
     final qshot = await query.limit(5).get();
     qshot.docs
@@ -96,6 +107,10 @@ class ArchiveModel extends ChangeNotifier {
     refreshController.loadComplete();
     await voids.processOldDocs(
         muteUids: muteUids, docs: storyDocs, query: returnQuery());
+    publicStoryIds = storyDocs
+        .where((element) => element['isPublic'] == true)
+        .map((e) => e.id)
+        .toList();
     notifyListeners();
   }
 
@@ -186,6 +201,45 @@ class ArchiveModel extends ChangeNotifier {
       voids.showFluttertoast(msg: 'このストーリーはお気に入りに追加されていません。');
     }
     endFavoriteLoading();
+  }
+
+  Future<void> onPublicMode(
+      {required BuildContext context,
+      required StoryModel storyModel,
+      required MainModel mainModel,
+      required int index}) async {
+    publicStoryIds.add(storyDocs[index].id);
+    notifyListeners();
+    final String storyId = storyDocs[index].id;
+    final storyRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(mainModel.currentUser!.uid)
+        .collection('chatLogs')
+        .doc(storyId)
+        .collection('stories')
+        .doc(storyId);
+
+    await storyRef.update({'isPublic': true});
+    voids.showFluttertoast(msg: 'みんなにみせるね！');
+  }
+
+  Future<void> offPublicMode(
+      {required BuildContext context,
+      required StoryModel storyModel,
+      required MainModel mainModel,
+      required int index}) async {
+    publicStoryIds.remove(storyDocs[index].id);
+    notifyListeners();
+    final String storyId = storyDocs[index].id;
+    final storyRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(mainModel.currentUser!.uid)
+        .collection('chatLogs')
+        .doc(storyId)
+        .collection('stories')
+        .doc(storyId);
+    await storyRef.update({'isPublic': false});
+    voids.showFluttertoast(msg: 'みんなには見せないようにするね！');
   }
 
   void backToContext(BuildContext context) {

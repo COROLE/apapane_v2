@@ -180,7 +180,7 @@ class AdminModel extends ChangeNotifier {
     //     await FirebaseFirestore.instance.collectionGroup('stories').get();
     // for (final storyDoc in storiesQshot.docs) {
     //   writeBatch.update(storyDoc.reference, {
-    //     'isFavorite': FieldValue.delete(),
+    //     'isPublic': false,
     //   });
     // }
     // //comments全削除

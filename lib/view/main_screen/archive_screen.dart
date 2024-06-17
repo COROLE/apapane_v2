@@ -52,39 +52,55 @@ class ArchiveScreen extends ConsumerWidget {
             final storyDoc = storyDocs[index];
             final Story story = Story.fromJson(storyDoc.data()!);
             return LibraryInkWell(
-              height: height,
-              width: width,
-              onTap: () async => await archiveModel.getMyStories(
-                  context: context, storyModel: storyModel, storyDoc: storyDoc),
-              storyImageURL: story.titleImage,
-              titleText: story.titleText,
-              isArchive: true,
-              isPublic: story.isPublic,
-              // ignore: collection_methods_unrelated_type
-              isFavoriteLoading: archiveModel.isFavoriteLoading,
-              isFavorite: archiveModel.favoriteStoryIds.contains(storyDoc.id),
-              favoriteButtonPressed: () async {
-                if (archiveModel.isFavoriteLoading) return;
-                if (archiveModel.favoriteStoryIds.contains(storyDoc.id)) {
-                  await archiveModel.unlike(
-                      context: context,
-                      storyModel: storyModel,
-                      mainModel: mainModel,
-                      index: index);
-                  profileModel.removeFavoriteStoryDocs(storyDoc: storyDoc);
-                } else {
-                  if (archiveModel.favoriteStoryIds.length <
-                      archiveModel.maxFavoriteCount) {
-                    profileModel.addFavoriteStoryDocs(storyDoc: storyDoc);
+                height: height,
+                width: width,
+                onTap: () async => await archiveModel.getMyStories(
+                    context: context,
+                    storyModel: storyModel,
+                    storyDoc: storyDoc),
+                storyImageURL: story.titleImage,
+                titleText: story.titleText,
+                isArchive: true,
+                isPublic: archiveModel.publicStoryIds.contains(story.storyId),
+                // ignore: collection_methods_unrelated_type
+                isFavoriteLoading: archiveModel.isFavoriteLoading,
+                isFavorite: archiveModel.favoriteStoryIds.contains(storyDoc.id),
+                favoriteButtonPressed: () async {
+                  if (archiveModel.isFavoriteLoading) return;
+                  if (archiveModel.favoriteStoryIds.contains(storyDoc.id)) {
+                    await archiveModel.unlike(
+                        context: context,
+                        storyModel: storyModel,
+                        mainModel: mainModel,
+                        index: index);
+                    profileModel.removeFavoriteStoryDocs(storyDoc: storyDoc);
+                  } else {
+                    if (archiveModel.favoriteStoryIds.length <
+                        archiveModel.maxFavoriteCount) {
+                      profileModel.addFavoriteStoryDocs(storyDoc: storyDoc);
+                    }
+                    await archiveModel.like(
+                        context: context,
+                        storyModel: storyModel,
+                        mainModel: mainModel,
+                        index: index);
                   }
-                  await archiveModel.like(
-                      context: context,
-                      storyModel: storyModel,
-                      mainModel: mainModel,
-                      index: index);
-                }
-              },
-            );
+                },
+                onChanged: (_) async {
+                  if (archiveModel.publicStoryIds.contains(story.storyId)) {
+                    await archiveModel.offPublicMode(
+                        context: context,
+                        storyModel: storyModel,
+                        mainModel: mainModel,
+                        index: index);
+                  } else {
+                    await archiveModel.onPublicMode(
+                        context: context,
+                        storyModel: storyModel,
+                        mainModel: mainModel,
+                        index: index);
+                  }
+                });
           },
         ),
       ),
