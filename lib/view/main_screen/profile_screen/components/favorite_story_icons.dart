@@ -12,6 +12,7 @@ class FavoriteStoryIcons extends StatefulWidget {
       {super.key, required this.storyModel, required this.profileModel});
 
   @override
+  // ignore: library_private_types_in_public_api
   _FavoriteStoryIconsState createState() => _FavoriteStoryIconsState();
 }
 
@@ -103,7 +104,7 @@ class _FavoriteStoryIconsState extends State<FavoriteStoryIcons> {
 class DotIndicator extends StatelessWidget {
   final bool isActive;
 
-  const DotIndicator({Key? key, required this.isActive}) : super(key: key);
+  const DotIndicator({super.key, required this.isActive});
 
   @override
   Widget build(BuildContext context) {

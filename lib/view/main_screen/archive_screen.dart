@@ -1,7 +1,9 @@
 //flutter
 import 'package:apapane/details/library_books.dart';
 import 'package:apapane/details/library_ink_well.dart';
+import 'package:apapane/details/reload_screen.dart';
 import 'package:apapane/model/main/profile_model.dart';
+import 'package:apapane/model/main/public_model.dart';
 import 'package:apapane/model/main_model.dart';
 import 'package:flutter/material.dart';
 //packages
@@ -21,6 +23,7 @@ class ArchiveScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final StoryModel storyModel = ref.watch(storyProvider);
+    final PublicModel publicModel = ref.watch(publicProvider);
     final ArchiveModel archiveModel = ref.watch(archiveProvider);
     final MainModel mainModel = ref.watch(mainProvider);
     final ProfileModel profileModel = ref.watch(profileProvider);
@@ -30,11 +33,9 @@ class ArchiveScreen extends ConsumerWidget {
     final double width = MediaQuery.of(context).size.width;
 
     if (storyDocs.isEmpty) {
-      return const Scaffold(
-        body: Center(
-          child: Text('データがありません。'),
-        ),
-      );
+      return Scaffold(
+          body: ReloadScreen(
+              onReload: () async => await archiveModel.onReload()));
     }
 
     return Scaffold(
@@ -88,12 +89,14 @@ class ArchiveScreen extends ConsumerWidget {
                 },
                 onChanged: (_) async {
                   if (archiveModel.publicStoryIds.contains(story.storyId)) {
+                    publicModel.removeStoryDocs(storyDoc: storyDoc);
                     await archiveModel.offPublicMode(
                         context: context,
                         storyModel: storyModel,
                         mainModel: mainModel,
                         index: index);
                   } else {
+                    publicModel.addStoryDocs(storyDoc: storyDoc);
                     await archiveModel.onPublicMode(
                         context: context,
                         storyModel: storyModel,

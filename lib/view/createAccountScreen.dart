@@ -31,6 +31,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     isChanged = false;
   }
 
+  @override
+  void dispose() {
+    _userNameController.dispose();
+    _passwordController.dispose();
+    _mailController.dispose();
+    super.dispose();
+  }
+
   Future<void> showCupertinoDatePicker({
     required double sheetHeight,
     required double itemHeight,
@@ -230,7 +238,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       SizedBox(
                         height: screenHeight * 0.02,
                       ),
-                      const Text("　　　パスワード"),
+                      const Text("パスワード"),
                       TextField(
                         controller: _passwordController,
                         decoration: const InputDecoration(

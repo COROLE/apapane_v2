@@ -30,15 +30,15 @@ class FileCore {
           toolbarColor: Colors.deepOrange,
           toolbarWidgetColor: Colors.white,
           initAspectRatio: CropAspectRatioPreset.square,
-          lockAspectRatio: false,
+          lockAspectRatio: true, // Lock aspect ratio for circle
           aspectRatioPresets: [
-            CropAspectRatioPreset.square,
+            CropAspectRatioPreset.square, // Maintain square aspect ratio
           ],
         ),
         IOSUiSettings(
           title: 'Cropper',
           aspectRatioPresets: [
-            CropAspectRatioPreset.square,
+            CropAspectRatioPreset.square, // Maintain square aspect ratio
           ],
         )
       ]);

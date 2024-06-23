@@ -66,6 +66,25 @@ class PublicModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addStoryDocs(
+      {required DocumentSnapshot<Map<String, dynamic>> storyDoc}) {
+    int insertIndex = storyDocs.indexWhere(
+        (doc) => doc['createdAt'].compareTo(storyDoc['createdAt']) < 0);
+    if (insertIndex == -1) {
+      // If no such element is found, append at the end of the list
+      storyDocs.add(storyDoc);
+    } else {
+      storyDocs.insert(insertIndex, storyDoc);
+    }
+    notifyListeners();
+  }
+
+  void removeStoryDocs(
+      {required DocumentSnapshot<Map<String, dynamic>> storyDoc}) {
+    storyDocs.removeWhere((doc) => doc['titleText'] == storyDoc['titleText']);
+    notifyListeners();
+  }
+
   Future<void> getMyStories(
       {required BuildContext context,
       required StoryModel storyModel,

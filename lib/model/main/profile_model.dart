@@ -52,8 +52,6 @@ class ProfileModel extends ChangeNotifier {
       {required DocumentSnapshot<Map<String, dynamic>> storyDoc}) {
     favoriteStoryDocs.add(storyDoc);
     notifyListeners();
-    debugPrint(
-        'favoriteStoryDocs.length: ${favoriteStoryDocs.map((e) => e['titleText'])}');
   }
 
   void removeFavoriteStoryDocs(
@@ -61,8 +59,6 @@ class ProfileModel extends ChangeNotifier {
     favoriteStoryDocs
         .removeWhere((doc) => doc['titleText'] == storyDoc['titleText']);
     notifyListeners();
-    debugPrint(
-        'favoriteStoryDocs.length: ${favoriteStoryDocs.map((e) => e['titleText'])}');
   }
 
   Future<void> onReload() async {
