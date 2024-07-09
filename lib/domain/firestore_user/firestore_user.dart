@@ -7,11 +7,14 @@ part 'firestore_user.g.dart';
 abstract class FirestoreUser with _$FirestoreUser {
   const factory FirestoreUser({
     required int age,
+    @Default(0) int coins,
     required dynamic createdAt,
-    required int favoriteMyStoryCount,
-    required int followerCount,
-    required int followingCount,
-    required bool isAdmin,
+    @Default(0) int favoriteMyStoryCount,
+    @Default(0) int followerCount,
+    @Default(0) int followingCount,
+    @Default(false) bool isAdmin,
+    @Default([]) List<Map<String, dynamic>> consumables,
+    @Default({}) Map<String, dynamic> silverSubscription,
     required dynamic updatedAt,
     required String userName,
     required String userImageURL,

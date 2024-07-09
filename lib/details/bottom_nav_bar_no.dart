@@ -1,6 +1,6 @@
 // ignore_for_file: file_names
-import 'package:apapane/view/main_screen/home_screen.dart';
-import 'package:apapane/view/main_screen/archive_screen.dart';
+import 'package:apapane/view_old/main_screen/home_screen.dart';
+import 'package:apapane/view_old/main_screen/archive_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:persistent_bottom_nav_bar/persistent_tab_view.dart';
 

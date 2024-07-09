@@ -21,11 +21,16 @@ FirestoreUser _$FirestoreUserFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$FirestoreUser {
   int get age => throw _privateConstructorUsedError;
+  int get coins => throw _privateConstructorUsedError;
   dynamic get createdAt => throw _privateConstructorUsedError;
   int get favoriteMyStoryCount => throw _privateConstructorUsedError;
   int get followerCount => throw _privateConstructorUsedError;
   int get followingCount => throw _privateConstructorUsedError;
   bool get isAdmin => throw _privateConstructorUsedError;
+  List<Map<String, dynamic>> get consumables =>
+      throw _privateConstructorUsedError;
+  Map<String, dynamic> get silverSubscription =>
+      throw _privateConstructorUsedError;
   dynamic get updatedAt => throw _privateConstructorUsedError;
   String get userName => throw _privateConstructorUsedError;
   String get userImageURL => throw _privateConstructorUsedError;
@@ -45,11 +50,14 @@ abstract class $FirestoreUserCopyWith<$Res> {
   @useResult
   $Res call(
       {int age,
+      int coins,
       dynamic createdAt,
       int favoriteMyStoryCount,
       int followerCount,
       int followingCount,
       bool isAdmin,
+      List<Map<String, dynamic>> consumables,
+      Map<String, dynamic> silverSubscription,
       dynamic updatedAt,
       String userName,
       String userImageURL,
@@ -70,11 +78,14 @@ class _$FirestoreUserCopyWithImpl<$Res, $Val extends FirestoreUser>
   @override
   $Res call({
     Object? age = null,
+    Object? coins = null,
     Object? createdAt = freezed,
     Object? favoriteMyStoryCount = null,
     Object? followerCount = null,
     Object? followingCount = null,
     Object? isAdmin = null,
+    Object? consumables = null,
+    Object? silverSubscription = null,
     Object? updatedAt = freezed,
     Object? userName = null,
     Object? userImageURL = null,
@@ -84,6 +95,10 @@ class _$FirestoreUserCopyWithImpl<$Res, $Val extends FirestoreUser>
       age: null == age
           ? _value.age
           : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      coins: null == coins
+          ? _value.coins
+          : coins // ignore: cast_nullable_to_non_nullable
               as int,
       createdAt: freezed == createdAt
           ? _value.createdAt
@@ -105,6 +120,14 @@ class _$FirestoreUserCopyWithImpl<$Res, $Val extends FirestoreUser>
           ? _value.isAdmin
           : isAdmin // ignore: cast_nullable_to_non_nullable
               as bool,
+      consumables: null == consumables
+          ? _value.consumables
+          : consumables // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
+      silverSubscription: null == silverSubscription
+          ? _value.silverSubscription
+          : silverSubscription // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
       updatedAt: freezed == updatedAt
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
@@ -135,11 +158,14 @@ abstract class _$$FirestoreUserImplCopyWith<$Res>
   @useResult
   $Res call(
       {int age,
+      int coins,
       dynamic createdAt,
       int favoriteMyStoryCount,
       int followerCount,
       int followingCount,
       bool isAdmin,
+      List<Map<String, dynamic>> consumables,
+      Map<String, dynamic> silverSubscription,
       dynamic updatedAt,
       String userName,
       String userImageURL,
@@ -158,11 +184,14 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? age = null,
+    Object? coins = null,
     Object? createdAt = freezed,
     Object? favoriteMyStoryCount = null,
     Object? followerCount = null,
     Object? followingCount = null,
     Object? isAdmin = null,
+    Object? consumables = null,
+    Object? silverSubscription = null,
     Object? updatedAt = freezed,
     Object? userName = null,
     Object? userImageURL = null,
@@ -172,6 +201,10 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
       age: null == age
           ? _value.age
           : age // ignore: cast_nullable_to_non_nullable
+              as int,
+      coins: null == coins
+          ? _value.coins
+          : coins // ignore: cast_nullable_to_non_nullable
               as int,
       createdAt: freezed == createdAt
           ? _value.createdAt
@@ -193,6 +226,14 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
           ? _value.isAdmin
           : isAdmin // ignore: cast_nullable_to_non_nullable
               as bool,
+      consumables: null == consumables
+          ? _value._consumables
+          : consumables // ignore: cast_nullable_to_non_nullable
+              as List<Map<String, dynamic>>,
+      silverSubscription: null == silverSubscription
+          ? _value._silverSubscription
+          : silverSubscription // ignore: cast_nullable_to_non_nullable
+              as Map<String, dynamic>,
       updatedAt: freezed == updatedAt
           ? _value.updatedAt
           : updatedAt // ignore: cast_nullable_to_non_nullable
@@ -218,15 +259,20 @@ class __$$FirestoreUserImplCopyWithImpl<$Res>
 class _$FirestoreUserImpl implements _FirestoreUser {
   const _$FirestoreUserImpl(
       {required this.age,
+      this.coins = 0,
       required this.createdAt,
-      required this.favoriteMyStoryCount,
-      required this.followerCount,
-      required this.followingCount,
-      required this.isAdmin,
+      this.favoriteMyStoryCount = 0,
+      this.followerCount = 0,
+      this.followingCount = 0,
+      this.isAdmin = false,
+      final List<Map<String, dynamic>> consumables = const [],
+      final Map<String, dynamic> silverSubscription = const {},
       required this.updatedAt,
       required this.userName,
       required this.userImageURL,
-      required this.uid});
+      required this.uid})
+      : _consumables = consumables,
+        _silverSubscription = silverSubscription;
 
   factory _$FirestoreUserImpl.fromJson(Map<String, dynamic> json) =>
       _$$FirestoreUserImplFromJson(json);
@@ -234,15 +280,41 @@ class _$FirestoreUserImpl implements _FirestoreUser {
   @override
   final int age;
   @override
+  @JsonKey()
+  final int coins;
+  @override
   final dynamic createdAt;
   @override
+  @JsonKey()
   final int favoriteMyStoryCount;
   @override
+  @JsonKey()
   final int followerCount;
   @override
+  @JsonKey()
   final int followingCount;
   @override
+  @JsonKey()
   final bool isAdmin;
+  final List<Map<String, dynamic>> _consumables;
+  @override
+  @JsonKey()
+  List<Map<String, dynamic>> get consumables {
+    if (_consumables is EqualUnmodifiableListView) return _consumables;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_consumables);
+  }
+
+  final Map<String, dynamic> _silverSubscription;
+  @override
+  @JsonKey()
+  Map<String, dynamic> get silverSubscription {
+    if (_silverSubscription is EqualUnmodifiableMapView)
+      return _silverSubscription;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_silverSubscription);
+  }
+
   @override
   final dynamic updatedAt;
   @override
@@ -254,7 +326,7 @@ class _$FirestoreUserImpl implements _FirestoreUser {
 
   @override
   String toString() {
-    return 'FirestoreUser(age: $age, createdAt: $createdAt, favoriteMyStoryCount: $favoriteMyStoryCount, followerCount: $followerCount, followingCount: $followingCount, isAdmin: $isAdmin, updatedAt: $updatedAt, userName: $userName, userImageURL: $userImageURL, uid: $uid)';
+    return 'FirestoreUser(age: $age, coins: $coins, createdAt: $createdAt, favoriteMyStoryCount: $favoriteMyStoryCount, followerCount: $followerCount, followingCount: $followingCount, isAdmin: $isAdmin, consumables: $consumables, silverSubscription: $silverSubscription, updatedAt: $updatedAt, userName: $userName, userImageURL: $userImageURL, uid: $uid)';
   }
 
   @override
@@ -263,6 +335,7 @@ class _$FirestoreUserImpl implements _FirestoreUser {
         (other.runtimeType == runtimeType &&
             other is _$FirestoreUserImpl &&
             (identical(other.age, age) || other.age == age) &&
+            (identical(other.coins, coins) || other.coins == coins) &&
             const DeepCollectionEquality().equals(other.createdAt, createdAt) &&
             (identical(other.favoriteMyStoryCount, favoriteMyStoryCount) ||
                 other.favoriteMyStoryCount == favoriteMyStoryCount) &&
@@ -271,6 +344,10 @@ class _$FirestoreUserImpl implements _FirestoreUser {
             (identical(other.followingCount, followingCount) ||
                 other.followingCount == followingCount) &&
             (identical(other.isAdmin, isAdmin) || other.isAdmin == isAdmin) &&
+            const DeepCollectionEquality()
+                .equals(other._consumables, _consumables) &&
+            const DeepCollectionEquality()
+                .equals(other._silverSubscription, _silverSubscription) &&
             const DeepCollectionEquality().equals(other.updatedAt, updatedAt) &&
             (identical(other.userName, userName) ||
                 other.userName == userName) &&
@@ -284,11 +361,14 @@ class _$FirestoreUserImpl implements _FirestoreUser {
   int get hashCode => Object.hash(
       runtimeType,
       age,
+      coins,
       const DeepCollectionEquality().hash(createdAt),
       favoriteMyStoryCount,
       followerCount,
       followingCount,
       isAdmin,
+      const DeepCollectionEquality().hash(_consumables),
+      const DeepCollectionEquality().hash(_silverSubscription),
       const DeepCollectionEquality().hash(updatedAt),
       userName,
       userImageURL,
@@ -311,11 +391,14 @@ class _$FirestoreUserImpl implements _FirestoreUser {
 abstract class _FirestoreUser implements FirestoreUser {
   const factory _FirestoreUser(
       {required final int age,
+      final int coins,
       required final dynamic createdAt,
-      required final int favoriteMyStoryCount,
-      required final int followerCount,
-      required final int followingCount,
-      required final bool isAdmin,
+      final int favoriteMyStoryCount,
+      final int followerCount,
+      final int followingCount,
+      final bool isAdmin,
+      final List<Map<String, dynamic>> consumables,
+      final Map<String, dynamic> silverSubscription,
       required final dynamic updatedAt,
       required final String userName,
       required final String userImageURL,
@@ -327,6 +410,8 @@ abstract class _FirestoreUser implements FirestoreUser {
   @override
   int get age;
   @override
+  int get coins;
+  @override
   dynamic get createdAt;
   @override
   int get favoriteMyStoryCount;
@@ -336,6 +421,10 @@ abstract class _FirestoreUser implements FirestoreUser {
   int get followingCount;
   @override
   bool get isAdmin;
+  @override
+  List<Map<String, dynamic>> get consumables;
+  @override
+  Map<String, dynamic> get silverSubscription;
   @override
   dynamic get updatedAt;
   @override

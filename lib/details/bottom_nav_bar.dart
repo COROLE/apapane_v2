@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 //constants
 import 'package:apapane/constants/bottom_nav_bar_element.dart';
 //model
-import 'package:apapane/model/bottom_nav_bar_model.dart';
+import 'package:apapane/model_riverpod_old/bottom_nav_bar_model.dart';
 
 class BottomNavigationBars extends StatelessWidget {
   const BottomNavigationBars(

@@ -52,6 +52,8 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>音声機能へのアクセスを許可しますか</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
-<false/>
+	<false/>
+	<key>FirebaseAutomaticScreenReportingEnabled</key>
+	<true/>
 </dict>
 </plist>

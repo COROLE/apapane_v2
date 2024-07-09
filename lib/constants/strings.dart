@@ -9,6 +9,7 @@ const String selectTitle = 'えらんでね';
 //titles
 const String makeStoryTitle = 'おはなしをつくる';
 const String noStoryTitle = 'おはなしがありません';
+const String shopTitle = 'ショップ';
 
 //texts
 const String startAdventureText = 'ぼうけんをはじめる';
@@ -21,6 +22,7 @@ const String loginText = 'ログイン';
 const String createText = 'つくる';
 const String publicText = 'みんなのぼうけん';
 const String storyText = 'きみのぼうけん';
+const String shopText = 'ショップ';
 const String profileText = 'プロフィール';
 const String logoutText = 'ログアウト';
 const String loadingText = '読み込み中';

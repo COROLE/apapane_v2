@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:avatar_glow/avatar_glow.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 //models
-import 'package:apapane/model/chat_model.dart';
+import 'package:apapane/model_riverpod_old/chat_model.dart';
 
 class RoundedMicButton extends ConsumerWidget {
   const RoundedMicButton(

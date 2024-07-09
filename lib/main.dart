@@ -1,25 +1,28 @@
 //flutter
 import 'package:flutter/material.dart';
 //views
-import 'package:apapane/view/main_screen/archive_screen.dart';
-import 'package:apapane/view/main_screen/home_screen.dart';
-import 'package:apapane/view/main_screen/profile_screen/profile_screen.dart';
-import 'package:apapane/view/main_screen/public_screen.dart';
+import 'package:apapane/view_old/main_screen/archive_screen.dart';
+import 'package:apapane/view_old/main_screen/home_screen.dart';
+import 'package:apapane/view_old/main_screen/profile_screen/profile_screen.dart';
+import 'package:apapane/view_old/main_screen/public_screen.dart';
 //packages
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 //options
-import 'firebase_options.dart';
+import 'gen/firebase_options.dart';
 //constants
 import 'package:apapane/constants/strings.dart';
+import 'app/router.dart';
 //components
-import 'package:apapane/view/login_signup_screen/login_signup_screen.dart';
+import 'package:apapane/view_old/login_signup_screen/login_signup_screen.dart';
 import 'package:apapane/details/bottom_nav_bar.dart';
 //models
-import 'package:apapane/model/bottom_nav_bar_model.dart';
-import 'package:apapane/model/main_model.dart';
+import 'package:apapane/model_riverpod_old/bottom_nav_bar_model.dart';
+import 'package:apapane/model_riverpod_old/main_model.dart';
+
+import 'views/purchase_page.dart';
 
 void main() async {
   await dotenv.load(fileName: ".env");
@@ -38,6 +41,7 @@ class MyApp extends ConsumerWidget {
     //今変数は一回きり
     final User? onceUser = FirebaseAuth.instance.currentUser;
     return MaterialApp(
+      // routerConfig: router,
       title: startUpperTitle,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -78,6 +82,7 @@ class MyHomePage extends ConsumerWidget {
                   HomeScreen(),
                   PublicScreen(),
                   ArchiveScreen(),
+                  PurchasePage(),
                   ProfileScreen(),
                 ],
               ),

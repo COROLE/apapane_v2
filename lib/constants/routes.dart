@@ -1,15 +1,15 @@
 import 'package:apapane/domain/firestore_user/firestore_user.dart';
-import 'package:apapane/view/admin_screen.dart';
-import 'package:apapane/view/chat_screen/components/mic_ui.dart';
-import 'package:apapane/view/main_screen/home_screen.dart';
-import 'package:apapane/view/main_screen/profile_screen/components/edit_profile_screen.dart';
+import 'package:apapane/view_old/admin_screen.dart';
+import 'package:apapane/view_old/chat_screen/components/mic_ui.dart';
+import 'package:apapane/view_old/main_screen/home_screen.dart';
+import 'package:apapane/view_old/main_screen/profile_screen/components/edit_profile_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/main.dart';
-import 'package:apapane/view/login_signup_screen/login_signup_screen.dart';
-import 'package:apapane/view/chat_screen/chat_screen.dart';
-import 'package:apapane/view/story_screen/story_screen.dart';
+import 'package:apapane/view_old/login_signup_screen/login_signup_screen.dart';
+import 'package:apapane/view_old/chat_screen/chat_screen.dart';
+import 'package:apapane/view_old/story_screen/story_screen.dart';
 
 void toMyApp({required BuildContext context}) => Navigator.pushReplacement(
     context, MaterialPageRoute(builder: (context) => const MyApp()));
