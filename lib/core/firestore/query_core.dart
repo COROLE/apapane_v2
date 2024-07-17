@@ -1,6 +1,7 @@
 import 'package:apapane/core/firestore/col_ref_core.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class QueryCore {
   static MapQuery publicUsersOrderByFollowerCount() =>
@@ -11,10 +12,38 @@ class QueryCore {
           .orderBy('endDate', descending: true)
           .limit(1);
 
-  static MapQuery postsCollectionQuery() => FirebaseFirestore.instance
-      .collectionGroup("posts")
+  static MapQuery archiveStoriesCollectionQuery(User currentUser) =>
+      FirebaseFirestore.instance
+          .collectionGroup("stories")
+          .where('uid', isEqualTo: currentUser.uid)
+          .orderBy("createdAt", descending: true)
+          .limit(15);
+
+  static MapQuery publicStoriesCollectionQuery() => FirebaseFirestore.instance
+      .collectionGroup("stories")
+      .where('isPublic', isEqualTo: true)
       .orderBy("createdAt", descending: true)
-      .limit(10);
+      .limit(15);
+
+  static MapQuery newStoriesCollectionQuery(
+      User? currentUser, List<Doc> docs, bool isArchive) {
+    if (isArchive) {
+      return archiveStoriesCollectionQuery(currentUser!)
+          .endBeforeDocument(docs.first);
+    } else {
+      return publicStoriesCollectionQuery().endBeforeDocument(docs.first);
+    }
+  }
+
+  static MapQuery oldStoriesCollectionQuery(
+      User? currentUser, List<Doc> docs, bool isArchive) {
+    if (isArchive) {
+      return archiveStoriesCollectionQuery(currentUser!)
+          .startAfterDocument(docs.last);
+    } else {
+      return publicStoriesCollectionQuery().startAfterDocument(docs.last);
+    }
+  }
 
   static MapQuery whereInUsersQuery(List<String> uids) =>
       ColRefCore.publicUsersColRef().where('uid', whereIn: uids);

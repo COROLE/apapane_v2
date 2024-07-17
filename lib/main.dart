@@ -1,12 +1,12 @@
-//flutter
+import 'package:apapane/providers/auth_providers.dart';
+import 'package:apapane/providers/normal_providers.dart';
 import 'package:flutter/material.dart';
 //views
-import 'package:apapane/view_old/main_screen/archive_screen.dart';
-import 'package:apapane/view_old/main_screen/home_screen.dart';
-import 'package:apapane/view_old/main_screen/profile_screen/profile_screen.dart';
-import 'package:apapane/view_old/main_screen/public_screen.dart';
+import 'package:apapane/views/archive_screen.dart';
+import 'package:apapane/views/home_screen.dart';
+import 'package:apapane/views/profile_screen/profile_screen.dart';
+import 'package:apapane/views/public_screen.dart';
 //packages
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -16,12 +16,7 @@ import 'gen/firebase_options.dart';
 import 'package:apapane/constants/strings.dart';
 import 'app/router.dart';
 //components
-import 'package:apapane/view_old/login_signup_screen/login_signup_screen.dart';
-import 'package:apapane/details/bottom_nav_bar.dart';
-//models
-import 'package:apapane/model_riverpod_old/bottom_nav_bar_model.dart';
-import 'package:apapane/model_riverpod_old/main_model.dart';
-
+import 'package:apapane/views/common/bottom_nav_bar.dart';
 import 'views/purchase_page.dart';
 
 void main() async {
@@ -37,56 +32,71 @@ class MyApp extends ConsumerWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    //MyAppが起動した最初の時にユーザーがログインしているかどうかの確認
-    //今変数は一回きり
-    final User? onceUser = FirebaseAuth.instance.currentUser;
-    return MaterialApp(
-      // routerConfig: router,
+    return MaterialApp.router(
+      routerConfig: router,
       title: startUpperTitle,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: "ZenMaruGothic",
       ),
-      home: onceUser == null
-          ? const LoginSignUpScreen()
-          : const MyHomePage(
-              title: startUpperTitle,
-            ),
     );
   }
 }
 
-class MyHomePage extends ConsumerWidget {
-  const MyHomePage({super.key, required this.title});
-  final String title;
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    //MainModelが起動し、init()が実行される
-    final MainModel mainModel = ref.watch(mainProvider);
-    final BottomNavigationBarModel bottomNavigationBarModel =
-        ref.watch(bottomNavigationBarProvider);
+class MyHomePage extends ConsumerStatefulWidget {
+  const MyHomePage({super.key});
 
+  @override
+  ConsumerState<MyHomePage> createState() => _MyHomePageState();
+}
+
+class _MyHomePageState extends ConsumerState<MyHomePage> {
+  late PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(bottomNavigationBarViewModelProvider)
+          .initPageController(_pageController);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mainViewModel = ref.watch(mainViewModelProvider);
+    final bottomNavigationBarViewModel =
+        ref.watch(bottomNavigationBarViewModelProvider);
     return Scaffold(
-        resizeToAvoidBottomInset: false,
-        body: mainModel.isLoading
-            ? const Center(
-                child: Text(loadingText),
-              )
-            : PageView(
-                physics: const NeverScrollableScrollPhysics(),
-                controller: bottomNavigationBarModel.pageController,
-                onPageChanged: (index) =>
-                    bottomNavigationBarModel.onPageChanged(index: index),
-                //childrenの個数はElementsの個数と同じ
-                children: const [
-                  HomeScreen(),
-                  PublicScreen(),
-                  ArchiveScreen(),
-                  PurchasePage(),
-                  ProfileScreen(),
-                ],
-              ),
-        bottomNavigationBar: BottomNavigationBars(
-            bottomNavigationBarModel: bottomNavigationBarModel));
+      resizeToAvoidBottomInset: false,
+      body: mainViewModel.isLoading
+          ? const Center(
+              child: Text(loadingText),
+            )
+          : PageView(
+              physics: const NeverScrollableScrollPhysics(),
+              controller: _pageController,
+              onPageChanged: (index) =>
+                  bottomNavigationBarViewModel.onPageChanged(index),
+              children: const [
+                HomeScreen(),
+                PublicScreen(),
+                ArchiveScreen(),
+                PurchasePage(),
+                ProfileScreen(),
+              ],
+            ),
+      bottomNavigationBar: BottomNavigationBars(
+        bottomNavigationBarViewModel: bottomNavigationBarViewModel,
+      ),
+    );
   }
 }

@@ -8,5 +8,7 @@ class IDCore {
     return result;
   }
 
-  static User? returnAuthUser() => FirebaseAuth.instance.currentUser;
+  static User? authUser() => FirebaseAuth.instance.currentUser;
+
+  static String jpgFileName() => "${uuidV4()}.jpg";
 }

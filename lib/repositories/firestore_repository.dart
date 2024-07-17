@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:apapane/models/result/result.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
 import 'package:apapane/typedefs/result_typedef.dart';
@@ -42,7 +44,7 @@ class FirestoreRepository {
       final Doc doc = await _firestoreService.getDoc(ref);
       return Result.success(doc);
     } catch (e) {
-      return const Result.failure();
+      return Result.failure(e);
     }
   }
 
@@ -51,6 +53,15 @@ class FirestoreRepository {
       final QSnapshot qSnapshot = await _firestoreService.getDocs(query);
       final qDocs = qSnapshot.docs;
       return Result.success(qDocs);
+    } catch (e) {
+      return const Result.failure();
+    }
+  }
+
+  FutureResult<String> uploadImage(String path, Uint8List imageData) async {
+    try {
+      final downloadUrl = await _firestoreService.uploadImage(path, imageData);
+      return Result.success(downloadUrl);
     } catch (e) {
       return const Result.failure();
     }

@@ -54,13 +54,13 @@ class PurchaseViewModel extends ChangeNotifier {
       _products = res.map((p) => Product.fromProductDetails(p)).toList();
       _isAvailable = _products.isNotEmpty;
       notifyListeners();
-    }, failure: () {
-      UIHelper.showFlutterToast('Failed to load products');
+    }, failure: (_) async {
+      await UIHelper.showFlutterToast('Failed to load products');
     });
   }
 
   Future<void> _loadCoinCount() async {
-    final user = IDCore.returnAuthUser();
+    final user = IDCore.authUser();
     if (user == null) return;
     final result = await _firestoreRepository
         .getDoc(DocRefCore.publicUserDocRef(user.uid));
@@ -68,13 +68,13 @@ class PurchaseViewModel extends ChangeNotifier {
       final data = doc.data();
       _coinCount = data?['coins'] ?? 0;
       notifyListeners();
-    }, failure: () {
-      UIHelper.showFlutterToast('Failed to load coin count');
+    }, failure: (_) async {
+      await UIHelper.showFlutterToast('Failed to load coin count');
     });
   }
 
   Future<void> _loadSubscriptionStatus() async {
-    final user = IDCore.returnAuthUser();
+    final user = IDCore.authUser();
     if (user == null) return;
     final result = await _firestoreRepository
         .getDocs(QueryCore.subscriptionGetByEndDate(user.uid));
@@ -88,8 +88,8 @@ class PurchaseViewModel extends ChangeNotifier {
           .toList();
       _isSubscriptionActive = activeSubscriptions.isNotEmpty;
       notifyListeners();
-    }, failure: () {
-      UIHelper.showFlutterToast('Failed to load subscription status');
+    }, failure: (_) async {
+      await UIHelper.showFlutterToast('Failed to load subscription status');
     });
   }
 
@@ -106,7 +106,7 @@ class PurchaseViewModel extends ChangeNotifier {
           return;
         }
         await _processPurchase(res);
-      }, failure: () async {
+      }, failure: (_) async {
         await UIHelper.showFlutterToast('Failed to purchase product');
       });
     } catch (e) {
@@ -120,7 +120,7 @@ class PurchaseViewModel extends ChangeNotifier {
 
   Future<void> _processPurchase(Purchase purchase) async {
     if (_isRestoreLoading) return;
-    final user = IDCore.returnAuthUser();
+    final user = IDCore.authUser();
     if (user == null) return;
     if (purchase.productID == 'consumable') {
       final data = purchase.toJson();
@@ -131,7 +131,7 @@ class PurchaseViewModel extends ChangeNotifier {
         _coinCount++;
         notifyListeners();
         await UIHelper.showFlutterToast('コインを購入しました！');
-      }, failure: () async {
+      }, failure: (_) async {
         await UIHelper.showFlutterToast('Failed to update purchase');
       });
     } else {
@@ -142,7 +142,7 @@ class PurchaseViewModel extends ChangeNotifier {
       await _loadSubscriptionStatus();
       result.when(success: (_) async {
         await UIHelper.showFlutterToast('サブスクリプションを購入しました！');
-      }, failure: () async {
+      }, failure: (_) async {
         await UIHelper.showFlutterToast('Failed to update purchase');
       });
     }
@@ -158,14 +158,14 @@ class PurchaseViewModel extends ChangeNotifier {
       _isRestoreLoading = false;
       notifyListeners();
       await UIHelper.showFlutterToast('購入を復元しました！');
-    }, failure: () async {
+    }, failure: (_) async {
       _isRestoreLoading = false;
       await UIHelper.showFlutterToast('Failed to restore purchases');
     });
   }
 
   Future<void> consumeCoin() async {
-    final user = IDCore.returnAuthUser();
+    final user = IDCore.authUser();
     if (user == null) return;
     if (_coinCount <= 0) {
       await UIHelper.showFlutterToast('コインがありません');
@@ -178,7 +178,7 @@ class PurchaseViewModel extends ChangeNotifier {
     result.when(success: (res) {
       _coinCount--;
       notifyListeners();
-    }, failure: () async {
+    }, failure: (_) async {
       await UIHelper.showFlutterToast('Failed to consume coin');
     });
   }
