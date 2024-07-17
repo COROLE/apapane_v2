@@ -1,6 +1,7 @@
 //flutter
 import 'package:apapane/providers/auth_providers.dart';
 import 'package:apapane/providers/make_story_providers.dart';
+import 'package:apapane/providers/simple_firestore_providers.dart';
 import 'package:apapane/views/profile_screen/components/favorite_story_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +14,6 @@ import 'package:apapane/views/common/icon_image.dart';
 import 'package:apapane/views/common/rounded_button.dart';
 //models
 import 'package:apapane/view_models/profile_view_model.dart';
-import 'package:apapane/view_models/edit_profile_view_model.dart';
 import 'package:go_router/go_router.dart';
 
 class ProfileDisplay extends ConsumerWidget {
@@ -26,8 +26,7 @@ class ProfileDisplay extends ConsumerWidget {
     final storyViewModel = ref.watch(storyViewModelProvider);
 
     final mainViewModel = ref.watch(mainViewModelProvider);
-    final EditProfileModel editProfileViewModel =
-        ref.watch(editProfileProvider);
+    final editProfileViewModel = ref.watch(editProfileViewModelProvider);
 
     final firestoreUser = mainViewModel.firestoreUser;
 

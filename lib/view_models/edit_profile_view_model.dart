@@ -1,66 +1,79 @@
 //flutter
-import 'dart:typed_data';
-
-import 'package:apapane/constants/strings.dart';
+import 'package:apapane/core/firestore/doc_ref_core.dart';
 import 'package:apapane/core/id_core/id_core.dart';
 import 'package:apapane/models/firestore_user/firestore_user.dart';
+import 'package:apapane/repositories/firestore_repository.dart';
+import 'package:apapane/typedefs/firestore_typedef.dart';
+import 'package:apapane/ui_core/ui_helper.dart';
+import 'package:apapane/view_models/bottom_nav_bar_view_model.dart';
 import 'package:apapane/view_models/main_view_model.dart';
 import 'package:apapane/ui_core/file_core.dart';
 import 'package:flutter/material.dart';
 //packages
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 //constants
 import 'package:go_router/go_router.dart';
 
-final editProfileProvider = ChangeNotifierProvider((ref) => EditProfileModel());
-
-class EditProfileModel extends ChangeNotifier {
-  List<DocumentSnapshot<Map<String, dynamic>>> storyDocs = [];
-  final TextEditingController _nameController = TextEditingController();
-  TextEditingController get nameController => _nameController;
-  bool isLoading = false;
-  bool isChanged = false;
+class EditProfileViewModel extends ChangeNotifier {
+  final FirestoreRepository _firestoreRepository;
+  EditProfileViewModel(this._firestoreRepository);
+  TextEditingController nameController = TextEditingController();
+  bool _isLoading = false;
+  bool _isChanged = false;
   String newUserName = '';
-  dynamic croppedImage;
-  dynamic oldCroppedImage;
+  dynamic _croppedImage;
+  dynamic _oldCroppedImage;
 
-  void init(MainViewModel mainModel) {
-    isLoading = false;
-    isChanged = false;
+  bool get isLoading => _isLoading;
+  bool get isChanged => _isChanged;
+  dynamic get croppedImage => _croppedImage;
+
+  void init(MainViewModel mainViewModel) {
+    _isLoading = false;
+    _isChanged = false;
     final User? currentUser = IDCore.authUser();
     if (currentUser == null) return;
-    _nameController.text = currentUser.displayName ?? '';
+    nameController.text = currentUser.displayName ?? '';
     newUserName = currentUser.displayName ?? '';
-    croppedImage = mainModel.firestoreUser.userImageURL;
-    oldCroppedImage = mainModel.firestoreUser.userImageURL;
+    _croppedImage = mainViewModel.firestoreUser.userImageURL;
+    _oldCroppedImage = mainViewModel.firestoreUser.userImageURL;
+    nameController.addListener(_onNameChanged);
+    notifyListeners();
+  }
+
+  void _onNameChanged() {
+    if (nameController.text.trim() != newUserName) {
+      _isChanged = true;
+    } else {
+      _isChanged = false;
+    }
     notifyListeners();
   }
 
   Future<void> selectImage() async {
-    croppedImage = await FileCore.getImage();
-    if (croppedImage == null) {
-      croppedImage = oldCroppedImage;
-      isChanged = false;
+    _croppedImage = await FileCore.getImage();
+    if (_croppedImage == null) {
+      _croppedImage = _oldCroppedImage;
+      _isChanged = false;
       return;
     }
-    isChanged = true;
+    _isChanged = true;
     notifyListeners();
   }
 
   void saveButtonPressed(
     BuildContext context,
-    MainViewModel mainModel,
+    MainViewModel mainViewModel,
+    BottomNavigationBarViewModel bottomNavBarViewModel,
   ) async {
-    startLoading();
-    await _updateUserName(mainModel.firestoreUser);
+    _startLoading();
+    await _updateUserName(mainViewModel.firestoreUser);
     await _updateProfileImage();
-    if (isChanged) {
-      mainModel.init();
+    if (_isChanged) {
+      mainViewModel.init();
     }
-    endLoading();
+    _endLoading();
+    bottomNavBarViewModel.resetIndex();
     // ignore: use_build_context_synchronously
     context.pop();
   }
@@ -68,69 +81,56 @@ class EditProfileModel extends ChangeNotifier {
   Future<void> _updateUserName(FirestoreUser firestoreUser) async {
     final User? currentUser = IDCore.authUser();
     if (currentUser == null) return;
-    final String newUserName = _nameController.text;
+    final String newUserName = nameController.text;
     if (newUserName.trim().isEmpty || newUserName == firestoreUser.userName) {
       return;
     }
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUser.uid)
-        .update({'userName': newUserName});
-    isChanged = true;
+    await _updateUserDoc(currentUser.uid, {'userName': newUserName});
+    _isChanged = true;
     notifyListeners();
   }
 
   Future<void> _updateProfileImage() async {
     final User? currentUser = IDCore.authUser();
     if (currentUser == null) return;
-    if (croppedImage == null) return;
-    if (oldCroppedImage == croppedImage) return;
-    final String fileName = returnJpgFileName();
-    final downloadUrl = await _uploadImageToFirebase(
-        activeUid: currentUser.uid,
-        imageData: croppedImage!,
-        fileName: fileName);
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(currentUser.uid)
-        .update({'userImageURL': downloadUrl});
+    final String uid = currentUser.uid;
+    if (_croppedImage == null) return;
+    if (_oldCroppedImage == _croppedImage) return;
+    final String fileName = IDCore.jpgFileName();
+    final result = await _firestoreRepository.uploadImage(
+        'users/$uid/profileImages/$fileName', _croppedImage);
+    result.when(success: (url) async {
+      final downloadUrl = url;
+      await _updateUserDoc(uid, {'userImageURL': downloadUrl});
+    }, failure: (_) async {
+      await UIHelper.showFlutterToast('画像のアップロードに失敗しました');
+    });
   }
 
-  Future<String> _uploadImageToFirebase({
-    required String activeUid,
-    required Uint8List imageData,
-    required String fileName,
-  }) async {
-    Reference storageRef =
-        FirebaseStorage.instance.ref().child('users/$activeUid/$fileName');
-    UploadTask uploadTask = storageRef.putData(imageData);
-
-    // アップロードが完了するのを待つ
-    await uploadTask;
-
-    // アップロードが成功したかどうかを確認
-    if (uploadTask.snapshot.state == TaskState.success) {
-      String downloadUrl = await storageRef.getDownloadURL();
-      return downloadUrl;
-    } else {
-      // アップロードが失敗した場合の処理
-      throw Exception('ファイルのアップロードに失敗しました');
-    }
+  Future<void> _updateUserDoc(String uid, SDMap data) async {
+    final result = await _firestoreRepository.updateDoc(
+        DocRefCore.publicUserDocRef(uid), data);
+    result.when(
+        success: (_) {},
+        failure: (_) async {
+          await UIHelper.showFlutterToast('プロフィールの更新に失敗しました');
+        });
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    nameController.removeListener(_onNameChanged);
+    nameController.dispose();
     super.dispose();
   }
 
-  void startLoading() {
-    isLoading = true;
+  void _startLoading() {
+    _isLoading = true;
     notifyListeners();
   }
 
-  void endLoading() {
-    isLoading = false;
+  void _endLoading() {
+    _isLoading = false;
     notifyListeners();
   }
 }
