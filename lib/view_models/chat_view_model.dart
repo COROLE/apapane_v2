@@ -572,16 +572,19 @@ class ChatViewModel extends ChangeNotifier {
             });
             debugPrint('seed: $_seed');
           } else {
-            throw Exception('Seed not found in the response');
+            debugPrint('API response: $firstImageOutput');
+            throw Exception(
+                'Seed not found in the response. Full response: $firstImageOutput');
           }
         },
-        failure: (_) {
-          throw Exception('Failed to fetch initial image');
+        failure: (error) {
+          debugPrint('API error: $error');
+          throw Exception('Failed to fetch initial image. Error: $error');
         },
       );
     } catch (e) {
       debugPrint('Error in _fetchInitialImage: $e');
-      await UIHelper.showFlutterToast('タイトル画像の取得に失敗しました。');
+      await UIHelper.showFlutterToast('タイトル画像の取得に失敗しました。エラー: $e');
       rethrow;
     }
   }
@@ -616,7 +619,7 @@ class ChatViewModel extends ChangeNotifier {
           "image": imageOutput["base64"],
         };
       }, failure: (_) async {
-        await UIHelper.showFlutterToast('画像の取���に失敗しました。');
+        await UIHelper.showFlutterToast('画像の取得に失敗しました。');
         return null;
       });
     }).toList();

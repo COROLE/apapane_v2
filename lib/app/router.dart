@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/views/login_signup_screen/login_signup_screen.dart';
 import 'package:apapane/views/chat_screen/chat_screen.dart';
-import 'package:apapane/views/story_screen.dart';
+import 'package:apapane/views/story_screen/story_screen.dart';
 
 final router = GoRouter(
   routes: [
