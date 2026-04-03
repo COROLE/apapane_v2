@@ -180,9 +180,7 @@ jobs:
 
       - name: Install CocoaPods dependencies
         working-directory: ios
-        run: |
-          pod update TOCropViewController
-          pod install
+        run: pod update
 
       - name: Decode deployment env file
         env:
