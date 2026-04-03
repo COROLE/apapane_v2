@@ -29,6 +29,7 @@ permissions:
 env:
   FLUTTER_VERSION: 3.32.5
   JAVA_VERSION: "17"
+  RUBY_VERSION: "3.2"
   BUILD_NUMBER: ${{ github.run_number }}
   IOS_BUNDLE_ID: com.coroleai.apapane
   ANDROID_PACKAGE_NAME: com.coroleai.apapaneapp
@@ -87,6 +88,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
 
       - name: Set up Flutter
@@ -172,6 +174,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: ${{ env.RUBY_VERSION }}
           bundler-cache: true
 
       - name: Set up Flutter
