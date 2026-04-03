@@ -46,7 +46,7 @@ class ChatScreen extends ConsumerWidget {
                       ),
                       SizedBox(width: 3),
                       Text(
-                        "apapane",
+                        "アパパネ",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Color.fromARGB(255, 255, 255, 255),
@@ -106,14 +106,15 @@ class ChatScreen extends ConsumerWidget {
                             onPressed: chatViewModel.isCommentLoading
                                 ? () async => await UIHelper.showFlutterToast(
                                     pleaseWaitMSG)
-                                : () =>
-                                    chatViewModel.exampleAndVoiceSendPressed(
-                                        chatViewModel.exampleText,
-                                        context: context),
+                                : () async => await chatViewModel
+                                        .exampleAndVoiceSendPressed(
+                                      chatViewModel.exampleText,
+                                      context: context,
+                                    ),
                             widthRate: 0.35,
                             text: chatViewModel.isExampleLoading
-                                ? '...'
-                                : chatViewModel.exampleText),
+                                ? 'れいを考え中...'
+                                : chatViewModel.exampleButtonLabel),
                         CreateButton(
                             isValidCreate: chatViewModel.isValidCreate,
                             width: screenWidth * 0.35,

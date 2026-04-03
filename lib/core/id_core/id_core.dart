@@ -1,14 +1,14 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:apapane/local/local_auth_session.dart';
+import 'package:apapane/models/auth/local_session_user.dart';
 import 'package:uuid/uuid.dart';
 
 class IDCore {
   static String uuidV4() {
     const uuid = Uuid();
-    final result = uuid.v4();
-    return result;
+    return uuid.v4();
   }
 
-  static User? authUser() => FirebaseAuth.instance.currentUser;
+  static LocalSessionUser? authUser() => LocalAuthSession.instance.currentUser;
 
-  static String jpgFileName() => "${uuidV4()}.jpg";
+  static String jpgFileName() => '${uuidV4()}.jpg';
 }

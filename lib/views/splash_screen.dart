@@ -1,3 +1,5 @@
+import 'dart:async';
+
 // ignore_for_file: file_names
 
 import 'package:apapane/constants/strings.dart';
@@ -16,6 +18,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
+  Timer? _redirectTimer;
 
   @override
   void initState() {
@@ -28,12 +31,17 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _controller,
       curve: Curves.easeInOut,
     );
-    Future.delayed(const Duration(seconds: 3))
-        .then((value) => context.pushReplacement('/login/redirection'));
+    _redirectTimer = Timer(const Duration(seconds: 3), () {
+      if (!mounted) {
+        return;
+      }
+      context.pushReplacement('/home');
+    });
   }
 
   @override
   void dispose() {
+    _redirectTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -57,8 +65,8 @@ class _SplashScreenState extends State<SplashScreen>
           begin: FractionalOffset.topLeft,
           end: FractionalOffset.bottomRight,
           colors: [
-            const Color.fromARGB(253, 252, 42, 0).withOpacity(0.8),
-            const Color.fromARGB(255, 255, 216, 216).withOpacity(0.8),
+            const Color.fromARGB(253, 252, 42, 0).withValues(alpha: 0.8),
+            const Color.fromARGB(255, 255, 216, 216).withValues(alpha: 0.8),
           ],
           stops: const [
             0.0,
@@ -70,7 +78,7 @@ class _SplashScreenState extends State<SplashScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Text(
-            'Apapane',
+            'アパパネ',
             style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 70),
           ),

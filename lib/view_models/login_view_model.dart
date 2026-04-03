@@ -1,57 +1,97 @@
-//flutter
+import 'package:apapane/local/local_auth_session.dart';
 import 'package:apapane/repositories/auth_repository.dart';
 import 'package:apapane/ui_core/ui_helper.dart';
-import 'package:flutter/material.dart';
-//packages
 import 'package:firebase_auth/firebase_auth.dart';
-//routes
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+enum LoginProvider {
+  google,
+  apple,
+}
+
 class LoginViewModel extends ChangeNotifier {
+  LoginViewModel(this._authRepository, this._onLoginSuccess);
+
   final AuthRepository _authRepository;
+  final VoidCallback _onLoginSuccess;
 
-  LoginViewModel(this._authRepository);
-  String email = "";
-  String password = "";
-  bool _isObscure = true;
+  bool _isLoading = false;
 
-  bool get isObscure => _isObscure;
+  bool get isLoading => _isLoading;
 
-  Future<void> login({required BuildContext context}) async {
-    final result = await _authRepository.signInWithEmailAndPassword(
-        email.trim(), password.trim());
-    result.when(success: (_) {
-      if (context.mounted) {
-        context.pushReplacement('/login/redirection');
-      }
-    }, failure: (error) async {
-      final errorMessage = _getErrorMessage(error ?? 'Unknown error');
-
-      await UIHelper.showFlutterToast(errorMessage);
-    });
+  Future<void> loginWithGoogle({required BuildContext context}) async {
+    await _login(context: context, provider: LoginProvider.google);
   }
 
-  String _getErrorMessage(Object? error) {
-    if (error is FirebaseAuthException) {
+  Future<void> loginWithApple({required BuildContext context}) async {
+    await _login(context: context, provider: LoginProvider.apple);
+  }
+
+  Future<void> _login({
+    required BuildContext context,
+    required LoginProvider provider,
+  }) async {
+    if (_isLoading) {
+      return;
+    }
+
+    _startLoading();
+    final result = provider == LoginProvider.apple
+        ? await _authRepository.signInWithApple()
+        : await _authRepository.signInWithGoogle();
+    _endLoading();
+
+    result.when(
+      success: (_) {
+        _onLoginSuccess();
+        if (context.mounted) {
+          context.go('/home');
+        }
+      },
+      failure: (error) async {
+        final message = _messageForError(error);
+        await UIHelper.showFlutterToast(message);
+      },
+    );
+  }
+
+  String _messageForError(Object? error) {
+    if (error is LocalAuthException) {
       switch (error.code) {
-        case 'user-not-found':
-          return 'ユーザーが見つかりません。';
-        case 'wrong-password':
-          return '無効なパスワードです';
-        case 'invalid-email':
-          return '無効なメールアドレスです';
-        case 'invalid-credential':
-          return 'パスワード、メールアドレスが間違っています。';
+        case 'sign_in_canceled':
+          return 'ログインをキャンセルしました。';
+        case 'unsupported_platform':
+          return 'Appleでログインできるのは iPhone / iPad のみです。';
         default:
-          debugPrint(error.code);
-          return 'エラーが発生しました';
+          return error.message;
       }
     }
-    return '不明なエラーが発生しました。';
+    if (error is FirebaseAuthException) {
+      final message = error.message?.trim();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+      return 'Firebase Auth エラー: ${error.code}';
+    }
+    if (error is PlatformException) {
+      final message = error.message?.trim();
+      if (message != null && message.isNotEmpty) {
+        return message;
+      }
+      return '端末エラー: ${error.code}';
+    }
+    return 'ログインに失敗しました。';
   }
 
-  void toggleIsObscure() {
-    _isObscure = !_isObscure;
+  void _startLoading() {
+    _isLoading = true;
+    notifyListeners();
+  }
+
+  void _endLoading() {
+    _isLoading = false;
     notifyListeners();
   }
 }

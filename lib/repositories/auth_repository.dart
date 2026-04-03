@@ -1,37 +1,51 @@
+import 'package:apapane/core/firestore/col_ref_core.dart';
+import 'package:apapane/local/local_firestore.dart';
+import 'package:apapane/models/auth/local_session_user.dart';
+import 'package:apapane/models/firestore_user/firestore_user.dart';
 import 'package:apapane/models/result/result.dart';
+import 'package:apapane/repositories/firestore_repository.dart';
 import 'package:apapane/services/auth/auth_service.dart';
 import 'package:apapane/typedefs/result_typedef.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthRepository {
+  AuthRepository(this._authService, this._firestoreRepository);
+
   final AuthService _authService;
+  final FirestoreRepository _firestoreRepository;
 
-  AuthRepository(this._authService);
-
-  FutureResult<User> createUserWithEmailAndPassword(
-      String email, String password) async {
+  FutureResult<LocalSessionUser?> restoreSession() async {
     try {
-      final res =
-          await _authService.createUserWithEmailAndPassword(email, password);
-      final user = res.user;
-      return (user == null) ? throw Error() : Result.success(user);
-    } catch (e) {
-      debugPrint(e.toString());
-      return Result.failure(e);
+      final user = await _authService.restoreSession();
+      if (user != null) {
+        await _ensureLocalProfile(user);
+      }
+      return Result.success(user);
+    } catch (error) {
+      debugPrint(error.toString());
+      return Result.failure(error);
     }
   }
 
-  FutureResult<User> signInWithEmailAndPassword(
-      String email, String password) async {
+  FutureResult<LocalSessionUser> signInWithGoogle() async {
     try {
-      final res =
-          await _authService.signInWithEmailAndPassword(email, password);
-      final user = res.user;
-      return (user == null) ? throw Error() : Result.success(user);
-    } catch (e) {
-      debugPrint(e.toString());
-      return Result.failure(e);
+      final user = await _authService.signInWithGoogle();
+      await _ensureLocalProfile(user);
+      return Result.success(user);
+    } catch (error) {
+      debugPrint(error.toString());
+      return Result.failure(error);
+    }
+  }
+
+  FutureResult<LocalSessionUser> signInWithApple() async {
+    try {
+      final user = await _authService.signInWithApple();
+      await _ensureLocalProfile(user);
+      return Result.success(user);
+    } catch (error) {
+      debugPrint(error.toString());
+      return Result.failure(error);
     }
   }
 
@@ -39,54 +53,80 @@ class AuthRepository {
     try {
       await _authService.signOut();
       return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
+    } catch (error) {
+      return Result.failure(error);
     }
   }
 
-  FutureResult<bool> sendEmailVerification(User user) async {
+  FutureResult<bool> updateCurrentUser({
+    String? displayName,
+    String? photoUrl,
+  }) async {
     try {
-      await _authService.sendEmailVerification(user);
+      await _authService.updateCurrentUser(
+        displayName: displayName,
+        photoUrl: photoUrl,
+      );
       return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
+    } catch (error) {
+      return Result.failure(error);
     }
   }
 
-  FutureResult<bool> reauthenticateWithCredential(
-      User user, String password) async {
+  FutureResult<bool> deleteCurrentUser() async {
     try {
-      await _authService.reauthenticateWithCredential(user, password);
+      await _authService.deleteCurrentUser();
       return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
+    } catch (error) {
+      return Result.failure(error);
     }
   }
 
-  FutureResult<bool> verifyBeforeUpdateEmail(User user, String newEmail) async {
-    try {
-      await _authService.verifyBeforeUpdateEmail(user, newEmail);
-      return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
+  Future<void> _ensureLocalProfile(LocalSessionUser user) async {
+    if (user.isGuest) {
+      return;
     }
-  }
 
-  FutureResult<bool> updatePassword(User user, String newPassword) async {
-    try {
-      await _authService.updatePassword(user, newPassword);
-      return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
-    }
-  }
+    final profileRef = ColRefCore.publicUsersColRef().doc(user.uid);
+    final currentProfileResult = await _firestoreRepository.getDoc(profileRef);
+    final currentProfile = currentProfileResult.when(
+      success: (doc) => doc.data(),
+      failure: (_) => null,
+    );
 
-  FutureResult<bool> delete(User user) async {
-    try {
-      await _authService.delete(user);
-      return const Result.success(true);
-    } catch (e) {
-      return const Result.failure();
+    if (currentProfile != null) {
+      final updates = <String, dynamic>{};
+      if ((currentProfile['userName']?.toString().trim().isEmpty ?? true) &&
+          user.displayName.trim().isNotEmpty) {
+        updates['userName'] = user.displayName.trim();
+      }
+      final currentPhoto = currentProfile['userImageURL']?.toString() ?? '';
+      if (currentPhoto.isEmpty && user.photoUrl.isNotEmpty) {
+        updates['userImageURL'] = user.photoUrl;
+      }
+      if (updates.isNotEmpty) {
+        updates['updatedAt'] = Timestamp.now();
+        await _firestoreRepository.updateDoc(profileRef, updates);
+      }
+      return;
     }
+
+    final now = Timestamp.now();
+    final firestoreUser = FirestoreUser(
+      age: 0,
+      coins: 0,
+      createdAt: now,
+      favoriteMyStoryCount: 0,
+      followerCount: 0,
+      followingCount: 0,
+      isAdmin: false,
+      consumables: const [],
+      silverSubscription: const {},
+      updatedAt: now,
+      userName: user.displayName,
+      userImageURL: user.photoUrl,
+      uid: user.uid,
+    );
+    await _firestoreRepository.createDoc(profileRef, firestoreUser.toJson());
   }
 }

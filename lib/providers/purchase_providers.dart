@@ -1,28 +1,16 @@
-import 'package:apapane/repositories/firestore_repository.dart';
-import 'package:apapane/services/firestore/firestore_service.dart';
+import 'package:apapane/providers/auth_providers.dart';
+import 'package:apapane/repositories/purchase_repository.dart';
+import 'package:apapane/view_models/purchase_view_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/purchase/purchase_service.dart';
-import '../repositories/purchase_repository.dart';
-import '../view_models/purchase_view_model.dart';
-
-final purchaseServiceProvider =
-    Provider<PurchaseService>((ref) => PurchaseService());
-final firestoreServiceProvider =
-    Provider<FirestoreService>((ref) => FirestoreService());
 
 final purchaseRepositoryProvider = Provider<PurchaseRepository>((ref) {
-  return PurchaseRepository(
-    ref.read(purchaseServiceProvider),
-  );
-});
-final firestoreRepositoryProvider = Provider<FirestoreRepository>((ref) {
-  return FirestoreRepository(
-    ref.read(firestoreServiceProvider),
-  );
+  return PurchaseRepository();
 });
 
 final purchaseViewModelProvider =
     ChangeNotifierProvider<PurchaseViewModel>((ref) {
-  return PurchaseViewModel(ref.read(purchaseRepositoryProvider),
-      ref.read(firestoreRepositoryProvider));
+  return PurchaseViewModel(
+    ref.read(purchaseRepositoryProvider),
+    ref.read(firestoreRepositoryProvider),
+  );
 });

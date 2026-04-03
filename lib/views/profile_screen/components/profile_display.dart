@@ -71,8 +71,8 @@ class ProfileDisplay extends ConsumerWidget {
                     context.push('/edit/profile');
                   },
                   widthRate: 0.65,
-                  color:
-                      const Color.fromARGB(255, 242, 0, 255).withOpacity(0.6),
+                  color: const Color.fromARGB(255, 242, 0, 255)
+                      .withValues(alpha: 0.6),
                   text: editProfileText),
             ),
             SizedBox(height: 20.h),

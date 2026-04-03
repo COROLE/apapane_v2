@@ -1,9 +1,9 @@
-import 'package:apapane/view_models/chat_view_model.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:apapane/constants/strings.dart';
+import 'package:apapane/view_models/chat_view_model.dart';
 import 'package:apapane/views/common/create_button.dart';
 import 'package:apapane/views/common/rounded_button.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class JudgeUi extends ConsumerStatefulWidget {
   const JudgeUi({
@@ -13,20 +13,21 @@ class JudgeUi extends ConsumerStatefulWidget {
     required this.onPressed,
     required this.chatViewModel,
   });
-  final double screenHeight, screenWidth;
+
+  final double screenHeight;
+  final double screenWidth;
   final void Function() onPressed;
   final ChatViewModel chatViewModel;
 
   @override
-  // ignore: library_private_types_in_public_api
-  _JudgeUiState createState() => _JudgeUiState();
+  ConsumerState<JudgeUi> createState() => _JudgeUiState();
 }
 
 class _JudgeUiState extends ConsumerState<JudgeUi>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-  late Animation<double> _scaleTextAnimation;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+  late final Animation<double> _scaleTextAnimation;
 
   @override
   void initState() {
@@ -62,7 +63,7 @@ class _JudgeUiState extends ConsumerState<JudgeUi>
       child: Container(
         height: widget.screenHeight,
         width: widget.screenWidth,
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha: 0.5),
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -78,15 +79,17 @@ class _JudgeUiState extends ConsumerState<JudgeUi>
               child: ScaleTransition(
                 scale: _scaleTextAnimation,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 5,
+                    horizontal: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color.fromARGB(255, 56, 157, 80),
                     borderRadius: BorderRadius.circular(10),
                     boxShadow: [
                       BoxShadow(
                         color: const Color.fromARGB(255, 255, 255, 255)
-                            .withOpacity(0.6),
+                            .withValues(alpha: 0.6),
                         spreadRadius: 1,
                         blurRadius: 4,
                       ),
@@ -124,14 +127,15 @@ class _JudgeUiState extends ConsumerState<JudgeUi>
                     onPressed: () => widget.chatViewModel.cancel(context),
                     widthRate: 0.4,
                     color: const Color.fromARGB(255, 66, 133, 244),
-                    text: 'まだはなす',
+                    text: 'まだつくらない',
                   ),
                   CreateButton(
-                      judgeMode: true,
-                      isValidCreate: widget.chatViewModel.isValidCreate,
-                      width: widget.screenWidth * 0.4,
-                      height: widget.screenHeight * 0.06,
-                      onPressed: widget.onPressed),
+                    judgeMode: true,
+                    isValidCreate: widget.chatViewModel.isValidCreate,
+                    width: widget.screenWidth * 0.4,
+                    height: widget.screenHeight * 0.06,
+                    onPressed: widget.onPressed,
+                  ),
                 ],
               ),
             ),

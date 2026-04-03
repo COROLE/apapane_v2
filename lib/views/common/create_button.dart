@@ -1,7 +1,5 @@
-//flutter
-import 'package:flutter/material.dart';
-//constants
 import 'package:apapane/constants/strings.dart';
+import 'package:flutter/material.dart';
 
 class CreateButton extends StatelessWidget {
   const CreateButton({
@@ -12,6 +10,7 @@ class CreateButton extends StatelessWidget {
     required this.onPressed,
     this.judgeMode = false,
   });
+
   final bool isValidCreate;
   final double width;
   final double height;
@@ -28,16 +27,18 @@ class CreateButton extends StatelessWidget {
         child: ElevatedButton(
           style: ButtonStyle(
             shadowColor: isValidCreate
-                ? MaterialStateProperty.all(Colors.grey.withOpacity(0.5))
-                : null, // シャドウの色と透明度
-            elevation: isValidCreate ? MaterialStateProperty.all(8) : null,
-            shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+                ? WidgetStateProperty.all(
+                    Colors.grey.withValues(alpha: 0.5),
+                  )
+                : null,
+            elevation: isValidCreate ? WidgetStateProperty.all(8) : null,
+            shape: WidgetStateProperty.all<RoundedRectangleBorder>(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
             ),
-            backgroundColor: MaterialStateProperty.all(Colors.transparent),
-            padding: MaterialStateProperty.all(EdgeInsets.zero),
+            backgroundColor: WidgetStateProperty.all(Colors.transparent),
+            padding: WidgetStateProperty.all(EdgeInsets.zero),
           ),
           onPressed: onPressed,
           child: Ink(
@@ -61,9 +62,7 @@ class CreateButton extends StatelessWidget {
                       fontSize: 18,
                     ),
                   ),
-                  SizedBox(
-                    width: 3,
-                  ),
+                  SizedBox(width: 3),
                   Icon(
                     Icons.create,
                     color: Colors.white,

@@ -22,7 +22,7 @@ class ReloadScreen extends StatelessWidget {
             child: RoundedButton(
                 onPressed: onReload,
                 widthRate: 0.8,
-                color: Colors.pink.withOpacity(0.8),
+                color: Colors.pink.withValues(alpha: 0.8),
                 text: reloadText),
           )
         ],

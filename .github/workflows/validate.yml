@@ -1,0 +1,73 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - '**'
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.32.5
+  JAVA_VERSION: '17'
+  NODE_VERSION: '22'
+
+jobs:
+  validate_flutter_and_functions:
+    name: Flutter And Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter app
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+
+      - name: Test Flutter app
+        run: flutter test
+
+      - name: Install Functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint Functions
+        working-directory: functions
+        run: npm run lint
+
+      - name: Test Functions
+        working-directory: functions
+        run: npm test
+
+      - name: Audit Functions dependencies
+        working-directory: functions
+        run: npm run audit:ci

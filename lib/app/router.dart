@@ -3,11 +3,10 @@ import 'package:apapane/main.dart';
 import 'package:apapane/views/splash_screen.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:apapane/models/firestore_user/firestore_user.dart';
 import 'package:apapane/views/admin_screen.dart';
 import 'package:apapane/views/chat_screen/components/mic_ui.dart';
+import 'package:apapane/views/purchase_page.dart';
 import 'package:apapane/views/profile_screen/components/edit_profile_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/views/login_signup_screen/login_signup_screen.dart';
@@ -24,14 +23,7 @@ final router = GoRouter(
     GoRoute(
       path: '/login/redirection',
       name: 'login-redirection',
-      redirect: (context, state) {
-        final onceUser = IDCore.authUser();
-        if (onceUser != null) {
-          return '/home';
-        } else {
-          return '/login';
-        }
-      },
+      redirect: (context, state) => '/home',
     ),
     GoRoute(
       path: '/login',
@@ -64,20 +56,23 @@ final router = GoRouter(
     GoRoute(
       path: '/admin',
       name: 'admin',
-      builder: (context, state) {
-        final extra = state.extra as Map<String, dynamic>;
-        final currentUserDoc =
-            extra['currentUserDoc'] as DocumentSnapshot<Map<String, dynamic>>;
-        final firestoreUser = extra['firestoreUser'] as FirestoreUser;
-        return AdminScreen(
-          currentUserDoc: currentUserDoc,
-          firestoreUser: firestoreUser,
-        );
-      },
+      builder: (context, state) => const AdminScreen(),
+    ),
+    GoRoute(
+      path: '/parent/store',
+      name: 'parent-store',
+      builder: (context, state) => const PurchasePage(),
     ),
     GoRoute(
       path: '/edit/profile',
       name: 'edit-profile',
+      redirect: (context, state) {
+        final currentUser = IDCore.authUser();
+        if (currentUser == null || currentUser.isGuest) {
+          return '/home';
+        }
+        return null;
+      },
       pageBuilder: (context, state) => CustomTransitionPage(
         child: const EditProfileScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {

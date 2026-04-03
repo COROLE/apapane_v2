@@ -1,7 +1,7 @@
 name: apapane
-description: A new Flutter project.
+description: Apapane story generation app.
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.44+66
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -11,46 +11,49 @@ dependencies:
     sdk: flutter
   audioplayers: ^6.0.0
   cached_network_image: ^3.3.1
+  cloud_firestore: ^5.6.1
+  cloud_functions: ^5.2.0
   freezed: ^2.4.6
-  cloud_firestore: ^5.0.1
   freezed_annotation: ^2.4.1
+  firebase_analytics: ^11.4.0
+  firebase_auth: ^5.4.0
+  firebase_core: ^3.10.0
+  firebase_crashlytics: ^4.3.0
+  firebase_storage: ^12.4.0
   persistent_bottom_nav_bar: ^5.0.2
   flutter_tts: ^4.0.2
-  shared_preferences: ^2.2.1
+  shared_preferences: ^2.2.3
+  path_provider: ^2.1.5
   flutter_dotenv: ^5.1.0
   intl: any
-  image_picker: ^1.1.2
-  dart_openai: ^5.1.0
+  image_picker: ^1.2.1
   bordered_text: ^2.0.0
   flutter_screenutil: ^5.3.1
   flutter_riverpod: ^2.4.9
-  firebase_core: ^3.1.0
-  firebase_auth: ^5.1.0
-  firebase_analytics: ^11.0.1
+  google_sign_in: ^6.2.1
   google_fonts: ^6.2.1
   pull_to_refresh: ^2.0.0
-  url_launcher: ^6.0.20
+  url_launcher: ^6.3.2
   clipboard: ^0.1.3
   flash: ^3.1.0
   uuid: ^4.4.0
   flutter_svg: ^2.0.10+1
-  firebase_storage: ^12.0.1
-  firebase_crashlytics: ^4.0.1
-  fluttertoast: ^8.2.4
+  fluttertoast: ^9.0.0
   material_floating_search_bar: ^0.3.7
   json_serializable: ^6.7.1
   http: ^1.0.0
-  speech_to_text: ^6.6.0
+  speech_to_text: ^7.3.0
   avatar_glow: ^3.0.1
   get: ^4.6.5
   flutter_chat_ui: ^1.6.13
-  image_cropper: ^7.0.5
+  image_cropper: ^11.0.0
   flutter_chat_types: ^3.6.2
-  in_app_purchase: ^3.2.0
-  in_app_purchase_android: ^0.3.6
-  in_app_purchase_storekit: ^0.3.17
+  in_app_purchase: ^3.2.3
+  in_app_purchase_android: ^0.4.0+5
+  in_app_purchase_storekit: ^0.4.4
   package_info_plus: ^8.0.0
   go_router: ^14.2.0
+  firebase_app_check: ^0.3.2+10
 
 
 
@@ -61,12 +64,22 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.13.1
 
+dependency_overrides:
+  flutter_plugin_android_lifecycle: ^2.0.33
+  path_provider_android:
+    path: third_party/patched_packages/path_provider_android
+  shared_preferences_android:
+    path: third_party/patched_packages/shared_preferences_android
+  url_launcher_android:
+    path: third_party/patched_packages/url_launcher_android
+  win32: ^5.15.0
+
 
 flutter:
   uses-material-design: true
 
   assets:
-    - .env
+    - .env.example
     - assets/images/apapane_icon_1.png
     - assets/images/end_story_image.png
     - assets/images/home_image.png
@@ -103,7 +116,11 @@ flutter:
 flutter_icons:
   android: true
   ios: true
-  image_path: "assets/images/apapane_icon_1.png"
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FFF4DD"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
 
   fonts:
     - family: ZenMaruGothic

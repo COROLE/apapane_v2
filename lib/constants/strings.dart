@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 
 //apapane titles
 const String lowerTitle = 'apapane';
-const String startUpperTitle = 'Apapane';
+const String startUpperTitle = 'アパパネ';
 const String selectTitle = 'えらんでね';
 
 //titles

@@ -21,7 +21,7 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           ProfileImageSwitcher(viewModel: viewModel),
           Container(
-            color: const Color.fromARGB(255, 34, 34, 34).withOpacity(0.5),
+            color: const Color.fromARGB(255, 34, 34, 34).withValues(alpha: 0.5),
           ),
           Positioned(
             top: screenHeight * 0.1.w,
@@ -30,7 +30,8 @@ class ProfileScreen extends ConsumerWidget {
               width: screenWidth * 0.82.w,
               height: screenHeight * 0.74,
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 0, 0, 0).withOpacity(0.3),
+                color:
+                    const Color.fromARGB(255, 0, 0, 0).withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(20),
               ),
             ),

@@ -1,0 +1,78 @@
+name: Deploy Public Backend
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-public-backend-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+  FIREBASE_PROJECT_ID: apapane-94356
+
+jobs:
+  deploy_backend:
+    name: Deploy Firebase Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install Functions dependencies
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint Functions
+        working-directory: functions
+        run: npm run lint
+
+      - name: Test Functions
+        working-directory: functions
+        run: npm test
+
+      - name: Audit Functions dependencies
+        working-directory: functions
+        run: npm run audit:ci
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools@14
+
+      - name: Write deploy service account
+        env:
+          FIREBASE_DEPLOY_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_DEPLOY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          credentials = os.environ["FIREBASE_DEPLOY_SERVICE_ACCOUNT_JSON"].strip()
+          if not credentials:
+              raise SystemExit("FIREBASE_DEPLOY_SERVICE_ACCOUNT_JSON is empty.")
+
+          credentials_path = Path(os.environ["RUNNER_TEMP"]) / "firebase-deploy-service-account.json"
+          credentials_path.write_text(credentials, encoding="utf-8")
+
+          github_env = Path(os.environ["GITHUB_ENV"])
+          with github_env.open("a", encoding="utf-8") as env_file:
+              env_file.write(f"GOOGLE_APPLICATION_CREDENTIALS={credentials_path}\n")
+          PY
+
+      - name: Deploy Firestore, Storage, and Functions
+        run: >
+          firebase deploy
+          --project "${{ env.FIREBASE_PROJECT_ID }}"
+          --only firestore:rules,firestore:indexes,storage,functions
+          --non-interactive

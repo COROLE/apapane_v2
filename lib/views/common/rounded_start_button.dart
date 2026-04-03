@@ -20,9 +20,9 @@ class RoundedStartButton extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Colors.red.shade300.withOpacity(0.9),
-                  Colors.red.shade600.withOpacity(0.8),
-                  Colors.purple.shade300.withOpacity(0.8),
+                  Colors.red.shade300.withValues(alpha: 0.9),
+                  Colors.red.shade600.withValues(alpha: 0.8),
+                  Colors.purple.shade300.withValues(alpha: 0.8),
                 ],
               ),
               borderRadius: BorderRadius.only(

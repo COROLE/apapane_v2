@@ -1,7 +1,7 @@
 import 'package:apapane/view_models/story_view_model.dart';
 import 'package:apapane/views/common/story_icon.dart';
 import 'package:apapane/view_models/profile_view_model.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:apapane/local/local_firestore.dart';
 import 'package:flutter/material.dart';
 
 class FavoriteStoryIcons extends StatefulWidget {
@@ -35,7 +35,7 @@ class _FavoriteStoryIconsState extends State<FavoriteStoryIcons> {
 
   @override
   Widget build(BuildContext context) {
-    final List<DocumentSnapshot> favoriteStoryDocs =
+    final List<DocumentSnapshot<Map<String, dynamic>>> favoriteStoryDocs =
         widget.profileModel.favoriteStoryDocs;
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -58,10 +58,10 @@ class _FavoriteStoryIconsState extends State<FavoriteStoryIcons> {
                   : storyTitle;
               return InkWell(
                 onTap: () => widget.profileModel.getMyStories(
-                    context: context,
-                    storyViewModel: widget.storyViewModel,
-                    storyDoc: favoriteStoryDocs[index]
-                        as DocumentSnapshot<Map<String, dynamic>>),
+                  context: context,
+                  storyViewModel: widget.storyViewModel,
+                  storyDoc: favoriteStoryDocs[index],
+                ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   child: Column(

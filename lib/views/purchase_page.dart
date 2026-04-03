@@ -1,7 +1,9 @@
 import 'package:apapane/models/product/product.dart';
+import 'package:apapane/providers/auth_providers.dart';
 import 'package:apapane/view_models/purchase_view_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../providers/purchase_providers.dart';
 
 class PurchasePage extends ConsumerWidget {
@@ -10,11 +12,31 @@ class PurchasePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.watch(purchaseViewModelProvider);
+    final mainViewModel = ref.watch(mainViewModelProvider);
+
+    if (!mainViewModel.hasSyncedAccount) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('ストア'),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              '購入や定期購入を管理するには、保護者がログインしてください。',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ショップ',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'ストア',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: const Color(0xFF6200EE),
         elevation: 0,
       ),
@@ -29,21 +51,22 @@ class PurchasePage extends ConsumerWidget {
         child: SafeArea(
           child: viewModel.isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: Colors.white))
+                  child: CircularProgressIndicator(color: Colors.white),
+                )
               : ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
-                    _buildParentInfo(),
+                    _buildStoreInfo(),
                     const SizedBox(height: 32),
                     _buildProductList(viewModel),
                     const SizedBox(height: 32),
-                    _buildConsumableBox(viewModel),
+                    _buildEntitlements(viewModel),
                     const SizedBox(height: 32),
                     _buildRestoreButton(viewModel),
-                    const SizedBox(height: 16),
-                    viewModel.isSubscriptionActive
-                        ? _buildSubscriptionCancelButton(viewModel, context)
-                        : const SizedBox.shrink(),
+                    if (viewModel.isSubscriptionActive) ...[
+                      const SizedBox(height: 16),
+                      _buildManageSubscriptionButton(viewModel, context),
+                    ],
                   ],
                 ),
         ),
@@ -51,14 +74,14 @@ class PurchasePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildParentInfo() {
+  Widget _buildStoreInfo() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -69,7 +92,7 @@ class PurchasePage extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '保護者の方へ',
+            '保護者向け購入メニュー',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -78,7 +101,7 @@ class PurchasePage extends ConsumerWidget {
           ),
           SizedBox(height: 16),
           Text(
-            'このページでは、お子様が使用できるアイテムを購入できます。購入前に内容をご確認ください。',
+            '購入内容はサーバーで確認され、保護者アカウントに同期されます。再インストールや機種変更のときは「購入を復元」を使ってください。',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF333333),
@@ -91,20 +114,33 @@ class PurchasePage extends ConsumerWidget {
   }
 
   Widget _buildProductList(PurchaseViewModel viewModel) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final crossAxisCount = constraints.maxWidth > 600 ? 2 : 1;
-      return GridView.count(
-        crossAxisCount: crossAxisCount,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        childAspectRatio: 0.8,
-        mainAxisSpacing: 20,
-        crossAxisSpacing: 20,
-        children: viewModel.products
-            .map((product) => _buildProductItem(product, viewModel))
-            .toList(),
+    if (viewModel.products.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Text(
+          '販売中の商品がまだありません。App Store Connect または Play Console の設定を確認してください。',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white),
+        ),
       );
-    });
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = constraints.maxWidth > 600 ? 2 : 1;
+        return GridView.count(
+          crossAxisCount: crossAxisCount,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 0.8,
+          mainAxisSpacing: 20,
+          crossAxisSpacing: 20,
+          children: viewModel.products
+              .map((product) => _buildProductItem(product, viewModel))
+              .toList(),
+        );
+      },
+    );
   }
 
   Widget _buildProductItem(Product product, PurchaseViewModel viewModel) {
@@ -123,20 +159,20 @@ class PurchasePage extends ConsumerWidget {
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(20)),
                     gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: product.isSubscription
-                            ? [
-                                const Color(0xFFE6E6FA), // Lavender
-                                const Color(0xFFF0E68C), // Khaki
-                                const Color(0xFFFFB6C1), // LightPink
-                              ]
-                            : [
-                                const Color(0xFFE0FFFF), // ライトブルー
-                                const Color.fromARGB(
-                                    255, 152, 251, 229), // ミントグリーン
-                                const Color(0xFFFFD700), // ゴールド
-                              ]),
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: product.isSubscription
+                          ? [
+                              const Color(0xFFE6E6FA),
+                              const Color(0xFFF0E68C),
+                              const Color(0xFFFFB6C1),
+                            ]
+                          : [
+                              const Color(0xFFE0FFFF),
+                              const Color.fromARGB(255, 152, 251, 229),
+                              const Color(0xFFFFD700),
+                            ],
+                    ),
                   ),
                   child: Center(
                     child: product.isSubscription
@@ -145,7 +181,7 @@ class PurchasePage extends ConsumerWidget {
                             fit: BoxFit.contain,
                           )
                         : Padding(
-                            padding: const EdgeInsets.all(16.0),
+                            padding: const EdgeInsets.all(16),
                             child: Image.asset(
                               'assets/images/kohaku.png',
                               fit: BoxFit.contain,
@@ -191,9 +227,11 @@ class PurchasePage extends ConsumerWidget {
                         viewModel.isSubscriptionActive && product.isSubscription
                             ? Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 6),
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.8),
+                                  color: Colors.green.withValues(alpha: 0.8),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: const Icon(
@@ -241,11 +279,11 @@ class PurchasePage extends ConsumerWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.8),
+                  color: Colors.purple.withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Text(
-                  'Premium',
+                  'プレミアム',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -258,26 +296,27 @@ class PurchasePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildConsumableBox(PurchaseViewModel viewModel) {
+  Widget _buildEntitlements(PurchaseViewModel viewModel) {
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(15), // Add rounded corners to the card
+        borderRadius: BorderRadius.circular(15),
       ),
       child: Column(
         children: [
           const ListTile(
-              title: Text(
-            'ストック',
-            style: TextStyle(
+            title: Text(
+              '現在の利用状況',
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Color.fromARGB(255, 67, 67, 67)),
-          )),
+                color: Color.fromARGB(255, 67, 67, 67),
+              ),
+            ),
+          ),
           ListTile(
-            shape: const RoundedRectangleBorder(
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.vertical(
                 bottom:
-                    Radius.circular(15), // Add rounded corners to the bottom
+                    Radius.circular(viewModel.isSubscriptionActive ? 0 : 15),
               ),
             ),
             tileColor: const Color.fromARGB(255, 223, 250, 243),
@@ -286,42 +325,35 @@ class PurchasePage extends ConsumerWidget {
               height: 60,
               decoration: const BoxDecoration(
                 image: DecorationImage(
-                  image: AssetImage(
-                    'assets/images/kohaku.png',
-                  ),
-                  fit: BoxFit
-                      .contain, // Adjust the image to fit within the container
+                  image: AssetImage('assets/images/kohaku.png'),
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
-            title: const Text('こはく'),
+            title: const Text('ものがたりコイン'),
             trailing: Text('x${viewModel.coinCount}'),
           ),
-          viewModel.isSubscriptionActive
-              ? ListTile(
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(
-                          15), // Add rounded corners to the bottom
-                    ),
+          if (viewModel.isSubscriptionActive)
+            ListTile(
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(15),
+                ),
+              ),
+              tileColor: const Color.fromARGB(255, 245, 223, 250),
+              leading: Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  image: DecorationImage(
+                    image: AssetImage('assets/images/premium.PNG'),
+                    fit: BoxFit.contain,
                   ),
-                  tileColor: const Color.fromARGB(255, 245, 223, 250),
-                  leading: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage(
-                          'assets/images/premium.PNG',
-                        ),
-                        fit: BoxFit
-                            .contain, // Adjust the image to fit within the container
-                      ),
-                    ),
-                  ),
-                  title: const Text('Premium Pass'),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green))
-              : const SizedBox.shrink(),
+                ),
+              ),
+              title: const Text('プレミアムパス'),
+              trailing: const Icon(Icons.check_circle, color: Colors.green),
+            ),
         ],
       ),
     );
@@ -336,31 +368,34 @@ class PurchasePage extends ConsumerWidget {
           )
         : ElevatedButton.icon(
             icon: const Icon(Icons.restore),
-            label: const Text('購入履歴を復元する'),
+            label: const Text('購入を復元'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: const Color(0xFF6200EE),
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30)),
+                borderRadius: BorderRadius.circular(30),
+              ),
               elevation: 5,
             ),
-            onPressed: () => viewModel.restorePurchases(),
+            onPressed: viewModel.restorePurchases,
           );
   }
 
-  Widget _buildSubscriptionCancelButton(
-      PurchaseViewModel viewModel, BuildContext context) {
+  Widget _buildManageSubscriptionButton(
+    PurchaseViewModel viewModel,
+    BuildContext context,
+  ) {
     return OutlinedButton.icon(
-      icon: const Icon(Icons.cancel),
-      label: const Text('サブスク登録を解除する'),
+      icon: const Icon(Icons.open_in_new),
+      label: const Text('定期購入を管理'),
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.white,
         side: const BorderSide(color: Colors.white),
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
-      onPressed: () => viewModel.showCancelSubscriptionDialog(context),
+      onPressed: () => viewModel.manageSubscription(context),
     );
   }
 }

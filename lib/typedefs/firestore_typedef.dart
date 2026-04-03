@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:apapane/local/local_firestore.dart';
 
 typedef SDMap = Map<String, dynamic>;
 typedef QSnapshot = QuerySnapshot<SDMap>; // QuerySnapshot<Map<String, dynamic>>

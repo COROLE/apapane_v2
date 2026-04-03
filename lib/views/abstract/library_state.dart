@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:apapane/constants/strings.dart';
 import 'package:apapane/views/common/library_books.dart';
 import 'package:apapane/views/common/reload_screen.dart';
 import 'package:apapane/models/story/story.dart';
@@ -13,6 +14,21 @@ abstract class LibraryState extends ConsumerWidget {
     final storyDocs = viewModel.storyDocs;
     final double height = MediaQuery.of(context).size.height;
     final double width = MediaQuery.of(context).size.width;
+
+    if (viewModel.isLoading && storyDocs.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 12),
+              Text(loadingText),
+            ],
+          ),
+        ),
+      );
+    }
 
     if (storyDocs.isEmpty) {
       return Scaffold(

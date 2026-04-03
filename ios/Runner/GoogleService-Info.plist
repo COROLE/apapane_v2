@@ -3,32 +3,34 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>235993211771-q010subtc8ghouh4hs6f1ua4inljrn0l.apps.googleusercontent.com</string>
+	<string>712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.235993211771-q010subtc8ghouh4hs6f1ua4inljrn0l</string>
+	<string>com.googleusercontent.apps.712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>712097133007-v8l6c41jgd9vdcpt2ov586kadj9jbpg7.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyB15GNWX-CtX6z3LEHZpALSPt1-NBIS9rE</string>
+	<string>AIzaSyA2A1i_uNZEm-qNqyg7-0FEAL90JeYkX-E</string>
 	<key>GCM_SENDER_ID</key>
-	<string>235993211771</string>
+	<string>712097133007</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.coroleAi.apapane</string>
+	<string>com.coroleai.apapane</string>
 	<key>PROJECT_ID</key>
-	<string>apapane-3cca0</string>
+	<string>apapane-94356</string>
 	<key>STORAGE_BUCKET</key>
-	<string>apapane-3cca0.appspot.com</string>
+	<string>apapane-94356.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
-	<false></false>
+	<false/>
 	<key>IS_ANALYTICS_ENABLED</key>
-	<false></false>
+	<false/>
 	<key>IS_APPINVITE_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>IS_GCM_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>IS_SIGNIN_ENABLED</key>
-	<true></true>
+	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:235993211771:ios:ada87ce67c9f9f145bd3de</string>
+	<string>1:712097133007:ios:e3078cee373d3c23c7e2ba</string>
 </dict>
 </plist>

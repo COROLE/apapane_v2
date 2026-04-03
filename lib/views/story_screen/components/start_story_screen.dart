@@ -62,7 +62,7 @@ class _StartStoryScreenState extends State<StartStoryScreen>
                         SizedBox(
                           height: screenWidth,
                           child: Image.asset(
-                            titlePicture[i], // 画像を指定
+                            titlePicture[i], // 画像を持E��E
                             height: screenWidth,
                             width: screenWidth,
                             fit: BoxFit.cover,
@@ -76,7 +76,7 @@ class _StartStoryScreenState extends State<StartStoryScreen>
           ),
         ),
         Container(
-          color: const Color.fromARGB(255, 34, 34, 34).withOpacity(0.3),
+          color: const Color.fromARGB(255, 34, 34, 34).withValues(alpha: 0.3),
           width: screenWidth,
           height: screenHeightMax,
         ),

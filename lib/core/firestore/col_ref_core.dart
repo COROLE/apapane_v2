@@ -1,6 +1,6 @@
 import 'package:apapane/core/firestore/doc_ref_core.dart';
+import 'package:apapane/local/local_firestore.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ColRefCore {
   static ColRef publicUsersColRef() =>

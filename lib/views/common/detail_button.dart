@@ -10,7 +10,7 @@ class DetailButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 213, 213, 213).withOpacity(0.8),
+        color: const Color.fromARGB(255, 213, 213, 213).withValues(alpha: 0.8),
         shape: BoxShape.circle,
       ),
       child: IconButton(

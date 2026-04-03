@@ -29,13 +29,13 @@ class RoundedMicButton extends ConsumerWidget {
                 if (chatViewModel.isListening) {
                   chatViewModel.stopListening();
                 } else {
-                  chatViewModel.startListening(localeId: 'ja_JP'); // 日本語の設定
+                  chatViewModel.startListening(localeId: 'ja_JP'); // 日本語�E設宁E
                 }
               }
             : () => chatViewModel.toMicUi(context: context),
         child: Material(
           elevation: 8,
-          shadowColor: Colors.grey.withOpacity(0.5),
+          shadowColor: Colors.grey.withValues(alpha: 0.5),
           shape: const CircleBorder(),
           child: CircleAvatar(
             backgroundColor: color,

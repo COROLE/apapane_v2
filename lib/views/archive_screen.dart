@@ -25,7 +25,6 @@ class ArchiveScreen extends LibraryState {
   Widget buildLibraryInkWell(BuildContext context, WidgetRef ref, Story story,
       dynamic storyDoc, double height, double width, int index) {
     final storyViewModel = ref.watch(storyViewModelProvider);
-    final publicViewModel = ref.watch(publicViewModelProvider);
     final archiveViewModel = ref.watch(archiveViewModelProvider);
     final mainViewModel = ref.watch(mainViewModelProvider);
     final ProfileViewModel profileModel = ref.watch(profileViewModelProvider);
@@ -41,7 +40,6 @@ class ArchiveScreen extends LibraryState {
       storyImageURL: story.titleImage,
       titleText: story.titleText,
       isArchive: true,
-      isPublic: archiveViewModel.publicStoryIds.contains(story.storyId),
       isFavoriteLoading: archiveViewModel.isFavoriteLoading,
       isFavorite: archiveViewModel.favoriteStoryIds.contains(storyDoc.id),
       favoriteButtonPressed: () async {
@@ -66,25 +64,6 @@ class ArchiveScreen extends LibraryState {
             index: index,
             mainViewModel: mainViewModel,
             isLike: true,
-          );
-        }
-      },
-      onChanged: (_) async {
-        if (archiveViewModel.publicStoryIds.contains(story.storyId)) {
-          publicViewModel.removeStoryDocs(storyDoc: storyDoc);
-          archiveViewModel.updatePublicMode(
-            context: context,
-            storyViewModel: storyViewModel,
-            index: index,
-            isOn: false,
-          );
-        } else {
-          publicViewModel.addStoryDocs(storyDoc: storyDoc);
-          await archiveViewModel.updatePublicMode(
-            context: context,
-            storyViewModel: storyViewModel,
-            index: index,
-            isOn: true,
           );
         }
       },

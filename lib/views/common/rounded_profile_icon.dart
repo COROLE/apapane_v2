@@ -22,7 +22,7 @@ class RoundedProfileIcon extends StatelessWidget {
                   boxShadow: [
                     BoxShadow(
                       color: const Color.fromARGB(255, 251, 0, 192)
-                          .withOpacity(0.6),
+                          .withValues(alpha: 0.6),
                       spreadRadius: 5,
                       blurRadius: 5,
                     ),

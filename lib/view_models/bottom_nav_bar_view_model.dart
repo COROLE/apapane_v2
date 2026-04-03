@@ -25,6 +25,9 @@ class BottomNavigationBarViewModel extends ChangeNotifier {
   }
 
   void resetIndex() {
+    if (pageController.hasClients) {
+      pageController.jumpToPage(0);
+    }
     currentIndex = 0;
     notifyListeners();
   }

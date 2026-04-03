@@ -18,7 +18,14 @@ lib/gen/
 *.iws
 .idea/
 .env
+.env.local
 .serviceAccountKey.json
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.p8
+android/key.properties
 
 
 # The .vscode folder contains launch configuration and tasks you configure in
@@ -47,3 +54,4 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/vendor/bundle

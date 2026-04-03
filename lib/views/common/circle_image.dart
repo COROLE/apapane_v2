@@ -1,4 +1,5 @@
 //flutter
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
@@ -8,6 +9,10 @@ class CircleImage extends StatelessWidget {
   final dynamic image;
   bool isNetWorkImage(imageData) =>
       imageData.startsWith('http') || imageData.startsWith('https');
+
+  bool isFileImage(String imageData) =>
+      imageData.startsWith('/') || imageData.contains(':\\');
+
   @override
   Widget build(BuildContext context) {
     ImageProvider imageProvider;
@@ -15,6 +20,10 @@ class CircleImage extends StatelessWidget {
       imageProvider = MemoryImage(image);
     } else if (image is String && isNetWorkImage(image)) {
       imageProvider = NetworkImage(image);
+    } else if (image is String &&
+        isFileImage(image) &&
+        File(image).existsSync()) {
+      imageProvider = FileImage(File(image));
     } else if (image is String) {
       imageProvider = AssetImage(image);
     } else if (image is ImageProvider) {

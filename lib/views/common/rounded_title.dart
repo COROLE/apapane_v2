@@ -18,19 +18,22 @@ class RoundedTitle extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.bottomLeft, // グラデーションの始点を変更
-          end: Alignment.topRight, // グラデーションの終点を変更
+          begin: Alignment.bottomLeft, // グラチE�Eションの始点を変更
+          end: Alignment.topRight, // グラチE�Eションの終点を変更
           colors: [
-            const Color.fromARGB(255, 26, 20, 50).withOpacity(0.9), // 暗い青紫色
-            const Color.fromARGB(255, 202, 89, 255).withOpacity(0.8), // 明るいピンク色
-            const Color.fromARGB(255, 64, 224, 208).withOpacity(0.8), // 明るいブルー色
+            const Color.fromARGB(255, 26, 20, 50)
+                .withValues(alpha: 0.9), // 暗い青紫色
+            const Color.fromARGB(255, 202, 89, 255)
+                .withValues(alpha: 0.8), // 明るぁE��ンク色
+            const Color.fromARGB(255, 64, 224, 208)
+                .withValues(alpha: 0.8), // 明るぁE��ルー色
           ],
           stops: const [0.0, 0.5, 1.0], // ストップ位置を調整
         ),
         borderRadius: BorderRadius.circular(2), // 角度を大きく
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.5),
+            color: Colors.black.withValues(alpha: 0.5),
             offset: const Offset(4, 6),
             blurRadius: 10,
           ),
@@ -43,7 +46,7 @@ class RoundedTitle extends StatelessWidget {
           fontWeight: FontWeight.bold,
           color: Colors.white,
           shadows: [
-            // テキストに影を追加
+            // チE��ストに影を追加
             Shadow(
               offset: Offset(1.0, 1.0),
               blurRadius: 3.0,

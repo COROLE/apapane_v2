@@ -1,137 +1,219 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:apapane/config/app_env.dart';
 import 'package:apapane/enums/env_key.dart';
+import 'package:apapane/local/local_auth_session.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart';
 
 class ApiService {
-  static const String _anthropicApiUrl =
-      'https://api.anthropic.com/v1/messages';
-  static const String _stabilityApiUrl =
-      "https://api.stability.ai/v1/generation/stable-diffusion-v1-6/text-to-image";
-  static const String _voicevoxApiUrl = 'api.tts.quest';
+  ApiService({FirebaseFunctions? functions})
+      : _functions = functions ?? FirebaseFunctions.instance;
+
+  final FirebaseFunctions _functions;
+  static const Duration _functionCallTimeout = Duration(seconds: 45);
 
   Future<String> callClaude(
-      String prompt, String systemPrompt, String apiKeyName) async {
-    // const String model = "claude-3-haiku-20240307";
-    const String model = "claude-3-5-sonnet-20240620";
-    final String apiKey = dotenv.get(apiKeyName);
-
-    final headers = {
-      'Content-Type': 'application/json',
-      'X-API-Key': apiKey,
-      'Anthropic-Version': '2023-06-01',
-    };
-
-    final body = jsonEncode({
-      'model': model,
-      'max_tokens': 1024,
-      'system': systemPrompt,
-      'messages': [
-        {'role': 'user', 'content': prompt},
-      ]
-    });
-
-    int retries = 0;
-    const int maxRetries = 3;
-    while (retries < maxRetries) {
-      final response = await http.post(
-        Uri.parse(_anthropicApiUrl),
-        headers: headers,
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        try {
-          final SDMap responseData =
-              jsonDecode(utf8.decode(response.bodyBytes));
-          return responseData['content'][0]['text'];
-        } catch (e) {
-          debugPrint('Error decoding response: $e');
-          return "";
-        }
-      } else if (response.statusCode == 529) {
-        retries++;
-        await Future.delayed(Duration(seconds: 2 * retries));
-        debugPrint('Retrying due to overloaded error. Retry count: $retries');
-      } else {
-        debugPrint(
-            'Error response: ${response.statusCode}, ${response.body} in callClaude');
-        return "error";
-      }
+    String prompt,
+    String systemPrompt,
+    String apiKeyName, {
+    bool jsonOutput = false,
+    SDMap? responseJsonSchema,
+  }) async {
+    final data = await _callFunction(
+      'generateStory',
+      {
+        'prompt': prompt,
+        'systemPrompt': systemPrompt,
+        'profile': apiKeyName,
+        'jsonOutput': jsonOutput,
+        if (responseJsonSchema != null) 'responseSchema': responseJsonSchema,
+      },
+    );
+    final text = data['text'];
+    if (text is! String || text.trim().isEmpty) {
+      throw StateError('generateStory returned an empty response.');
     }
-    return "error";
+    return text.trim();
   }
 
-  Future<SDMap> callStableDiffusion(
-      String prompt, String negativePrompt, String apiKey,
+  Future<SDMap> callStableDiffusion(String prompt, String negativePrompt,
       {int seed = 0}) async {
-    try {
-      final response = await http.post(
-        Uri.parse(_stabilityApiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          'text_prompts': [
-            {
-              'text': prompt,
-              'weight': 1.0,
-            },
-            {
-              'text': negativePrompt,
-              'weight': -1.0,
-            }
-          ],
-          'cfg_scale': 7,
-          'height': 1344,
-          'width': 768,
-          'samples': 1,
-          'steps': 30,
-          'seed': seed,
-        }),
-      );
+    final payload = {
+      'prompt': prompt,
+      'negativePrompt': negativePrompt,
+      'seed': seed,
+    };
 
-      if (response.statusCode == 200) {
-        try {
-          final SDMap responseData = jsonDecode(response.body);
-          return responseData["artifacts"][0];
-        } catch (e) {
-          debugPrint('Error decoding image: $e');
-          return {};
-        }
-      } else {
-        debugPrint(
-            'Error response: ${response.statusCode}, ${response.body} in callStableDiffusion');
-        return {};
-      }
-    } catch (e) {
-      debugPrint('Error in callStableDiffusion: $e');
-      return {};
+    try {
+      final data = await _callImageHttp(payload);
+      _ensureImageData(
+        data,
+        errorMessage: 'generateImageHttp did not return image data.',
+      );
+      return data;
+    } catch (httpError) {
+      final data = await _callFunction('generateImage', payload);
+      _ensureImageData(
+        data,
+        errorMessage: 'generateImage did not return image data.',
+      );
+      return data;
     }
   }
 
-  Future<String?> fetchVoicevoxAudioUrl(String text) async {
-    final queryParams = {
-      'speaker': "3",
-      'text': text,
-      'key': dotenv.get(EnvKey.VOICEVOX_API_KEY.name),
-    };
-    final uri =
-        Uri.https(_voicevoxApiUrl, '/v3/voicevox/synthesis', queryParams);
-
-    final response = await http.get(uri);
-    if (response.statusCode == 200) {
-      final jsonResponse = jsonDecode(response.body);
-      debugPrint('Success to load voice');
-      return jsonResponse['mp3StreamingUrl'];
-    } else {
-      debugPrint('Failed to load voice');
+  Future<Uint8List?> fetchVoiceAudioBytes(String text) async {
+    final data = await _callFunction(
+      'synthesizeVoice',
+      {
+        'text': text,
+      },
+    );
+    final audioBase64 = data['audioBase64'];
+    if (audioBase64 is! String || audioBase64.trim().isEmpty) {
       return null;
+    }
+    return base64Decode(audioBase64.trim());
+  }
+
+  Future<SDMap> _callFunction(String name, SDMap payload) async {
+    final callable = _functions.httpsCallable(name);
+    final guestSessionId =
+        await LocalAuthSession.instance.ensureCallableSessionId();
+    final mergedPayload = {
+      ...payload,
+      if (guestSessionId.isNotEmpty) 'guestSessionId': guestSessionId,
+    };
+    final result = await callable.call(mergedPayload).timeout(
+          _functionCallTimeout,
+          onTimeout: () => throw TimeoutException('$name timed out.'),
+        );
+    final data = result.data;
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    throw StateError('$name returned an unexpected payload.');
+  }
+
+  Future<SDMap> _callImageHttp(SDMap payload) async {
+    final guestSessionId =
+        await LocalAuthSession.instance.ensureCallableSessionId();
+    final projectId = AppEnv.get(EnvKey.FIREBASE_PROJECT_ID).trim();
+    if (projectId.isEmpty) {
+      throw StateError('Firebase project ID is missing.');
+    }
+    final appCheckToken = await _tryAppCheckToken();
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    if (appCheckToken.isNotEmpty) {
+      headers['X-Firebase-AppCheck'] = appCheckToken;
+    }
+
+    final url = Uri.parse(
+      'https://us-central1-$projectId.cloudfunctions.net/generateImageHttp',
+    );
+    final response = await http
+        .post(
+          url,
+          headers: headers,
+          body: jsonEncode({
+            ...payload,
+            if (guestSessionId.isNotEmpty) 'guestSessionId': guestSessionId,
+          }),
+        )
+        .timeout(
+          _functionCallTimeout,
+          onTimeout: () =>
+              throw TimeoutException('generateImageHttp timed out.'),
+        );
+
+    final rawBody = utf8.decode(response.bodyBytes);
+    final decodedBody = _decodeHttpJson(rawBody);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = _extractHttpErrorMessage(decodedBody, rawBody);
+      throw StateError(
+        'generateImageHttp failed (${response.statusCode}): $message',
+      );
+    }
+
+    if (decodedBody is Map<String, dynamic>) {
+      return decodedBody;
+    }
+    throw StateError('generateImageHttp returned an unexpected payload.');
+  }
+
+  Future<String> _tryAppCheckToken() async {
+    try {
+      return await _appCheckToken();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  dynamic _decodeHttpJson(String rawBody) {
+    if (rawBody.trim().isEmpty) {
+      return <String, dynamic>{};
+    }
+    try {
+      return jsonDecode(rawBody);
+    } catch (_) {
+      return rawBody;
+    }
+  }
+
+  String _extractHttpErrorMessage(dynamic decodedBody, String rawBody) {
+    if (decodedBody is Map) {
+      final error = decodedBody['error'];
+      final message = decodedBody['message'];
+      if (error is String && message is String && message.trim().isNotEmpty) {
+        return '$error: ${message.trim()}';
+      }
+      if (message is String && message.trim().isNotEmpty) {
+        return message.trim();
+      }
+      if (error is String && error.trim().isNotEmpty) {
+        return error.trim();
+      }
+    }
+    return rawBody.trim().isNotEmpty ? rawBody.trim() : 'unknown error';
+  }
+
+  Future<String> _appCheckToken() async {
+    try {
+      final limitedUseToken =
+          await FirebaseAppCheck.instance.getLimitedUseToken();
+      final normalizedLimitedUseToken = limitedUseToken.trim();
+      if (normalizedLimitedUseToken.isNotEmpty) {
+        return normalizedLimitedUseToken;
+      }
+    } catch (_) {
+      // Fall back to the standard App Check token when limited-use tokens
+      // are unavailable on the current platform/runtime.
+    }
+
+    final token = await FirebaseAppCheck.instance.getToken();
+    final normalizedToken = token?.trim() ?? '';
+    if (normalizedToken.isEmpty) {
+      throw StateError('App Check token is missing.');
+    }
+    return normalizedToken;
+  }
+
+  void _ensureImageData(
+    SDMap data, {
+    required String errorMessage,
+  }) {
+    final base64 = data['base64'];
+    final imageUrl = data['imageUrl'];
+    final hasBase64 = base64 is String && base64.trim().isNotEmpty;
+    final hasImageUrl = imageUrl is String && imageUrl.trim().isNotEmpty;
+    if (!hasBase64 && !hasImageUrl) {
+      throw StateError(errorMessage);
     }
   }
 }

@@ -28,7 +28,7 @@ class CircleProgressIndicator extends StatelessWidget {
                       decoration: BoxDecoration(boxShadow: [
                         BoxShadow(
                           color: const Color.fromARGB(255, 255, 252, 252)
-                              .withOpacity(0.7),
+                              .withValues(alpha: 0.7),
                           spreadRadius: 5,
                           blurRadius: 7,
                           // changes position of shadow

@@ -1,0 +1,177 @@
+import 'package:apapane/models/story/story_generation_draft.dart';
+import 'package:apapane/view_models/chat_view_model.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  const fallbackAnswers = [
+    'あかいマフラーの うさぎ',
+    'にじのもり',
+    'ちいさなくま',
+    'やさしいけど まけずぎらい',
+  ];
+
+  final structuredStory = <String, dynamic>{
+    'title': '月のランタン',
+    'coverScene': 'あかいマフラーの うさぎ が ちいさなくま と 光るランタンを かかげる',
+    'characterSheet': {
+      'protagonist':
+          'small rabbit child, red scarf, cream fur, round face, bright curious eyes',
+      'companion':
+          'tiny bear friend, moss-green satchel, soft brown fur, calm smile',
+      'worldDetails':
+          'glowing night forest, moonlit mist, child-safe picture-book world',
+      'artDirection':
+          'gentle gouache picture book, warm pastel palette, soft paper texture',
+    },
+    'pages': [
+      {
+        'story': 'うさぎの ミオは にじのもりで 月のランタンを さがしに でかけた。',
+        'visualFocus': 'ミオが 森の入口で ランタンを みあげる',
+        'mood': 'あたたかく わくわく',
+        'dialogue': 'きっと みつかるよ',
+        'visibleCast': ['protagonist'],
+      },
+      {
+        'story': 'でも まよいみちが あらわれ、くまの ポノも 足を とめた。',
+        'visualFocus': '光る分かれ道の前で 考える ふたり',
+        'mood': 'どきどき しずか',
+        'dialogue': 'どっち かな',
+        'visibleCast': ['protagonist', 'companion'],
+      },
+      {
+        'story': 'そのとき 足元の しずくが 星の地図に かわり、かくしみちを てらした。',
+        'visualFocus': '星の地図が 足元に ひらく 瞬間',
+        'mood': 'ふしぎで きらきら',
+        'dialogue': 'ここだ',
+        'visibleCast': ['protagonist'],
+      },
+      {
+        'story': 'ミオは ポノと いっしょに ランタンへ 手を のばし、帰り道まで 明るく てらした。',
+        'visualFocus': 'ランタンを もち よろこぶ ふたり',
+        'mood': 'ほっとして うれしい',
+        'dialogue': 'できたね',
+        'visibleCast': ['protagonist', 'companion'],
+      },
+    ],
+  };
+
+  test('structured story keeps the title out of body pages', () {
+    final draft = ChatViewModel.storyDraftForTesting(
+      structuredStory,
+      fallbackAnswers: fallbackAnswers,
+    );
+    final pages = ChatViewModel.storyPagesForTesting(
+      structuredStory,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    expect(draft.title, '月のランタン');
+    expect(pages, hasLength(4));
+    expect(
+      pages.map((page) => page['story']).contains('月のランタン'),
+      isFalse,
+    );
+  });
+
+  test('visibleCast is parsed and missing values fall back safely', () {
+    final draft = ChatViewModel.storyDraftForTesting(
+      structuredStory,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    final missingVisibleCastStory = <String, dynamic>{
+      ...structuredStory,
+      'pages': [
+        {
+          ...((structuredStory['pages'] as List).first as Map<String, dynamic>),
+        }
+          ..remove('visibleCast'),
+        ...((structuredStory['pages'] as List).skip(1)),
+      ],
+    };
+    final fallbackDraft = ChatViewModel.storyDraftForTesting(
+      missingVisibleCastStory,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    expect(draft.pages.first.visibleCast, ['protagonist']);
+    expect(
+      fallbackDraft.pages.first.visibleCast,
+      ['protagonist', 'companion'],
+    );
+  });
+
+  test('image prompt carries cast locks, visibility rules, and no-text rules',
+      () {
+    final prompt = ChatViewModel.storyImagePromptForTesting(
+      structuredStory,
+      pageIndex: 0,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    expect(prompt, contains('red scarf'));
+    expect(prompt, contains('tiny bear friend'));
+    expect(prompt, contains('Draw the protagonist on-screen in this page.'));
+    expect(
+      prompt,
+      contains(
+        'The companion stays off-screen in this page. Do not replace the companion with another visible character.',
+      ),
+    );
+    expect(prompt, contains('No readable text anywhere in the image.'));
+    expect(prompt, contains('speech bubbles'));
+  });
+
+  test('single-character pages still lock the missing cast member', () {
+    final prompt = ChatViewModel.storyImagePromptForTesting(
+      structuredStory,
+      pageIndex: 2,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    expect(
+      prompt,
+      contains(
+        'If a main character is off-screen for one page, keep them absent instead of inventing a stand-in.',
+      ),
+    );
+    expect(prompt, contains('Companion design: tiny bear friend'));
+    expect(prompt, contains('Do not add a new recurring sidekick'));
+  });
+
+  test('story and page seeds are deterministic and page-specific', () {
+    final storySeed = ChatViewModel.storySeedForTesting(
+      structuredStory,
+      fallbackAnswers: fallbackAnswers,
+    );
+
+    final firstPageSeed = ChatViewModel.pageSeedForTesting(storySeed, 0);
+    final secondPageSeed = ChatViewModel.pageSeedForTesting(storySeed, 1);
+
+    expect(
+      ChatViewModel.storySeedForTesting(
+        structuredStory,
+        fallbackAnswers: fallbackAnswers,
+      ),
+      storySeed,
+    );
+    expect(ChatViewModel.pageSeedForTesting(storySeed, 0), firstPageSeed);
+    expect(firstPageSeed, isNot(secondPageSeed));
+  });
+
+  test('legacy stored stories drop a duplicated title page', () {
+    final normalizedPages = StoryGenerationComposer.normalizeStoredPages(
+      rawPages: const [
+        {'story': '月のランタン', 'image': null},
+        {'story': '1ページめ', 'image': null},
+        {'story': '2ページめ', 'image': null},
+        {'story': '3ページめ', 'image': null},
+        {'story': '4ページめ', 'image': null},
+      ],
+      titleText: '月のランタン',
+    );
+
+    expect(normalizedPages, hasLength(4));
+    expect(normalizedPages.first['story'], '1ページめ');
+  });
+}

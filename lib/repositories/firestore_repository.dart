@@ -54,7 +54,7 @@ class FirestoreRepository {
       final qDocs = qSnapshot.docs;
       return Result.success(qDocs);
     } catch (e) {
-      return const Result.failure();
+      return Result.failure(e);
     }
   }
 

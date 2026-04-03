@@ -1,44 +1,35 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:apapane/local/local_auth_session.dart';
+import 'package:apapane/models/auth/local_session_user.dart';
 
 class AuthService {
-  Future<UserCredential> createUserWithEmailAndPassword(
-      String email, String password) async {
-    final credential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(email: email, password: password);
-    return credential;
+  Future<LocalSessionUser?> restoreSession() async {
+    await LocalAuthSession.instance.restore();
+    return LocalAuthSession.instance.currentUser;
   }
 
-  Future<UserCredential> signInWithEmailAndPassword(
-      String email, String password) async {
-    final credential = await FirebaseAuth.instance
-        .signInWithEmailAndPassword(email: email, password: password);
-    return credential;
+  Future<LocalSessionUser> signInWithGoogle() async {
+    return LocalAuthSession.instance.signInWithGoogle();
+  }
+
+  Future<LocalSessionUser> signInWithApple() async {
+    return LocalAuthSession.instance.signInWithApple();
   }
 
   Future<void> signOut() async {
-    await FirebaseAuth.instance.signOut();
+    await LocalAuthSession.instance.signOut();
   }
 
-  Future<void> sendEmailVerification(User user) async {
-    await user.sendEmailVerification();
+  Future<void> updateCurrentUser({
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    await LocalAuthSession.instance.updateCurrentUser(
+      displayName: displayName,
+      photoUrl: photoUrl,
+    );
   }
 
-  Future<void> reauthenticateWithCredential(User user, String password) async {
-    final email = user.email;
-    final credential =
-        EmailAuthProvider.credential(email: email!, password: password);
-    await user.reauthenticateWithCredential(credential);
-  }
-
-  Future<void> verifyBeforeUpdateEmail(User user, String newEmail) async {
-    await user.verifyBeforeUpdateEmail(newEmail);
-  }
-
-  Future<void> updatePassword(User user, String newPassword) async {
-    await user.updatePassword(newPassword);
-  }
-
-  Future<void> delete(User user) async {
-    await user.delete();
+  Future<void> deleteCurrentUser() async {
+    await LocalAuthSession.instance.deleteCurrentUser();
   }
 }
