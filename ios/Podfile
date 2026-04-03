@@ -32,8 +32,6 @@ target 'Runner' do
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
-  pod 'TOCropViewController', '~> 2.7.4'
-
   target 'RunnerTests' do
     inherit! :search_paths
   end
