@@ -3,7 +3,9 @@ name: Deploy Internal
 on:
   push:
     branches:
+      - master
       - main
+      - codex/ios-actions-check
   workflow_dispatch:
     inputs:
       deploy_android:
@@ -65,7 +67,10 @@ jobs:
   android_internal:
     name: Android Internal
     needs: validate
-    if: github.event_name == 'push' || github.event.inputs.deploy_android == 'true'
+    if: >
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')) ||
+      github.event.inputs.deploy_android == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -151,7 +156,12 @@ jobs:
   ios_testflight:
     name: iOS TestFlight
     needs: validate
-    if: github.event_name == 'push' || github.event.inputs.deploy_ios == 'true'
+    if: >
+      (github.event_name == 'push' &&
+        (github.ref == 'refs/heads/main' ||
+         github.ref == 'refs/heads/master' ||
+         github.ref == 'refs/heads/codex/ios-actions-check')) ||
+      github.event.inputs.deploy_ios == 'true'
     runs-on: macos-latest
     timeout-minutes: 45
 
