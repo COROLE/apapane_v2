@@ -169,6 +169,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -177,6 +182,20 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Prepare match deploy key
+        env:
+          MATCH_GIT_PRIVATE_KEY_CONTENT: ${{ secrets.MATCH_GIT_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf "%s" "$MATCH_GIT_PRIVATE_KEY_CONTENT" > "${RUNNER_TEMP}/match_git_private_key"
+          chmod 600 "${RUNNER_TEMP}/match_git_private_key"
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Configure Git identity for match
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Install CocoaPods dependencies
         working-directory: ios
@@ -207,20 +226,16 @@ jobs:
           )
           PY
 
-      - name: Import signing certificate
-        uses: Apple-Actions/import-codesign-certs@v5
-        with:
-          p12-file-base64: ${{ secrets.APPSTORE_CERTIFICATES_FILE_BASE64 }}
-          p12-password: ${{ secrets.APPSTORE_CERTIFICATES_PASSWORD }}
-
-      - name: Download provisioning profile
-        uses: Apple-Actions/download-provisioning-profiles@v1
-        with:
-          bundle-id: ${{ env.IOS_BUNDLE_ID }}
-          profile-type: IOS_APP_STORE
-          issuer-id: ${{ vars.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ vars.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+      - name: Sync signing assets with match
+        working-directory: ios
+        env:
+          APPSTORE_API_KEY_ID: ${{ vars.APPSTORE_API_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ vars.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          MATCH_GIT_PRIVATE_KEY: ${{ runner.temp }}/match_git_private_key
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_READONLY: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+        run: bundle exec fastlane sync_signing
 
       - name: Build signed IPA
         run: >
@@ -235,12 +250,12 @@ jobs:
         run: echo "path=$(find build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)" >> "$GITHUB_OUTPUT"
 
       - name: Upload to TestFlight
-        uses: Apple-Actions/upload-testflight-build@v4
-        with:
-          app-path: ${{ steps.locate_ipa.outputs.path }}
-          issuer-id: ${{ vars.APPSTORE_ISSUER_ID }}
-          api-key-id: ${{ vars.APPSTORE_API_KEY_ID }}
-          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        working-directory: ios
+        env:
+          APPSTORE_API_KEY_ID: ${{ vars.APPSTORE_API_KEY_ID }}
+          APPSTORE_ISSUER_ID: ${{ vars.APPSTORE_ISSUER_ID }}
+          APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+        run: bundle exec fastlane upload_testflight ipa:"${{ steps.locate_ipa.outputs.path }}"
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4

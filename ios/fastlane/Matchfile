@@ -1,0 +1,8 @@
+git_url("git@github.com:Akira0809/apapane-ios-signing.git")
+git_branch("team-tb88sw6ysk")
+
+storage_mode("git")
+type("appstore")
+
+app_identifier(["com.coroleai.apapane"])
+team_id("TB88SW6YSK")

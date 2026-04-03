@@ -9,7 +9,7 @@
 	<key>provisioningProfiles</key>
 	<dict>
 		<key>com.coroleai.apapane</key>
-		<string>IOS_APP_STORE</string>
+		<string>match AppStore com.coroleai.apapane</string>
 	</dict>
 	<key>signingCertificate</key>
 	<string>Apple Distribution</string>
