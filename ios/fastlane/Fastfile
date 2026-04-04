@@ -13,12 +13,15 @@ end
 platform :ios do
   desc "Sync App Store signing assets with match"
   lane :sync_signing do
+    readonly_mode = ENV.fetch("CI_MATCH_READONLY", "true") == "true"
+
     setup_ci if ENV["CI"]
+    ENV["MATCH_READONLY"] = readonly_mode ? "true" : "false"
 
     match(
       api_key: app_store_api_key_from_env,
       type: "appstore",
-      readonly: ENV["MATCH_READONLY"] == "true",
+      readonly: readonly_mode,
       generate_apple_certs: true
     )
   end

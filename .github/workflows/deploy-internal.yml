@@ -237,7 +237,7 @@ jobs:
           APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
           MATCH_GIT_PRIVATE_KEY: ${{ runner.temp }}/match_git_private_key
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_READONLY: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+          CI_MATCH_READONLY: ${{ github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
         run: bundle exec fastlane sync_signing
 
       - name: Build signed IPA
