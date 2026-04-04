@@ -5,4 +5,4 @@ storage_mode("git")
 type("appstore")
 
 app_identifier(["com.corole.apapane"])
-team_id("TB88SW6YSK")
+team_id("LG9HBVTA2J")
