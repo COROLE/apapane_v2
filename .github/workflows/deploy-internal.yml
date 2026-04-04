@@ -250,7 +250,9 @@ jobs:
 
       - name: Locate IPA
         id: locate_ipa
-        run: echo "path=$(find build/ios/ipa -maxdepth 1 -name '*.ipa' -print -quit)" >> "$GITHUB_OUTPUT"
+        run: |
+          ipa_path="$(find "${GITHUB_WORKSPACE}/build/ios/ipa" -maxdepth 1 -name '*.ipa' -print -quit)"
+          echo "path=${ipa_path}" >> "$GITHUB_OUTPUT"
 
       - name: Upload to TestFlight
         working-directory: ios
