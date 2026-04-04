@@ -1563,13 +1563,13 @@ packages:
     source: path
     version: "6.3.2"
   url_launcher_ios:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       name: url_launcher_ios
-      sha256: "7068716403343f6ba4969b4173cbf3b84fc768042124bc2c011e5d782b24fe89"
+      sha256: "580fe5dfb51671ae38191d316e027f6b76272b026370708c2d898799750a02b0"
       url: "https://pub.dev"
     source: hosted
-    version: "6.3.0"
+    version: "6.4.1"
   url_launcher_linux:
     dependency: transitive
     description:
