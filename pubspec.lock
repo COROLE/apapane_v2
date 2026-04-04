@@ -1565,10 +1565,9 @@ packages:
   url_launcher_ios:
     dependency: "direct overridden"
     description:
-      name: url_launcher_ios
-      sha256: "580fe5dfb51671ae38191d316e027f6b76272b026370708c2d898799750a02b0"
-      url: "https://pub.dev"
-    source: hosted
+      path: "third_party/patched_packages/url_launcher_ios"
+      relative: true
+    source: path
     version: "6.4.1"
   url_launcher_linux:
     dependency: transitive
