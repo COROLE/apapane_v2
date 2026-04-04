@@ -28,7 +28,7 @@
 ## Store Setup
 
 - Create Android app `com.coroleai.apapaneapp` in Play Console.
-- Create iOS app `com.coroleai.apapane` in App Store Connect.
+- Create iOS app `com.corole.apapane` in App Store Connect.
 - Register in-app products:
   - `consumable`
   - `silver_subscription`

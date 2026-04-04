@@ -18,7 +18,7 @@ class PurchaseRepository {
   static const String consumableId = 'consumable';
   static const String subscriptionId = 'silver_subscription';
   static const String _androidPackageName = 'com.coroleai.apapaneapp';
-  static const String _iosBundleId = 'com.coroleai.apapane';
+  static const String _iosBundleId = 'com.corole.apapane';
 
   final InAppPurchase _inAppPurchase;
   final FirebaseFunctions _functions;

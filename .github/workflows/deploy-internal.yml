@@ -31,7 +31,7 @@ env:
   JAVA_VERSION: "17"
   RUBY_VERSION: "3.2"
   BUILD_NUMBER: ${{ github.run_number }}
-  IOS_BUNDLE_ID: com.coroleai.apapane
+  IOS_BUNDLE_ID: com.corole.apapane
   ANDROID_PACKAGE_NAME: com.coroleai.apapaneapp
 
 jobs:

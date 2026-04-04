@@ -36,7 +36,7 @@ The app record itself cannot be created from this repository. Do that once in Pl
 
 ### 3. App Store Connect
 
-Create the `Apapane` app record with bundle id `com.coroleai.apapane`, then create:
+Create the `Apapane` app record with bundle id `com.corole.apapane`, then create:
 
 - Apple Distribution certificate
 - `IOS_APP_STORE` provisioning profile

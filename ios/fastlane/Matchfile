@@ -4,5 +4,5 @@ git_branch("team-tb88sw6ysk")
 storage_mode("git")
 type("appstore")
 
-app_identifier(["com.coroleai.apapane"])
+app_identifier(["com.corole.apapane"])
 team_id("TB88SW6YSK")

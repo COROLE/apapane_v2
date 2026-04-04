@@ -16,7 +16,7 @@ Track these items outside the app code changes before public submission.
 
 ## App Store Connect
 
-- [ ] App record exists for `com.coroleai.apapane`
+- [ ] App record exists for `com.corole.apapane`
 - [ ] App privacy disclosure is completed
 - [ ] Age rating is completed for a child-directed launch
 - [ ] Subscription metadata is completed
