@@ -108,6 +108,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import base64
+          import json
           import os
           from pathlib import Path
 
@@ -115,8 +116,25 @@ jobs:
           Path("android/app/upload-keystore.jks").write_bytes(
               base64.b64decode(os.environ["ANDROID_UPLOAD_KEYSTORE_BASE64"])
           )
+          play_service_account_json = os.environ.get("PLAY_SERVICE_ACCOUNT_JSON", "").strip()
+          if not play_service_account_json:
+              raise SystemExit("PLAY_SERVICE_ACCOUNT_JSON is empty.")
+
+          try:
+              parsed_play_service_account = json.loads(play_service_account_json)
+          except json.JSONDecodeError:
+              try:
+                  decoded_play_service_account = base64.b64decode(
+                      play_service_account_json
+                  ).decode("utf-8")
+                  parsed_play_service_account = json.loads(decoded_play_service_account)
+              except Exception as exc:
+                  raise SystemExit(
+                      "PLAY_SERVICE_ACCOUNT_JSON must be raw JSON or base64-encoded JSON."
+                  ) from exc
+
           Path("android/play-service-account.json").write_text(
-              os.environ["PLAY_SERVICE_ACCOUNT_JSON"],
+              json.dumps(parsed_play_service_account),
               encoding="utf-8",
           )
           PY
