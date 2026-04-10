@@ -65,6 +65,10 @@ android {
                 keyPassword keystoreProperties['keyPassword']
                 storeFile rootProject.file(keystoreProperties['storeFile'])
                 storePassword keystoreProperties['storePassword']
+                def configuredStoreType = keystoreProperties['storeType']
+                if (configuredStoreType != null && configuredStoreType.toString().trim()) {
+                    storeType configuredStoreType
+                }
             }
         }
     }

@@ -2,3 +2,4 @@ storePassword=
 keyPassword=
 keyAlias=upload
 storeFile=app/upload-keystore.jks
+storeType=JKS

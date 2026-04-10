@@ -30,6 +30,7 @@ storePassword=$StorePassword
 keyPassword=$KeyPassword
 keyAlias=$KeyAlias
 storeFile=app/upload-keystore.jks
+storeType=JKS
 "@ | Set-Content android\key.properties
 
 Write-Host "Created android\app\upload-keystore.jks and android\key.properties"

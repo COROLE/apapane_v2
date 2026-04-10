@@ -126,13 +126,47 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEYSTORE_TYPE: ${{ secrets.ANDROID_KEYSTORE_TYPE }}
         run: |
+          key_alias="${ANDROID_KEY_ALIAS:-upload}"
+          store_type="${ANDROID_KEYSTORE_TYPE}"
+          if [ -z "${store_type}" ]; then
+            for candidate in JKS PKCS12; do
+              if keytool -list \
+                -keystore android/app/upload-keystore.jks \
+                -storetype "${candidate}" \
+                -storepass "${ANDROID_KEYSTORE_PASSWORD}" \
+                >/dev/null 2>&1; then
+                store_type="${candidate}"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "${store_type}" ]; then
+            echo "::error::Unable to determine Android keystore type. Set ANDROID_KEYSTORE_TYPE to JKS or PKCS12."
+            exit 1
+          fi
+
+          if ! keytool -list \
+            -keystore android/app/upload-keystore.jks \
+            -storetype "${store_type}" \
+            -storepass "${ANDROID_KEYSTORE_PASSWORD}" \
+            -alias "${key_alias}" \
+            >/dev/null 2>&1; then
+            echo "::error::Android keystore alias '${key_alias}' was not found in upload-keystore.jks."
+            exit 1
+          fi
+
           cat <<EOF > android/key.properties
           storePassword=${ANDROID_KEYSTORE_PASSWORD}
           keyPassword=${ANDROID_KEY_PASSWORD}
-          keyAlias=${ANDROID_KEY_ALIAS}
+          keyAlias=${key_alias}
           storeFile=app/upload-keystore.jks
+          storeType=${store_type}
           EOF
+
+          echo "Using Android signing alias '${key_alias}' with keystore type '${store_type}'."
 
       - name: Build signed app bundle
         run: >
