@@ -19,16 +19,20 @@ class PurchaseEntitlements {
     );
   }
 
-  factory PurchaseEntitlements.fromUserData(Map<String, dynamic>? data) {
+  factory PurchaseEntitlements.fromUserData(
+    Map<String, dynamic>? data, {
+    DateTime? now,
+  }) {
     if (data == null) {
       return PurchaseEntitlements.initial();
     }
 
+    final effectiveNow = now ?? DateTime.now();
     final subscription =
         (data['silverSubscription'] as Map<String, dynamic>?) ?? const {};
     final endAt = _toDateTime(subscription['endAt']);
     final isActive = subscription['isActive'] == true &&
-        (endAt == null || endAt.isAfter(DateTime.now()));
+        (endAt == null || endAt.isAfter(effectiveNow));
 
     return PurchaseEntitlements(
       coins: (data['coins'] as num?)?.toInt() ?? 0,

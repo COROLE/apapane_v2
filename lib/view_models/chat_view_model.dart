@@ -4,9 +4,13 @@ import 'package:apapane/config/app_env.dart';
 import 'package:apapane/constants/prompt_constant.dart';
 import 'package:apapane/core/id_core/id_core.dart';
 import 'package:apapane/enums/to_story_page_type.dart';
+import 'package:apapane/models/auth/local_session_user.dart';
+import 'package:apapane/models/purchase/purchase_entitlements.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/repositories/api_repository.dart';
+import 'package:apapane/repositories/purchase_repository.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
+import 'package:apapane/ui_core/dialog_core.dart';
 import 'package:apapane/ui_core/ui_helper.dart';
 import 'package:apapane/view_models/story_view_model.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +40,12 @@ class _GeneratedStoryPackage {
   final int storySeed;
 }
 
+enum StoryCreationAccessState {
+  allowed,
+  loginRequired,
+  purchaseRequired,
+}
+
 class ChatViewModel extends ChangeNotifier {
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different age, different species';
@@ -43,8 +53,14 @@ class ChatViewModel extends ChangeNotifier {
       'Children picture-book illustration, hand-painted gouache watercolor texture, soft pastel colors, rounded shapes, clean outlines, friendly expressions, gentle lighting, portrait orientation, vertical composition for a phone screen, no readable text, no watermark, same illustration genre across every page of the same story.';
 
   final ApiRepository _apiRepository;
+  final PurchaseRepository _purchaseRepository;
+  final LocalSessionUser? Function() _currentUserReader;
 
-  ChatViewModel(this._apiRepository);
+  ChatViewModel(
+    this._apiRepository,
+    this._purchaseRepository, {
+    LocalSessionUser? Function()? currentUserReader,
+  }) : _currentUserReader = currentUserReader ?? IDCore.authUser;
 
   List<types.Message> _messages = [];
   final SpeechToText _speechToText = SpeechToText();
@@ -363,6 +379,34 @@ class ChatViewModel extends ChangeNotifier {
       return;
     }
 
+    final currentUser = _currentUserReader();
+    if (currentUser == null || currentUser.isGuest) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
+
+    final entitlements = await _loadStoryCreationEntitlements(currentUser.uid);
+    if (entitlements == null) {
+      if (context.mounted) {
+        await UIHelper.showFlutterToast('利用状況を確認できませんでした。');
+      }
+      return;
+    }
+    if (!context.mounted) return;
+
+    final accessState = storyCreationAccessForTesting(
+      currentUser: currentUser,
+      entitlements: entitlements,
+    );
+    if (accessState == StoryCreationAccessState.loginRequired) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
+    if (accessState == StoryCreationAccessState.purchaseRequired) {
+      _showStoreRequiredDialog(context);
+      return;
+    }
+
     _startLoading();
     final chatLogs = _messageListToString();
     storyViewModel.updateChatLogs(chatLogs: chatLogs);
@@ -372,6 +416,21 @@ class ChatViewModel extends ChangeNotifier {
           : _buildLocalStoryPackage(chatLogs: chatLogs);
       final newStoryMaps = storyPackage.storyPages;
       if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
+        try {
+          await _purchaseRepository.claimStoryCreationAccess(currentUser.uid);
+        } on StoryCreationAccessDenied {
+          if (context.mounted) {
+            _showStoreRequiredDialog(context);
+          }
+          return;
+        } catch (error) {
+          debugPrint('Failed to claim story creation access: $error');
+          if (context.mounted) {
+            await UIHelper.showFlutterToast('コインの反映に失敗しました。');
+          }
+          return;
+        }
+
         storyViewModel.getTitleTextAndImage(
           title: storyPackage.title,
           image: storyPackage.titleImage,
@@ -1121,6 +1180,54 @@ class ChatViewModel extends ChangeNotifier {
 
   bool _hasStoryGenerationAccess() {
     return AppEnv.hasFirebaseConfiguration();
+  }
+
+  Future<PurchaseEntitlements?> _loadStoryCreationEntitlements(
+      String uid) async {
+    try {
+      return await _purchaseRepository.loadEntitlements(uid);
+    } catch (error) {
+      debugPrint('Failed to load story creation entitlements: $error');
+      return null;
+    }
+  }
+
+  void _showLoginRequiredDialog(BuildContext context) {
+    DialogCore.cupertinoAlertDialog(
+      context,
+      'おはなしをつくるには、保護者がログインしてください。',
+      'ログインが必要です',
+      () {
+        context.pop();
+        context.push('/login');
+      },
+    );
+  }
+
+  void _showStoreRequiredDialog(BuildContext context) {
+    DialogCore.cupertinoAlertDialog(
+      context,
+      'おはなしをつくるには、1コインまたは定期購入が必要です。初回登録時の5コインは保護者アカウントに付与されます。',
+      'コインが必要です',
+      () {
+        context.pop();
+        context.push('/parent/store');
+      },
+    );
+  }
+
+  @visibleForTesting
+  static StoryCreationAccessState storyCreationAccessForTesting({
+    required LocalSessionUser? currentUser,
+    required PurchaseEntitlements entitlements,
+  }) {
+    if (currentUser == null || currentUser.isGuest) {
+      return StoryCreationAccessState.loginRequired;
+    }
+    if (entitlements.isSubscriptionActive || entitlements.coins > 0) {
+      return StoryCreationAccessState.allowed;
+    }
+    return StoryCreationAccessState.purchaseRequired;
   }
 
   String _buildRotatingExample() {

@@ -4,7 +4,38 @@ import 'package:apapane/models/product/product.dart';
 import 'package:apapane/models/purchase/purchase_entitlements.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+
+enum StoryCreationClaimKind {
+  subscription,
+  coinConsumed,
+  denied,
+}
+
+class StoryCreationClaimDecision {
+  const StoryCreationClaimDecision({
+    required this.kind,
+    required this.entitlements,
+  });
+
+  final StoryCreationClaimKind kind;
+  final PurchaseEntitlements entitlements;
+
+  bool get canCreate => kind != StoryCreationClaimKind.denied;
+  bool get shouldConsumeCoin => kind == StoryCreationClaimKind.coinConsumed;
+}
+
+class StoryCreationAccessDenied implements Exception {
+  const StoryCreationAccessDenied([
+    this.message = 'おはなしをつくるには、コインまたは定期購入が必要です。',
+  ]);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class PurchaseRepository {
   PurchaseRepository({
@@ -131,6 +162,30 @@ class PurchaseRepository {
     return loadEntitlements(uid);
   }
 
+  Future<PurchaseEntitlements> claimStoryCreationAccess(String uid) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(userRef);
+      final currentData = snapshot.data();
+      final decision = evaluateStoryCreationClaim(currentData);
+      if (!decision.canCreate) {
+        throw const StoryCreationAccessDenied();
+      }
+
+      if (decision.shouldConsumeCoin) {
+        transaction.set(
+          userRef,
+          {
+            'coins': decision.entitlements.coins,
+          },
+          SetOptions(merge: true),
+        );
+      }
+
+      return decision.entitlements;
+    });
+  }
+
   Future<Uri?> subscriptionManagementUri() async {
     if (Platform.isIOS) {
       return Uri.parse('https://apps.apple.com/account/subscriptions');
@@ -142,5 +197,36 @@ class PurchaseRepository {
       );
     }
     return null;
+  }
+
+  @visibleForTesting
+  static StoryCreationClaimDecision evaluateStoryCreationClaim(
+    Map<String, dynamic>? userData, {
+    DateTime? now,
+  }) {
+    final entitlements = PurchaseEntitlements.fromUserData(
+      userData,
+      now: now,
+    );
+    if (entitlements.isSubscriptionActive) {
+      return StoryCreationClaimDecision(
+        kind: StoryCreationClaimKind.subscription,
+        entitlements: entitlements,
+      );
+    }
+    if (entitlements.coins > 0) {
+      return StoryCreationClaimDecision(
+        kind: StoryCreationClaimKind.coinConsumed,
+        entitlements: PurchaseEntitlements(
+          coins: entitlements.coins - 1,
+          isSubscriptionActive: false,
+          subscriptionEndAt: entitlements.subscriptionEndAt,
+        ),
+      );
+    }
+    return StoryCreationClaimDecision(
+      kind: StoryCreationClaimKind.denied,
+      entitlements: entitlements,
+    );
   }
 }

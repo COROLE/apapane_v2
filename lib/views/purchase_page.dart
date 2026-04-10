@@ -108,6 +108,15 @@ class PurchasePage extends ConsumerWidget {
               height: 1.5,
             ),
           ),
+          SizedBox(height: 12),
+          Text(
+            'おはなし作成は 1 回 1 コインです。定期購入中はコイン消費なしで作成できます。初回登録時は 5 コインから始まります。',
+            style: TextStyle(
+              fontSize: 16,
+              color: Color(0xFF333333),
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );

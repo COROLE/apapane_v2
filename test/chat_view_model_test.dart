@@ -1,3 +1,5 @@
+import 'package:apapane/models/auth/local_session_user.dart';
+import 'package:apapane/models/purchase/purchase_entitlements.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/view_models/chat_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -84,8 +86,7 @@ void main() {
       'pages': [
         {
           ...((structuredStory['pages'] as List).first as Map<String, dynamic>),
-        }
-          ..remove('visibleCast'),
+        }..remove('visibleCast'),
         ...((structuredStory['pages'] as List).skip(1)),
       ],
     };
@@ -173,5 +174,69 @@ void main() {
 
     expect(normalizedPages, hasLength(4));
     expect(normalizedPages.first['story'], '1ページめ');
+  });
+
+  test('story creation requires parent login for guests', () {
+    final state = ChatViewModel.storyCreationAccessForTesting(
+      currentUser: const LocalSessionUser(
+        id: 'guest-1',
+        email: '',
+        displayName: 'ゲスト',
+        photoUrl: '',
+        isAnonymous: true,
+      ),
+      entitlements: PurchaseEntitlements.initial(),
+    );
+
+    expect(state, StoryCreationAccessState.loginRequired);
+  });
+
+  test('story creation requires purchase when signed-in user has no coins', () {
+    final state = ChatViewModel.storyCreationAccessForTesting(
+      currentUser: const LocalSessionUser(
+        id: 'user-1',
+        email: 'parent@example.com',
+        displayName: 'Parent',
+        photoUrl: '',
+        isAnonymous: false,
+      ),
+      entitlements: PurchaseEntitlements.initial(),
+    );
+
+    expect(state, StoryCreationAccessState.purchaseRequired);
+  });
+
+  test('story creation is allowed for coin holders and subscribers', () {
+    final coinState = ChatViewModel.storyCreationAccessForTesting(
+      currentUser: const LocalSessionUser(
+        id: 'user-1',
+        email: 'parent@example.com',
+        displayName: 'Parent',
+        photoUrl: '',
+        isAnonymous: false,
+      ),
+      entitlements: const PurchaseEntitlements(
+        coins: 2,
+        isSubscriptionActive: false,
+        subscriptionEndAt: null,
+      ),
+    );
+    final subscriptionState = ChatViewModel.storyCreationAccessForTesting(
+      currentUser: const LocalSessionUser(
+        id: 'user-2',
+        email: 'subscriber@example.com',
+        displayName: 'Subscriber',
+        photoUrl: '',
+        isAnonymous: false,
+      ),
+      entitlements: PurchaseEntitlements(
+        coins: 0,
+        isSubscriptionActive: true,
+        subscriptionEndAt: DateTime(2030),
+      ),
+    );
+
+    expect(coinState, StoryCreationAccessState.allowed);
+    expect(subscriptionState, StoryCreationAccessState.allowed);
   });
 }

@@ -9,6 +9,8 @@ import 'package:apapane/typedefs/result_typedef.dart';
 import 'package:flutter/foundation.dart';
 
 class AuthRepository {
+  static const int initialSignupCoins = 5;
+
   AuthRepository(this._authService, this._firestoreRepository);
 
   final AuthService _authService;
@@ -95,26 +97,32 @@ class AuthRepository {
     );
 
     if (currentProfile != null) {
-      final updates = <String, dynamic>{};
-      if ((currentProfile['userName']?.toString().trim().isEmpty ?? true) &&
-          user.displayName.trim().isNotEmpty) {
-        updates['userName'] = user.displayName.trim();
-      }
-      final currentPhoto = currentProfile['userImageURL']?.toString() ?? '';
-      if (currentPhoto.isEmpty && user.photoUrl.isNotEmpty) {
-        updates['userImageURL'] = user.photoUrl;
-      }
+      final updates = buildExistingProfileUpdates(
+        currentProfile: currentProfile,
+        user: user,
+        now: Timestamp.now(),
+      );
       if (updates.isNotEmpty) {
-        updates['updatedAt'] = Timestamp.now();
         await _firestoreRepository.updateDoc(profileRef, updates);
       }
       return;
     }
 
-    final now = Timestamp.now();
-    final firestoreUser = FirestoreUser(
+    final firestoreUser = buildNewProfile(
+      user,
+      now: Timestamp.now(),
+    );
+    await _firestoreRepository.createDoc(profileRef, firestoreUser.toJson());
+  }
+
+  @visibleForTesting
+  static FirestoreUser buildNewProfile(
+    LocalSessionUser user, {
+    required dynamic now,
+  }) {
+    return FirestoreUser(
       age: 0,
-      coins: 0,
+      coins: initialSignupCoins,
       createdAt: now,
       favoriteMyStoryCount: 0,
       followerCount: 0,
@@ -127,6 +135,26 @@ class AuthRepository {
       userImageURL: user.photoUrl,
       uid: user.uid,
     );
-    await _firestoreRepository.createDoc(profileRef, firestoreUser.toJson());
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> buildExistingProfileUpdates({
+    required Map<String, dynamic> currentProfile,
+    required LocalSessionUser user,
+    required dynamic now,
+  }) {
+    final updates = <String, dynamic>{};
+    if ((currentProfile['userName']?.toString().trim().isEmpty ?? true) &&
+        user.displayName.trim().isNotEmpty) {
+      updates['userName'] = user.displayName.trim();
+    }
+    final currentPhoto = currentProfile['userImageURL']?.toString() ?? '';
+    if (currentPhoto.isEmpty && user.photoUrl.isNotEmpty) {
+      updates['userImageURL'] = user.photoUrl;
+    }
+    if (updates.isNotEmpty) {
+      updates['updatedAt'] = now;
+    }
+    return updates;
   }
 }
