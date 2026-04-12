@@ -187,11 +187,13 @@ jobs:
           echo "Using Android signing alias '${key_alias}' with keystore type '${store_type}'."
 
       - name: Build signed app bundle
-        run: >
-          flutter build appbundle
-          --release
-          --build-number "${BUILD_NUMBER}"
-          --dart-define-from-file=.env
+        run: |
+          android_build_number="$(date +%s)"
+          echo "Using Android build number ${android_build_number}"
+          flutter build appbundle \
+            --release \
+            --build-number "${android_build_number}" \
+            --dart-define-from-file=.env
 
       - name: Upload to Google Play internal testing
         working-directory: android
