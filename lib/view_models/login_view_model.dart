@@ -38,23 +38,29 @@ class LoginViewModel extends ChangeNotifier {
     }
 
     _startLoading();
-    final result = provider == LoginProvider.apple
-        ? await _authRepository.signInWithApple()
-        : await _authRepository.signInWithGoogle();
-    _endLoading();
+    try {
+      final result = provider == LoginProvider.apple
+          ? await _authRepository.signInWithApple()
+          : await _authRepository.signInWithGoogle();
 
-    result.when(
-      success: (_) {
-        _onLoginSuccess();
-        if (context.mounted) {
-          context.go('/home');
-        }
-      },
-      failure: (error) async {
-        final message = _messageForError(error);
-        await UIHelper.showFlutterToast(message);
-      },
-    );
+      await result.when(
+        success: (_) async {
+          _onLoginSuccess();
+          if (context.mounted) {
+            context.go('/home');
+          }
+        },
+        failure: (error) async {
+          final message = _messageForError(error);
+          await UIHelper.showFlutterToast(message);
+        },
+      );
+    } catch (error) {
+      final message = _messageForError(error);
+      await UIHelper.showFlutterToast(message);
+    } finally {
+      _endLoading();
+    }
   }
 
   String _messageForError(Object? error) {

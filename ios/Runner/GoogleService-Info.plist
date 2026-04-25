@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32.apps.googleusercontent.com</string>
+	<string>712097133007-u56rlhqrvaukv1birtf3rfjl6qiqlr79.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32</string>
+	<string>com.googleusercontent.apps.712097133007-u56rlhqrvaukv1birtf3rfjl6qiqlr79</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>712097133007-v8l6c41jgd9vdcpt2ov586kadj9jbpg7.apps.googleusercontent.com</string>
+	<string>712097133007-chjhfmout1n8ftof2p0m2d5qb4ur6393.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyA2A1i_uNZEm-qNqyg7-0FEAL90JeYkX-E</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.coroleai.apapane</string>
+	<string>com.corole.apapane</string>
 	<key>PROJECT_ID</key>
 	<string>apapane-94356</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true/>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:712097133007:ios:e3078cee373d3c23c7e2ba</string>
+	<string>1:712097133007:ios:89f2a0613d43cfd7c7e2ba</string>
 </dict>
 </plist>

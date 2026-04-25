@@ -13,6 +13,7 @@ class AppEnv {
   static const String _firebaseStorageBucketName = 'FIREBASE_STORAGE_BUCKET';
   static const String _firebaseAndroidAppIdName = 'FIREBASE_ANDROID_APP_ID';
   static const String _firebaseIosAppIdName = 'FIREBASE_IOS_APP_ID';
+  static const String _firebaseIosBundleIdName = 'FIREBASE_IOS_BUNDLE_ID';
   static const String _googleWebServerClientIdName =
       'GOOGLE_WEB_SERVER_CLIENT_ID';
   static const String _googleIosClientIdName = 'GOOGLE_IOS_CLIENT_ID';
@@ -32,13 +33,14 @@ class AppEnv {
     EnvKey.FIREBASE_ANDROID_APP_ID.name:
         '1:712097133007:android:3f98b153fa4456d4c7e2ba',
     EnvKey.FIREBASE_IOS_APP_ID.name:
-        '1:712097133007:ios:e3078cee373d3c23c7e2ba',
+        '1:712097133007:ios:89f2a0613d43cfd7c7e2ba',
+    EnvKey.FIREBASE_IOS_BUNDLE_ID.name: 'com.corole.apapane',
     EnvKey.GOOGLE_WEB_SERVER_CLIENT_ID.name:
         '712097133007-2tiejgepe2djqhluopr4c9efsah5kh6u.apps.googleusercontent.com',
     EnvKey.GOOGLE_IOS_CLIENT_ID.name:
-        '712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32.apps.googleusercontent.com',
+        '712097133007-u56rlhqrvaukv1birtf3rfjl6qiqlr79.apps.googleusercontent.com',
     EnvKey.GOOGLE_IOS_URL_SCHEME.name:
-        'com.googleusercontent.apps.712097133007-a944nfdcmf1ug7t7b59ee2jqf5umta32',
+        'com.googleusercontent.apps.712097133007-u56rlhqrvaukv1birtf3rfjl6qiqlr79',
     EnvKey.SUPPORT_EMAIL.name: 'contact@corole.co.jp',
     EnvKey.PRIVACY_POLICY_URL.name: 'https://corole.net/apapane/privacy',
     EnvKey.TERMS_OF_SERVICE_URL.name: 'https://corole.net/apapane/terms',
@@ -59,6 +61,8 @@ class AppEnv {
     _firebaseAndroidAppIdName:
         const String.fromEnvironment(_firebaseAndroidAppIdName),
     _firebaseIosAppIdName: const String.fromEnvironment(_firebaseIosAppIdName),
+    _firebaseIosBundleIdName:
+        const String.fromEnvironment(_firebaseIosBundleIdName),
     _googleWebServerClientIdName:
         const String.fromEnvironment(_googleWebServerClientIdName),
     _googleIosClientIdName:
@@ -102,7 +106,8 @@ class AppEnv {
         get(EnvKey.FIREBASE_MESSAGING_SENDER_ID).trim().isNotEmpty &&
         get(EnvKey.FIREBASE_STORAGE_BUCKET).trim().isNotEmpty &&
         get(EnvKey.FIREBASE_ANDROID_APP_ID).trim().isNotEmpty &&
-        get(EnvKey.FIREBASE_IOS_APP_ID).trim().isNotEmpty;
+        get(EnvKey.FIREBASE_IOS_APP_ID).trim().isNotEmpty &&
+        get(EnvKey.FIREBASE_IOS_BUNDLE_ID).trim().isNotEmpty;
   }
 
   static String _firstNonEmpty(Iterable<String?> values) {

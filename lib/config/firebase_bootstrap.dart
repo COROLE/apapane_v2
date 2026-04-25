@@ -61,6 +61,7 @@ class FirebaseBootstrap {
           projectId: _require(EnvKey.FIREBASE_PROJECT_ID),
           storageBucket: _require(EnvKey.FIREBASE_STORAGE_BUCKET),
           iosClientId: _optional(EnvKey.GOOGLE_IOS_CLIENT_ID),
+          iosBundleId: _require(EnvKey.FIREBASE_IOS_BUNDLE_ID),
         );
       default:
         throw UnsupportedError(

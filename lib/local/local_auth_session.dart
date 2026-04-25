@@ -30,6 +30,7 @@ class LocalAuthSession {
     final restoredUid = _guestSessionId?.trim() ?? '';
     return restoredUid;
   }
+
   String? _guestSessionId;
 
   Future<void> restore() async {
@@ -258,11 +259,13 @@ class LocalAuthSession {
     final serverClientId =
         AppEnv.getByName('GOOGLE_WEB_SERVER_CLIENT_ID').trim();
     final iosClientId = AppEnv.getByName('GOOGLE_IOS_CLIENT_ID').trim();
+    final platformClientId =
+        defaultTargetPlatform == TargetPlatform.iOS ? iosClientId : '';
 
     _googleSignIn = GoogleSignIn(
       scopes: const ['email', 'profile'],
       serverClientId: serverClientId.isEmpty ? null : serverClientId,
-      clientId: iosClientId.isEmpty ? null : iosClientId,
+      clientId: platformClientId.isEmpty ? null : platformClientId,
     );
     return _googleSignIn!;
   }

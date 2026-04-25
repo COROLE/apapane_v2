@@ -7,7 +7,7 @@
 - Configure Android and iOS Google Sign-In in Firebase and register production SHA certificates.
 - Ensure the signed-in Firebase CLI account has access to project `apapane-94356` before backend deploys.
 - `FIREBASE_ANDROID_API_KEY`, `FIREBASE_IOS_API_KEY`, app IDs, sender ID, and storage bucket are now fixed to the `apapane-94356` project in `.env.example`.
-- `GOOGLE_WEB_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`, and `GOOGLE_IOS_URL_SCHEME` must match the live Firebase Auth configuration after each OAuth or signing-certificate change.
+- `FIREBASE_IOS_BUNDLE_ID`, `GOOGLE_WEB_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`, and `GOOGLE_IOS_URL_SCHEME` must match the live Firebase Auth configuration after each OAuth or signing-certificate change.
 - Deploy Cloud Functions with server secrets:
   - `GEMINI_API_KEY`
   - `PLAY_SERVICE_ACCOUNT_JSON`
@@ -33,6 +33,7 @@
   - `consumable`
   - `silver_subscription`
 - Confirm the Google Sign-In OAuth client IDs match the release keystore and iOS bundle id.
+- Confirm Sign in with Apple is enabled on the `com.corole.apapane` App ID and the App Store provisioning profile has been regenerated after enabling it.
 - Publish the company-site legal pages:
   - `https://corole.net/apapane/privacy`
   - `https://corole.net/apapane/terms`
