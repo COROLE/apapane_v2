@@ -1,6 +1,5 @@
 import 'package:apapane/config/app_env.dart';
 import 'package:apapane/enums/env_key.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -32,7 +31,6 @@ class FirebaseBootstrap {
     );
     await FirebaseCrashlytics.instance
         .setCrashlyticsCollectionEnabled(!kDebugMode);
-    await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(false);
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     PlatformDispatcher.instance.onError = (error, stack) {
       FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
