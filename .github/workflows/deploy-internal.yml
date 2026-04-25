@@ -268,17 +268,30 @@ jobs:
           from pathlib import Path
 
           Path(".env").write_bytes(base64.b64decode(os.environ["APP_DOTENV_BASE64"]))
-          env_values = {}
-          for line in Path(".env").read_text(encoding="utf-8").splitlines():
-              line = line.strip()
-              if not line or line.startswith("#") or "=" not in line:
+          deployment_env_values = {}
+          example_env_values = {}
+          for env_path, target in (
+              (Path(".env"), deployment_env_values),
+              (Path(".env.example"), example_env_values),
+          ):
+              if not env_path.exists():
                   continue
-              key, value = line.split("=", 1)
-              env_values[key.strip()] = value.strip()
+              for line in env_path.read_text(encoding="utf-8").splitlines():
+                  line = line.strip()
+                  if not line or line.startswith("#") or "=" not in line:
+                      continue
+                  key, value = line.split("=", 1)
+                  value = value.strip()
+                  if value:
+                      target[key.strip()] = value
+          google_ios_url_scheme = example_env_values.get(
+              "GOOGLE_IOS_URL_SCHEME",
+              deployment_env_values.get("GOOGLE_IOS_URL_SCHEME", ""),
+          )
+          if not google_ios_url_scheme:
+              raise SystemExit("GOOGLE_IOS_URL_SCHEME is empty.")
           Path("ios/Flutter/FirebaseConfig.xcconfig").write_text(
-              "GOOGLE_IOS_URL_SCHEME="
-              + env_values.get("GOOGLE_IOS_URL_SCHEME", "")
-              + "\n",
+              "GOOGLE_IOS_URL_SCHEME=" + google_ios_url_scheme + "\n",
               encoding="utf-8",
           )
           PY
@@ -307,6 +320,53 @@ jobs:
         run: |
           ipa_path="$(find "${GITHUB_WORKSPACE}/build/ios/ipa" -maxdepth 1 -name '*.ipa' -print -quit)"
           echo "path=${ipa_path}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify iOS Google URL scheme
+        env:
+          IPA_PATH: ${{ steps.locate_ipa.outputs.path }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import plistlib
+          import subprocess
+          import tempfile
+          from pathlib import Path
+
+          expected_scheme = ""
+          for line in Path(".env.example").read_text(encoding="utf-8").splitlines():
+              line = line.strip()
+              if not line or line.startswith("#") or "=" not in line:
+                  continue
+              key, value = line.split("=", 1)
+              if key.strip() == "GOOGLE_IOS_URL_SCHEME":
+                  expected_scheme = value.strip()
+                  break
+
+          if not expected_scheme:
+              raise SystemExit("GOOGLE_IOS_URL_SCHEME is empty in .env.example.")
+
+          ipa_path = Path(os.environ["IPA_PATH"])
+          with tempfile.TemporaryDirectory() as temp_dir:
+              subprocess.run(
+                  ["unzip", "-q", str(ipa_path), "-d", temp_dir],
+                  check=True,
+              )
+              info_path = next(Path(temp_dir).glob("Payload/*.app/Info.plist"))
+              with info_path.open("rb") as info_file:
+                  info = plistlib.load(info_file)
+
+          schemes = [
+              scheme
+              for url_type in info.get("CFBundleURLTypes", [])
+              for scheme in url_type.get("CFBundleURLSchemes", [])
+          ]
+          if expected_scheme not in schemes:
+              raise SystemExit(
+                  f"Expected Google iOS URL scheme {expected_scheme!r}, "
+                  f"found {schemes!r}."
+              )
+          print(f"Verified Google iOS URL scheme: {expected_scheme}")
+          PY
 
       - name: Upload to TestFlight
         working-directory: ios
