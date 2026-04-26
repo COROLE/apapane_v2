@@ -16,6 +16,7 @@ class ApiService {
 
   final FirebaseFunctions _functions;
   static const Duration _functionCallTimeout = Duration(seconds: 45);
+  static const Duration _imageFunctionCallTimeout = Duration(seconds: 150);
 
   Future<String> callClaude(
     String prompt,
@@ -57,7 +58,11 @@ class ApiService {
       );
       return data;
     } catch (httpError) {
-      final data = await _callFunction('generateImage', payload);
+      final data = await _callFunction(
+        'generateImage',
+        payload,
+        timeout: _imageFunctionCallTimeout,
+      );
       _ensureImageData(
         data,
         errorMessage: 'generateImage did not return image data.',
@@ -80,7 +85,11 @@ class ApiService {
     return base64Decode(audioBase64.trim());
   }
 
-  Future<SDMap> _callFunction(String name, SDMap payload) async {
+  Future<SDMap> _callFunction(
+    String name,
+    SDMap payload, {
+    Duration timeout = _functionCallTimeout,
+  }) async {
     final callable = _functions.httpsCallable(name);
     final guestSessionId =
         await LocalAuthSession.instance.ensureCallableSessionId();
@@ -89,7 +98,7 @@ class ApiService {
       if (guestSessionId.isNotEmpty) 'guestSessionId': guestSessionId,
     };
     final result = await callable.call(mergedPayload).timeout(
-          _functionCallTimeout,
+          timeout,
           onTimeout: () => throw TimeoutException('$name timed out.'),
         );
     final data = result.data;
@@ -127,7 +136,7 @@ class ApiService {
           }),
         )
         .timeout(
-          _functionCallTimeout,
+          _imageFunctionCallTimeout,
           onTimeout: () =>
               throw TimeoutException('generateImageHttp timed out.'),
         );

@@ -68,5 +68,7 @@ function Set-SecretFromFile {
 
 $geminiApiKey = Get-EnvValue -Name "GEMINI_API_KEY"
 Set-SecretFromValue -Name "GEMINI_API_KEY" -Value $geminiApiKey
+$openAiApiKey = Get-EnvValue -Name "OPENAI_API_KEY"
+Set-SecretFromValue -Name "OPENAI_API_KEY" -Value $openAiApiKey
 Set-SecretFromFile -Name "PLAY_SERVICE_ACCOUNT_JSON" -Path $PlayServiceAccountJsonPath
 Set-SecretFromValue -Name "APPLE_SHARED_SECRET" -Value $AppleSharedSecret

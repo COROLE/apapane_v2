@@ -7,6 +7,11 @@ const withAppCheck = functions.runWith({ enforceAppCheck: true });
 const withGeminiSecret = functions.runWith({
   secrets: ['GEMINI_API_KEY'],
 });
+const withOpenAiSecret = functions.runWith({
+  secrets: ['OPENAI_API_KEY'],
+  timeoutSeconds: 180,
+  memory: '1GB',
+});
 const withPurchaseSecrets = functions.runWith({
   enforceAppCheck: true,
   secrets: ['PLAY_SERVICE_ACCOUNT_JSON', 'APPLE_SHARED_SECRET'],
@@ -33,6 +38,12 @@ const STORY_REQUIRED_CHARACTER_FIELDS = [
   'worldDetails',
   'artDirection',
 ];
+const OPENAI_IMAGE_MODEL = 'gpt-image-2';
+const OPENAI_IMAGE_SIZE = '1024x1536';
+const OPENAI_IMAGE_QUALITY = 'high';
+const OPENAI_IMAGE_OUTPUT_FORMAT = 'jpeg';
+const OPENAI_IMAGE_OUTPUT_COMPRESSION = 90;
+const IMAGE_OUTPUT_JPEG_QUALITY = 86;
 const BANNED_STORY_ENDINGS = [
   'みんなで楽しく過ごしました',
   'みんなでたのしくすごしました',
@@ -149,7 +160,7 @@ exports.generateStory = withGeminiSecret.https.onCall(async (data, context) => {
   return { text };
 });
 
-exports.generateImage = withGeminiSecret.https.onCall(async (data, context) => {
+exports.generateImage = withOpenAiSecret.https.onCall(async (data, context) => {
   const caller = resolveGeneratorCaller(context, data);
 
   const prompt = readString(data.prompt, 'prompt');
@@ -165,7 +176,7 @@ exports.generateImage = withGeminiSecret.https.onCall(async (data, context) => {
   });
 });
 
-exports.generateImageHttp = withGeminiSecret.https.onRequest(async (req, res) => {
+exports.generateImageHttp = withOpenAiSecret.https.onRequest(async (req, res) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-AppCheck');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -825,18 +836,19 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
     throw createChildSafeError();
   }
 
-  const result = await callGeminiImage({
+  const result = await callOpenAiImage({
     prompt: [CHILD_SAFE_IMAGE_PREFIX, prompt].join('\n\n'),
     negativePrompt: [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
       .filter(Boolean)
       .join(', '),
-    apiKey: readEnv('GEMINI_API_KEY'),
+    apiKey: readEnv('OPENAI_API_KEY'),
     seed,
   });
 
   const response = {
     base64: result.imageBuffer.toString('base64'),
     seed: result.seed,
+    model: result.model,
   };
 
   try {
@@ -861,6 +873,7 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
       seed: result.seed,
       storedPreview: typeof response.storagePath === 'string',
       storagePath: response.storagePath ?? '',
+      model: result.model,
     },
   });
 
@@ -950,7 +963,7 @@ async function callGeminiText({
   return text;
 }
 
-async function callGeminiImage({ prompt, negativePrompt, apiKey, seed }) {
+async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
   const mergedPrompt = [
     prompt.trim(),
     negativePrompt.trim()
@@ -960,50 +973,42 @@ async function callGeminiImage({ prompt, negativePrompt, apiKey, seed }) {
     .filter(Boolean)
     .join('\n\n');
 
-  const payload = await postJson(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent',
-    {
-      headers: {
-        'x-goog-api-key': apiKey,
-      },
-      body: {
-        contents: [
-          {
-            parts: [{ text: mergedPrompt }],
-          },
-        ],
-        generationConfig: {
-          responseModalities: ['TEXT', 'IMAGE'],
-          imageConfig: {
-            aspectRatio: '9:16',
-          },
-        },
-      },
+  const payload = await postJson('https://api.openai.com/v1/images/generations', {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
     },
-  );
+    body: buildOpenAiImageRequest(mergedPrompt),
+  });
 
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
-  for (const candidate of candidates) {
-    const parts = candidate?.content?.parts;
-    if (!Array.isArray(parts)) {
-      continue;
-    }
-    for (const part of parts) {
-      const base64 = part?.inlineData?.data;
-      if (typeof base64 === 'string' && base64.trim().length > 0) {
-        const normalizedBuffer = await normalizeGeneratedImage(base64.trim());
-        return {
-          imageBuffer: normalizedBuffer,
-          seed: seed || Date.now(),
-        };
-      }
-    }
+  const images = Array.isArray(payload.data) ? payload.data : [];
+  const base64 = images.find(
+    (image) => typeof image?.b64_json === 'string' && image.b64_json.trim(),
+  )?.b64_json;
+  if (typeof base64 === 'string' && base64.trim().length > 0) {
+    const normalizedBuffer = await normalizeGeneratedImage(base64.trim());
+    return {
+      imageBuffer: normalizedBuffer,
+      seed: seed || Date.now(),
+      model: OPENAI_IMAGE_MODEL,
+    };
   }
 
   throw new functions.https.HttpsError(
     'internal',
     '画像生成の結果を取得できませんでした。',
   );
+}
+
+function buildOpenAiImageRequest(prompt) {
+  return {
+    model: OPENAI_IMAGE_MODEL,
+    prompt,
+    size: OPENAI_IMAGE_SIZE,
+    quality: OPENAI_IMAGE_QUALITY,
+    output_format: OPENAI_IMAGE_OUTPUT_FORMAT,
+    output_compression: OPENAI_IMAGE_OUTPUT_COMPRESSION,
+    background: 'opaque',
+  };
 }
 
 async function normalizeGeneratedImage(base64Data) {
@@ -1013,7 +1018,8 @@ async function normalizeGeneratedImage(base64Data) {
     .resize({
       width: 1080,
       height: 1920,
-      fit: 'contain',
+      fit: 'cover',
+      position: 'center',
       background: {
         r: 247,
         g: 240,
@@ -1022,15 +1028,16 @@ async function normalizeGeneratedImage(base64Data) {
       },
     })
     .jpeg({
-      quality: 74,
+      quality: IMAGE_OUTPUT_JPEG_QUALITY,
       mozjpeg: true,
-      chromaSubsampling: '4:2:0',
+      chromaSubsampling: '4:4:4',
     })
     .toBuffer();
 
   functions.logger.info('Normalized generated image.', {
     inputBytes: inputBuffer.length,
     outputBytes: outputBuffer.length,
+    jpegQuality: IMAGE_OUTPUT_JPEG_QUALITY,
   });
 
   return outputBuffer;
@@ -1668,6 +1675,13 @@ function readString(value, fieldName) {
 
 exports.__test__ = {
   CHILD_SAFE_REWRITE_MESSAGE,
+  IMAGE_OUTPUT_JPEG_QUALITY,
+  OPENAI_IMAGE_MODEL,
+  OPENAI_IMAGE_OUTPUT_COMPRESSION,
+  OPENAI_IMAGE_OUTPUT_FORMAT,
+  OPENAI_IMAGE_QUALITY,
+  OPENAI_IMAGE_SIZE,
+  buildOpenAiImageRequest,
   buildStoryPrompt,
   buildStoryRepairPrompt,
   extractApiError,
