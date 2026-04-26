@@ -19,6 +19,32 @@ const RATE_LIMIT_COLLECTION = 'aiRateLimits';
 const CHILD_SAFE_REWRITE_MESSAGE =
   'アパパネでは、子ども向けのやさしく安全なおはなしと絵だけを作れます。別のやさしい内容で試してください。';
 const STORY_GENERATION_MAX_ATTEMPTS = 3;
+const STORY_BODY_PAGE_COUNT = 4;
+const STORY_REQUIRED_PAGE_FIELDS = [
+  'story',
+  'visualFocus',
+  'mood',
+  'dialogue',
+  'visibleCast',
+];
+const STORY_REQUIRED_CHARACTER_FIELDS = [
+  'protagonist',
+  'companion',
+  'worldDetails',
+  'artDirection',
+];
+const BANNED_STORY_ENDINGS = [
+  'みんなで楽しく過ごしました',
+  'みんなでたのしくすごしました',
+  'みんな幸せに暮らしました',
+  'みんなしあわせにくらしました',
+  '楽しい一日でした',
+  'たのしい一日でした',
+  '大切なことを学びました',
+  'たいせつなことを学びました',
+  '友だちってすばらしいですね',
+  '勇気を出せば何でもできます',
+];
 const STORY_RATE_LIMIT = {
   key: 'story',
   maxCalls: 12,
@@ -328,23 +354,80 @@ async function generateSafeStory({
   const safeSystemPrompt = [CHILD_SAFE_STORY_PREFIX, systemPrompt]
     .filter(Boolean)
     .join('\n\n');
+  const storyJsonRequest = isStoryJsonRequest({ jsonOutput, responseSchema });
+  const basePrompt = storyJsonRequest ? buildStoryPrompt({ prompt }) : prompt;
+  let currentPrompt = basePrompt;
+  let qualityRepairUsed = false;
 
   for (let attempt = 1; attempt <= STORY_GENERATION_MAX_ATTEMPTS; attempt += 1) {
-    const text = await callGeminiText({
-      prompt,
-      systemPrompt: safeSystemPrompt,
-      apiKey: readEnv('GEMINI_API_KEY'),
-      jsonOutput,
-      responseSchema,
-    });
+    let text;
+    try {
+      text = await callGeminiText({
+        prompt: currentPrompt,
+        systemPrompt: safeSystemPrompt,
+        apiKey: readEnv('GEMINI_API_KEY'),
+        jsonOutput,
+        responseSchema,
+        normalizeStoryJson: storyJsonRequest,
+      });
+    } catch (error) {
+      if (!storyJsonRequest || attempt >= STORY_GENERATION_MAX_ATTEMPTS) {
+        throw error;
+      }
+      await writeSafetyAuditLog({
+        uid: callerId,
+        feature: 'story',
+        stage: 'response',
+        allowed: false,
+        reason: 'invalid_story_json',
+        prompt: currentPrompt,
+        output: error instanceof Error ? error.message : String(error),
+        metadata: { attempt, jsonOutput },
+      });
+      continue;
+    }
+
     const responseCategory = findUnsafeCategory(text);
     if (!responseCategory) {
+      if (storyJsonRequest) {
+        const story = parseGeneratedStoryJson(text);
+        const qualityIssues = validateGeneratedStoryQuality(story);
+        if (qualityIssues.length > 0) {
+          await writeSafetyAuditLog({
+            uid: callerId,
+            feature: 'story',
+            stage: 'response',
+            allowed: false,
+            reason: 'story_quality',
+            prompt: currentPrompt,
+            output: text,
+            metadata: {
+              attempt,
+              jsonOutput,
+              qualityIssues: qualityIssues.map((issue) => issue.code),
+            },
+          });
+
+          if (!qualityRepairUsed) {
+            qualityRepairUsed = true;
+            currentPrompt = buildStoryRepairPrompt({
+              prompt: basePrompt,
+              story,
+              issues: qualityIssues,
+            });
+            continue;
+          }
+
+          throw createStoryQualityError(qualityIssues);
+        }
+      }
+
       await writeSafetyAuditLog({
         uid: callerId,
         feature: 'story',
         stage: 'response',
         allowed: true,
-        prompt,
+        prompt: currentPrompt,
         output: text,
         metadata: { attempt, jsonOutput },
       });
@@ -357,13 +440,370 @@ async function generateSafeStory({
       stage: 'response',
       allowed: false,
       reason: responseCategory,
-      prompt,
+      prompt: currentPrompt,
       output: text,
       metadata: { attempt, jsonOutput },
     });
   }
 
   throw createChildSafeError();
+}
+
+function isStoryJsonRequest({ jsonOutput, responseSchema }) {
+  if (jsonOutput !== true || !responseSchema || typeof responseSchema !== 'object') {
+    return false;
+  }
+
+  const properties = responseSchema.properties;
+  return Boolean(
+    properties &&
+      typeof properties === 'object' &&
+      properties.pages &&
+      typeof properties.pages === 'object',
+  );
+}
+
+function buildStoryPrompt({ prompt }) {
+  return `
+あなたは3〜8歳向けの日本語絵本作家です。
+子どもが「次のページを見たい」と思う、短くてわかりやすく、少し不思議で、最後に小さなオチがある絵本を作ってください。
+
+既存アプリから渡された入力と出力スキーマ:
+${prompt}
+
+まず内部で3つの Story Plan を作ってください。
+Story Plan には次を含めてください。
+- 主人公の小さな願い
+- 今日だけ起きる変なルール
+- 困った事件
+- 失敗する作戦
+- 意外な気づき
+- 解決方法
+- 最後の小さな笑えるオチ
+
+次に、3つの Story Plan を以下の観点で内部評価してください。
+- 子どもが次を読みたくなるか
+- 主人公の願いが明確か
+- 2ページ目に失敗や困りごとがあるか
+- 3ページ目に意外性があるか
+- 4ページ目に小さなオチがあるか
+- 怖すぎないか
+- 説教くさくないか
+- 絵にしやすいか
+
+最も良い Story Plan を1つだけ選び、それをもとに4ページの絵本を作ってください。
+Story Plan と評価内容は出力しないでください。
+
+各ページの条件:
+- 4ページ構成にする
+- 1ページ目: 主人公の日常、願い、変な出来事の発生
+- 2ページ目: 主人公が試すが失敗し、状況が少し悪化
+- 3ページ目: 仲間とのやりとり、観察、または勘違いから、意外な作戦に気づく
+- 4ページ目: 解決し、最後に小さな笑えるオチを入れる
+- 少なくとも1ページに短い会話を入れる
+- 各ページに、行動・変化・次を読みたくなる要素を入れる
+- 抽象的な説明ではなく、見える・聞こえる・触れる場面を書く
+- 1ページあたり80〜140字程度を目安にし、音読しやすくする
+
+画像用の場面情報:
+- visualFocus には、場所、主人公、仲間、そのページ固有の事件や変化、主人公の表情、絵本らしい安全で明るい雰囲気、9:16縦長に向いた構図を入れる
+- coverScene は表紙向けの強い1場面にする
+- characterSheet は全ページで同じ人物・動物・服装・色・顔立ちを保てる具体的な設定にする
+
+禁止:
+- ただ仲良く遊ぶだけ
+- ただ散歩するだけ
+- すぐ解決する
+- 事件がない
+- 失敗がない
+- 夢オチ
+- 怖すぎる展開
+- 悪者を罰するだけの結末
+- 教訓を直接説明する
+- 「みんなで楽しく過ごしました」で終わる
+- 「みんな幸せに暮らしました」で終わる
+- 「大切なことを学びました」で終わる
+- 「勇気」「友情」「思いやり」などの言葉で説教する
+
+出力:
+既存コードが期待しているJSON形式だけを返してください。
+Markdown、説明文、前置き、コードブロックは出力しないでください。
+JSON以外の文字を含めないでください。
+`.trim();
+}
+
+function buildStoryRepairPrompt({ prompt, story, issues }) {
+  const issueText = issues
+    .map((issue) => `- ${issue.message}`)
+    .join('\n');
+
+  return `
+${prompt}
+
+前回のJSONは内部品質チェックを通過しませんでした。
+検出された問題:
+${issueText}
+
+前回のJSON:
+${JSON.stringify(story)}
+
+同じ既存JSON形式だけで、4ページの本文と visualFocus を修正してください。
+Story Plan、評価内容、説明文、Markdown、コードブロックは出力しないでください。
+`.trim();
+}
+
+function stringifyGeneratedStoryJson(rawText) {
+  return JSON.stringify(parseGeneratedStoryJson(rawText));
+}
+
+function parseGeneratedStoryJson(rawText) {
+  const parsed = parseJsonObjectText(rawText);
+  return normalizeGeneratedStory(parsed);
+}
+
+function parseJsonObjectText(rawText) {
+  const source = typeof rawText === 'string' ? rawText.trim() : '';
+  const withoutFence = source
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+  const start = withoutFence.indexOf('{');
+  const end = withoutFence.lastIndexOf('}');
+  if (start < 0 || end < start) {
+    throw createStoryJsonError('Story generation returned no JSON object.');
+  }
+
+  const jsonText = withoutFence.slice(start, end + 1);
+  try {
+    const parsed = JSON.parse(jsonText);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('Root JSON value must be an object.');
+    }
+    return parsed;
+  } catch (error) {
+    throw createStoryJsonError(
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+}
+
+function normalizeGeneratedStory(story) {
+  const title = requireStoryStringField(story, 'title');
+  const coverScene = requireStoryStringField(story, 'coverScene');
+  const characterSheet = story.characterSheet;
+  if (
+    !characterSheet ||
+    typeof characterSheet !== 'object' ||
+    Array.isArray(characterSheet)
+  ) {
+    throw createStoryJsonError('Story JSON is missing characterSheet.');
+  }
+
+  const pages = story.pages;
+  if (!Array.isArray(pages) || pages.length !== STORY_BODY_PAGE_COUNT) {
+    throw createStoryJsonError('Story JSON must contain exactly 4 pages.');
+  }
+
+  return {
+    title,
+    coverScene,
+    characterSheet: Object.fromEntries(
+      STORY_REQUIRED_CHARACTER_FIELDS.map((field) => [
+        field,
+        requireStoryStringField(characterSheet, `characterSheet.${field}`),
+      ]),
+    ),
+    pages: pages.map((page, index) => normalizeGeneratedStoryPage(page, index)),
+  };
+}
+
+function normalizeGeneratedStoryPage(page, index) {
+  if (!page || typeof page !== 'object' || Array.isArray(page)) {
+    throw createStoryJsonError(`Story page ${index + 1} must be an object.`);
+  }
+
+  const normalizedPage = Object.fromEntries(
+    STORY_REQUIRED_PAGE_FIELDS.filter((field) => field !== 'visibleCast').map(
+      (field) => [
+        field,
+        requireStoryStringField(page, `pages.${index}.${field}`, {
+          allowEmpty: field !== 'story',
+        }),
+      ],
+    ),
+  );
+  if (!Array.isArray(page.visibleCast) || page.visibleCast.length === 0) {
+    throw createStoryJsonError(`Story page ${index + 1} is missing visibleCast.`);
+  }
+  normalizedPage.visibleCast = page.visibleCast
+    .filter((entry) => typeof entry === 'string')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  if (normalizedPage.visibleCast.length === 0) {
+    throw createStoryJsonError(`Story page ${index + 1} has invalid visibleCast.`);
+  }
+  return normalizedPage;
+}
+
+function requireStoryStringField(source, fieldName, { allowEmpty = false } = {}) {
+  const fieldKey = fieldName.split('.').pop();
+  const value = source?.[fieldKey];
+  if (typeof value !== 'string' || (!allowEmpty && value.trim().length === 0)) {
+    throw createStoryJsonError(`Story JSON is missing ${fieldName}.`);
+  }
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function validateGeneratedStoryQuality(story) {
+  const issues = [];
+  const pages = Array.isArray(story?.pages) ? story.pages : [];
+  if (pages.length !== STORY_BODY_PAGE_COUNT) {
+    issues.push({
+      code: 'page_count',
+      message: 'pages は4ページである必要があります。',
+    });
+  }
+
+  const emptyPage = pages.findIndex(
+    (page) => typeof page?.story !== 'string' || page.story.trim().length === 0,
+  );
+  if (emptyPage >= 0) {
+    issues.push({
+      code: 'empty_story',
+      message: `${emptyPage + 1}ページ目の本文が空です。`,
+    });
+  }
+
+  const finalStory = pages[STORY_BODY_PAGE_COUNT - 1]?.story ?? '';
+  if (hasBannedStoryEnding(finalStory)) {
+    issues.push({
+      code: 'banned_ending',
+      message: '最終ページが平板な禁止エンディングで終わっています。',
+    });
+  }
+
+  if (!hasAnyDialogue(pages)) {
+    issues.push({
+      code: 'missing_dialogue',
+      message: '少なくとも1ページに短い会話を入れてください。',
+    });
+  }
+
+  if (hasHighlySimilarStrings(pages.map((page) => page?.story ?? ''))) {
+    issues.push({
+      code: 'repetitive_story',
+      message: '全ページの本文が似すぎています。',
+    });
+  }
+
+  const visualFocusValues = pages
+    .map((page) => (typeof page?.visualFocus === 'string' ? page.visualFocus : ''))
+    .filter((value) => value.trim().length > 0);
+  if (
+    visualFocusValues.length === STORY_BODY_PAGE_COUNT &&
+    hasHighlySimilarStrings(visualFocusValues)
+  ) {
+    issues.push({
+      code: 'repetitive_visual_focus',
+      message: '各ページの画像説明が単調です。',
+    });
+  }
+
+  return issues;
+}
+
+function hasAnyDialogue(pages) {
+  return pages.some((page) => {
+    const dialogue = typeof page?.dialogue === 'string' ? page.dialogue.trim() : '';
+    const story = typeof page?.story === 'string' ? page.story.trim() : '';
+    return (
+      dialogue.length > 0 ||
+      /[「『][^」』]{1,40}[」』]/.test(story) ||
+      /"[^"]{1,40}"/.test(story)
+    );
+  });
+}
+
+function hasBannedStoryEnding(story) {
+  const normalizedStory = normalizeForComparison(story);
+  return BANNED_STORY_ENDINGS.some((ending) =>
+    normalizedStory.endsWith(normalizeForComparison(ending)),
+  );
+}
+
+function hasHighlySimilarStrings(values) {
+  const normalizedValues = values
+    .map(normalizeForComparison)
+    .filter((value) => value.length > 0);
+  if (normalizedValues.length < STORY_BODY_PAGE_COUNT) {
+    return false;
+  }
+
+  if (new Set(normalizedValues).size <= 1) {
+    return true;
+  }
+
+  for (let i = 0; i < normalizedValues.length; i += 1) {
+    for (let j = i + 1; j < normalizedValues.length; j += 1) {
+      if (similarityScore(normalizedValues[i], normalizedValues[j]) < 0.9) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function similarityScore(first, second) {
+  const firstShingles = toShingles(first);
+  const secondShingles = toShingles(second);
+  if (firstShingles.size === 0 || secondShingles.size === 0) {
+    return 0;
+  }
+
+  let intersection = 0;
+  for (const shingle of firstShingles) {
+    if (secondShingles.has(shingle)) {
+      intersection += 1;
+    }
+  }
+
+  return intersection / new Set([...firstShingles, ...secondShingles]).size;
+}
+
+function toShingles(value) {
+  const size = 3;
+  if (value.length <= size) {
+    return new Set(value ? [value] : []);
+  }
+
+  const shingles = new Set();
+  for (let index = 0; index <= value.length - size; index += 1) {
+    shingles.add(value.slice(index, index + size));
+  }
+  return shingles;
+}
+
+function normalizeForComparison(value) {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/[\s。、，,.!?！？「」『』"'｀・ー〜~…]/g, '')
+    .trim();
+}
+
+function createStoryJsonError(message) {
+  return new functions.https.HttpsError(
+    'internal',
+    `Generated story JSON is invalid: ${message}`,
+  );
+}
+
+function createStoryQualityError(issues) {
+  return new functions.https.HttpsError(
+    'internal',
+    `Generated story did not pass quality checks: ${issues
+      .map((issue) => issue.code)
+      .join(', ')}`,
+  );
 }
 
 async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
@@ -460,6 +900,7 @@ async function callGeminiText({
   apiKey,
   jsonOutput,
   responseSchema,
+  normalizeStoryJson = false,
 }) {
   const model = jsonOutput ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
   const payload = await postJson(
@@ -502,6 +943,9 @@ async function callGeminiText({
       'internal',
       '文章生成の結果を取得できませんでした。',
     );
+  }
+  if (normalizeStoryJson) {
+    return stringifyGeneratedStoryJson(text);
   }
   return text;
 }
@@ -1224,13 +1668,19 @@ function readString(value, fieldName) {
 
 exports.__test__ = {
   CHILD_SAFE_REWRITE_MESSAGE,
+  buildStoryPrompt,
+  buildStoryRepairPrompt,
   extractApiError,
   findUnsafeCategory,
   hashGuestSessionId,
+  isStoryJsonRequest,
   normalizeHttpBody,
+  parseGeneratedStoryJson,
   readHeaderValue,
   readString,
   requireCallableAppCheck,
   requireHttpAppCheck,
   resolveGeneratorCaller,
+  stringifyGeneratedStoryJson,
+  validateGeneratedStoryQuality,
 };

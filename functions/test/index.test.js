@@ -112,3 +112,143 @@ test('extractApiError prefers nested error messages', () => {
     'backend failure',
   );
 });
+
+function buildValidStory(overrides = {}) {
+  return {
+    title: 'くしゃみパンやさん',
+    coverScene: '朝の森のパン屋で、粉袋がぽふんとはねる場面',
+    characterSheet: {
+      protagonist: 'うさぎのミミ。白い耳、赤いエプロン、丸い目。',
+      companion: 'くまのポポ。黄色い帽子、小さなかばん、やさしい顔。',
+      worldDetails: '朝の光が入る小さな森のパン屋。',
+      artDirection: '明るい水彩の絵本風、やわらかい色。',
+    },
+    pages: [
+      {
+        story:
+          'ミミは朝いちばんの丸パンをふくらませたくて、粉をそっとふるいました。すると粉袋が「へくちっ」とくしゃみをして、棚のパンがぽんぽん跳ねました。',
+        visualFocus:
+          '森の小さなパン屋。うさぎのミミが粉袋のくしゃみに驚く。朝の光、明るい絵本風、9:16縦長。',
+        mood: 'わくわくして少しびっくり',
+        dialogue: 'へくちっ',
+        visibleCast: ['protagonist'],
+      },
+      {
+        story:
+          'ミミは袋にリボンを巻けば止まると思いました。でもぎゅっと結ぶほど粉袋はむずむずして、白い粉が雲みたいに広がりました。',
+        visualFocus:
+          'パン屋の棚の前。ミミがリボンを結び、粉の雲に目を丸くする。明るい安全な絵本風、9:16縦長。',
+        mood: 'こまってあたふた',
+        dialogue: '',
+        visibleCast: ['protagonist'],
+      },
+      {
+        story:
+          '入口からポポが鼻をひくひくさせました。「こしょうじゃなくて、花のにおいみたい」ミミは窓辺の花びんを見て、くしゃみのわけに気づきました。',
+        visualFocus:
+          'パン屋の入口。くまのポポが花びんを指し、ミミがはっとする。明るい絵本風、9:16縦長。',
+        mood: 'ふしぎでひらめく',
+        dialogue: '花のにおいみたい',
+        visibleCast: ['protagonist', 'companion'],
+      },
+      {
+        story:
+          'ミミは花びんを外に出し、粉袋に小さなマスクをつけました。パンはふっくら焼けましたが、今度はポポの帽子が「へくちっ」と跳ねました。',
+        visualFocus:
+          'パン屋の窓辺。ミミとポポが焼けたパンを見て笑い、帽子が跳ねる。明るい絵本風、9:16縦長。',
+        mood: 'ほっとしてくすっとする',
+        dialogue: 'へくちっ',
+        visibleCast: ['protagonist', 'companion'],
+      },
+    ],
+    ...overrides,
+  };
+}
+
+test('buildStoryPrompt includes story quality requirements', () => {
+  const prompt = __test__.buildStoryPrompt({ prompt: 'Return JSON only.' });
+
+  assert.match(prompt, /失敗/);
+  assert.match(prompt, /意外な気づき/);
+  assert.match(prompt, /小さな笑えるオチ/);
+  assert.match(prompt, /4ページ/);
+});
+
+test('parseGeneratedStoryJson accepts fenced JSON and strips extra fields', () => {
+  const rawStory = {
+    ...buildValidStory(),
+    storyPlan: 'internal only',
+    pages: buildValidStory().pages.map((page) => ({
+      ...page,
+      internalScore: 10,
+    })),
+  };
+
+  const parsed = __test__.parseGeneratedStoryJson(
+    `\`\`\`json\n${JSON.stringify(rawStory)}\n\`\`\``,
+  );
+
+  assert.deepEqual(Object.keys(parsed), [
+    'title',
+    'coverScene',
+    'characterSheet',
+    'pages',
+  ]);
+  assert.deepEqual(Object.keys(parsed.pages[0]), [
+    'story',
+    'visualFocus',
+    'mood',
+    'dialogue',
+    'visibleCast',
+  ]);
+  assert.equal(parsed.storyPlan, undefined);
+  assert.equal(parsed.pages[0].internalScore, undefined);
+});
+
+test('parseGeneratedStoryJson rejects responses without 4 pages', () => {
+  const invalidStory = buildValidStory({
+    pages: buildValidStory().pages.slice(0, 3),
+  });
+
+  assert.throws(
+    () => __test__.parseGeneratedStoryJson(JSON.stringify(invalidStory)),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'internal' &&
+      error.message.includes('exactly 4 pages'),
+  );
+});
+
+test('validateGeneratedStoryQuality detects banned endings', () => {
+  const story = buildValidStory({
+    pages: [
+      ...buildValidStory().pages.slice(0, 3),
+      {
+        ...buildValidStory().pages[3],
+        story: 'パンは焼けて、みんなで楽しく過ごしました',
+      },
+    ],
+  });
+
+  const issues = __test__.validateGeneratedStoryQuality(story);
+
+  assert.ok(issues.some((issue) => issue.code === 'banned_ending'));
+});
+
+test('stringifyGeneratedStoryJson preserves the existing response shape', () => {
+  const story = buildValidStory();
+  const text = __test__.stringifyGeneratedStoryJson(JSON.stringify(story));
+  const parsed = JSON.parse(text);
+
+  assert.equal(typeof parsed.title, 'string');
+  assert.equal(typeof parsed.coverScene, 'string');
+  assert.equal(typeof parsed.characterSheet.protagonist, 'string');
+  assert.equal(parsed.pages.length, 4);
+  assert.deepEqual(Object.keys(parsed.pages[0]), [
+    'story',
+    'visualFocus',
+    'mood',
+    'dialogue',
+    'visibleCast',
+  ]);
+});
