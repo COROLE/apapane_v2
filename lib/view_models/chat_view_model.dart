@@ -994,14 +994,14 @@ class ChatViewModel extends ChangeNotifier {
   }
 
   String? _extractImageSource(SDMap response) {
-    final base64 = response['base64'];
-    if (base64 is String && base64.trim().isNotEmpty) {
-      return base64.trim();
-    }
-
     final imageUrl = response['imageUrl'];
     if (imageUrl is String && imageUrl.trim().isNotEmpty) {
       return imageUrl.trim();
+    }
+
+    final base64 = response['base64'];
+    if (base64 is String && base64.trim().isNotEmpty) {
+      return base64.trim();
     }
 
     return null;

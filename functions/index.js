@@ -846,7 +846,6 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
   });
 
   const response = {
-    base64: result.imageBuffer.toString('base64'),
     seed: result.seed,
     model: result.model,
   };
@@ -861,6 +860,7 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
     response.storagePath = uploadedImage.storagePath;
   } catch (error) {
     functions.logger.error('Failed to store generated image preview.', error);
+    response.base64 = result.imageBuffer.toString('base64');
   }
 
   await writeSafetyAuditLog({
