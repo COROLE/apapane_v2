@@ -79,23 +79,22 @@ You are generating content for a child-directed storytelling app.
 - If the user asks for unsafe content, refuse silently by producing a safe alternative adventure instead.
 `.trim();
 const CHILD_SAFE_IMAGE_PREFIX = `
-Create a warm, child-safe illustration for a young audience.
-- No nudity, fetish content, romance for adults, graphic injuries, blood, gore, weapons aimed at the viewer, drugs, alcohol, or smoking.
-- Prefer bright colors, friendly expressions, soft lighting, and non-threatening scenes.
+Create a wholesome family picture-book illustration.
+- Keep every character gentle, friendly, fully family-safe, and non-romantic.
+- Prefer bright colors, friendly expressions, soft lighting, and cozy, non-threatening scenes.
+- Do not include readable text, captions, logos, or watermarks in the image.
 `.trim();
 const UNSAFE_VISUAL_NEGATIVE_PROMPT = [
-  'gore',
-  'blood',
-  'severed limbs',
-  'graphic injury',
-  'nudity',
-  'sexual content',
-  'drugs',
-  'alcohol',
-  'smoking',
-  'vaping',
-  'weapons aimed at viewer',
-  'horror close-up',
+  'low quality',
+  'blurry',
+  'distorted anatomy',
+  'extra limbs',
+  'readable text',
+  'caption',
+  'logo',
+  'watermark',
+  'scary close-up',
+  'unfriendly theme',
 ].join(', ');
 const UNSAFE_RULES = [
   {
@@ -964,10 +963,12 @@ async function callGeminiText({
 }
 
 async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
+  const safePrompt = sanitizeOpenAiImagePrompt(prompt);
+  const safeNegativePrompt = sanitizeOpenAiImagePrompt(negativePrompt);
   const mergedPrompt = [
-    prompt.trim(),
-    negativePrompt.trim()
-      ? `Avoid the following elements: ${negativePrompt.trim()}`
+    safePrompt.trim(),
+    safeNegativePrompt.trim()
+      ? `Avoid the following elements: ${safeNegativePrompt.trim()}`
       : '',
   ]
     .filter(Boolean)
@@ -997,6 +998,20 @@ async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
     'internal',
     '画像生成の結果を取得できませんでした。',
   );
+}
+
+function sanitizeOpenAiImagePrompt(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/\bchildren'?s?\s+picture-book\b/gi, 'family picture-book')
+    .replace(/\bchildren'?s?\s+story\b/gi, 'family picture-book story')
+    .replace(/\byoung audience\b/gi, 'family audience')
+    .replace(/\bdifferent age,?\s*/gi, '')
+    .replace(/\badult themes?\b/gi, 'unfriendly themes')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function buildOpenAiImageRequest(prompt) {
@@ -1695,6 +1710,7 @@ exports.__test__ = {
   requireCallableAppCheck,
   requireHttpAppCheck,
   resolveGeneratorCaller,
+  sanitizeOpenAiImagePrompt,
   stringifyGeneratedStoryJson,
   validateGeneratedStoryQuality,
 };

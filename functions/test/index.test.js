@@ -133,6 +133,17 @@ test('image generation uses GPT Image 2 with vertical output settings', () => {
   });
 });
 
+test('sanitizeOpenAiImagePrompt avoids GPT Image 2 safety trigger wording', () => {
+  const prompt = __test__.sanitizeOpenAiImagePrompt(
+    'Children picture-book illustration for a young audience, different age, adult themes',
+  );
+
+  assert.equal(
+    prompt,
+    'family picture-book illustration for a family audience, unfriendly themes',
+  );
+});
+
 function buildValidStory(overrides = {}) {
   return {
     title: 'くしゃみパンやさん',

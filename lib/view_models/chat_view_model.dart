@@ -48,9 +48,9 @@ enum StoryCreationAccessState {
 
 class ChatViewModel extends ChangeNotifier {
   static const String _directImageNegativePrompt =
-      'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different age, different species';
+      'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
   static const String _directImageStylePrompt =
-      'Children picture-book illustration, hand-painted gouache watercolor texture, soft pastel colors, rounded shapes, clean outlines, friendly expressions, gentle lighting, portrait orientation, vertical composition for a phone screen, no readable text, no watermark, same illustration genre across every page of the same story.';
+      'Family picture-book illustration, hand-painted gouache watercolor texture, soft pastel colors, rounded shapes, clean outlines, friendly expressions, gentle lighting, portrait orientation, vertical composition for a phone screen, no readable text, no watermark, same illustration genre across every page of the same story.';
 
   final ApiRepository _apiRepository;
   final PurchaseRepository _purchaseRepository;
