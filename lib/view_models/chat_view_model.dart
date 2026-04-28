@@ -56,6 +56,9 @@ enum StoryCreationAccessState {
 }
 
 class ChatViewModel extends ChangeNotifier {
+  static const String _incompleteImageGenerationMessage =
+      '\u753b\u50cf\u3092\u5168\u90e8\u4f5c\u308c\u307e\u305b\u3093\u3067\u3057\u305f\u3002'
+      '\u5c11\u3057\u5f85\u3063\u3066\u3082\u3046\u4e00\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002';
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
   static const String _directImageStylePrompt =
@@ -956,7 +959,18 @@ class ChatViewModel extends ChangeNotifier {
       } catch (error) {
         debugPrint(
             'Direct image generation failed for page $pageIndex: $error');
+        throw StateError(_incompleteImageGenerationMessage);
       }
+    }
+
+    final missingImagePageIndexes =
+        _missingStoryImagePageIndexes(prefetchedStory);
+    if (missingImagePageIndexes.isNotEmpty) {
+      debugPrint(
+        'Story image generation completed with missing images: '
+        '$missingImagePageIndexes',
+      );
+      throw StateError(_incompleteImageGenerationMessage);
     }
 
     if (titleImage.isEmpty && prefetchedStory.isNotEmpty) {
@@ -1162,6 +1176,17 @@ class ChatViewModel extends ChangeNotifier {
     }
 
     return null;
+  }
+
+  static List<int> _missingStoryImagePageIndexes(List<SDMap> storyPages) {
+    final missing = <int>[];
+    for (var index = 0; index < storyPages.length; index += 1) {
+      final image = storyPages[index]['image'];
+      if (image is! String || image.trim().isEmpty) {
+        missing.add(index);
+      }
+    }
+    return missing;
   }
 
   // ignore: unused_element
@@ -1792,6 +1817,13 @@ class ChatViewModel extends ChangeNotifier {
       storySeed: storySeed,
       pageIndex: pageIndex,
     );
+  }
+
+  @visibleForTesting
+  static List<int> missingStoryImagePageIndexesForTesting(
+    List<SDMap> storyPages,
+  ) {
+    return _missingStoryImagePageIndexes(storyPages);
   }
 
   String _fallbackTalk() {

@@ -102,9 +102,7 @@ void main() {
     expect(preview.pagePlan, hasLength(8));
     expect(preview.pagePlan.toSet(), hasLength(8));
     expect(
-      preview.pagePlan
-          .where((entry) => entry.contains('ふしぎな出来事が広がり'))
-          .length,
+      preview.pagePlan.where((entry) => entry.contains('ふしぎな出来事が広がり')).length,
       0,
     );
     expect(
@@ -238,6 +236,19 @@ void main() {
     );
     expect(ChatViewModel.pageSeedForTesting(storySeed, 0), firstPageSeed);
     expect(firstPageSeed, isNot(secondPageSeed));
+  });
+
+  test('story image validation finds pages without generated images', () {
+    final missing = ChatViewModel.missingStoryImagePageIndexesForTesting(
+      const [
+        {'story': 'page 1', 'image': 'https://example.com/1.jpg'},
+        {'story': 'page 2', 'image': ''},
+        {'story': 'page 3', 'image': null},
+        {'story': 'page 4', 'image': 'base64-data'},
+      ],
+    );
+
+    expect(missing, [1, 2]);
   });
 
   test('legacy stored stories drop a duplicated title page', () {

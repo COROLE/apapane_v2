@@ -165,7 +165,7 @@ const STORY_PREVIEW_RATE_LIMIT = {
 };
 const IMAGE_RATE_LIMIT = {
   key: 'image',
-  maxCalls: 16,
+  maxCalls: 40,
   windowMs: 60 * 1000,
 };
 const TTS_RATE_LIMIT = {
@@ -347,17 +347,22 @@ exports.cancelStoryGeneration = functions.https.onCall(
 exports.generateImage = withOpenAiSecret.https.onCall(async (data, context) => {
   const caller = resolveGeneratorCaller(context, data);
 
-  const prompt = readString(data.prompt, 'prompt');
-  const negativePrompt =
-    typeof data.negativePrompt === 'string' ? data.negativePrompt : '';
-  const seed = Number.isInteger(data.seed) ? data.seed : 0;
+  try {
+    const prompt = readString(data.prompt, 'prompt');
+    const negativePrompt =
+      typeof data.negativePrompt === 'string' ? data.negativePrompt : '';
+    const seed = Number.isInteger(data.seed) ? data.seed : 0;
 
-  return generateSafeImage({
-    callerId: caller.id,
-    prompt,
-    negativePrompt,
-    seed,
-  });
+    return await generateSafeImage({
+      callerId: caller.id,
+      prompt,
+      negativePrompt,
+      seed,
+    });
+  } catch (error) {
+    logImageGenerationFailure('generateImage', caller.id, error);
+    throw error;
+  }
 });
 
 exports.generateImageHttp = withOpenAiSecret.https.onRequest(async (req, res) => {
@@ -375,9 +380,11 @@ exports.generateImageHttp = withOpenAiSecret.https.onRequest(async (req, res) =>
     return;
   }
 
+  let callerId = 'http';
   try {
     const body = normalizeHttpBody(req.body);
     const caller = resolveGeneratorCaller({ rawRequest: req }, body);
+    callerId = caller.id;
     const prompt = readString(body.prompt, 'prompt');
     const negativePrompt =
       typeof body.negativePrompt === 'string' ? body.negativePrompt : '';
@@ -392,6 +399,7 @@ exports.generateImageHttp = withOpenAiSecret.https.onRequest(async (req, res) =>
 
     res.status(200).json(result);
   } catch (error) {
+    logImageGenerationFailure('generateImageHttp', callerId, error);
     sendHttpError(res, error);
   }
 });
@@ -1808,6 +1816,18 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
   });
 
   return response;
+}
+
+function logImageGenerationFailure(functionName, callerId, error) {
+  const code =
+    error instanceof functions.https.HttpsError ? error.code : 'internal';
+  const message = error instanceof Error ? error.message : String(error);
+  functions.logger.warn('Image generation failed.', {
+    functionName,
+    callerId,
+    code,
+    message,
+  });
 }
 
 async function synthesizeJapaneseSpeech(text) {

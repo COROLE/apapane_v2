@@ -228,6 +228,10 @@ State as of 2026-04-28 JST:
 - Preview quality hotfix: Cloud Functions were redeployed locally after adding
   backend checks that reject repeated `pagePlan` entries and generic filler
   preview text.
+- Image generation hotfix: client now rejects incomplete generated stories when
+  any body page image is missing, so reservation cancel/refund runs instead of
+  completing with only a few images. Cloud Functions image rate limit was raised
+  for 8/12 page stories and image generation failures now emit structured logs.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
