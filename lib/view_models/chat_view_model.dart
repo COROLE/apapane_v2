@@ -1382,22 +1382,30 @@ class ChatViewModel extends ChangeNotifier {
     required StoryMode mode,
     required StoryOptions storyOptions,
   }) {
-    final answers = _userAnswers();
+    return localStoryPreviewForTesting(
+      answers: _userAnswers(),
+      mode: mode,
+      storyOptions: storyOptions,
+    );
+  }
+
+  @visibleForTesting
+  static StoryPreview localStoryPreviewForTesting({
+    required List<String> answers,
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+  }) {
     final protagonist = answers.isNotEmpty ? answers[0] : 'やさしい ぼうけんか';
     final place = answers.length > 1 ? answers[1] : 'ひみつの もり';
     final companion = answers.length > 2 ? answers[2] : 'たよりに なる なかま';
-    final pagePlan = List<String>.generate(
-      mode.pageCount,
-      (index) {
-        if (index == 0) {
-          return '$protagonist が $place で 小さな願いを見つける。';
-        }
-        if (index == mode.pageCount - 1) {
-          return '$companion と力を合わせて解決し、くすっとする余韻で終わる。';
-        }
-        return '$place でふしぎな出来事が広がり、$protagonist が一歩ずつ進む。';
-      },
-      growable: false,
+    final strength = answers.length > 3 ? answers[3] : 'あきらめない気持ち';
+    final pagePlan = _localPreviewPagePlan(
+      mode: mode,
+      protagonist: protagonist,
+      place: place,
+      companion: companion,
+      strength: strength,
+      storyOptions: storyOptions,
     );
     return StoryPreview(
       title: '$protagonistの ぼうけん',
@@ -1409,6 +1417,54 @@ class ChatViewModel extends ChangeNotifier {
       coinCost: mode.coinCost,
       storyOptions: storyOptions,
     );
+  }
+
+  static List<String> _localPreviewPagePlan({
+    required StoryMode mode,
+    required String protagonist,
+    required String place,
+    required String companion,
+    required String strength,
+    required StoryOptions storyOptions,
+  }) {
+    final ending = switch (storyOptions.endingStyle) {
+      StoryEndingStyle.happy => 'みんなでよろこび、明るいごほうびを受け取る。',
+      StoryEndingStyle.gentle => '安心した気持ちで帰り、静かな余韻を味わう。',
+      StoryEndingStyle.funnyTwist => '思わず笑ってしまう小さなオチを見つける。',
+    };
+    final plans = switch (mode) {
+      StoryMode.mini => [
+          '$protagonist が $place で 小さな願いを見つける。',
+          '$companion が現れ、ふたりで最初の手がかりを試す。',
+          '$strength を活かして困りごとの原因に気づく。',
+          '$companion と力を合わせて解決し、$ending',
+        ],
+      StoryMode.standard => [
+          '$protagonist が $place で 小さな願いを見つける。',
+          '$companion が助けを求め、ふしぎな道がひらく。',
+          'ふたりは光る目印を追って、知らない場所へ進む。',
+          '$protagonist が急ぎすぎて、たいせつな手がかりを見失う。',
+          '$strength を思い出し、別のやり方で手がかりを探す。',
+          '大きな障害が道をふさぎ、進むか戻るかを選ぶ。',
+          '$protagonist と $companion が力を合わせ、問題の中心を解く。',
+          '$place に静けさが戻り、$ending',
+        ],
+      StoryMode.premium => [
+          '$protagonist が $place でいつもの時間を過ごしている。',
+          '小さな願いがかなわず、少しだけ困った気持ちになる。',
+          '足もとにふしぎな印が現れ、遠くから小さな音が聞こえる。',
+          '$protagonist は音を追って、知らない道へ一歩ふみ出す。',
+          '$companion が現れ、道具や合図の使い方を教える。',
+          '最初の門で失敗し、ふたりは別の入り口を探す。',
+          '$strength が役に立ち、小さな通り道を見つける。',
+          '奥でさらに大きな問題が起き、$place 全体がざわつく。',
+          '$protagonist は自分だけ進むか、$companion を待つかを選ぶ。',
+          '選んだ行動が道を変え、いちばん大きなピンチに向き合う。',
+          'ふたりの工夫で問題がほどけ、なくしたものが戻ってくる。',
+          '$protagonist は安心して帰り、眠る前に今日の冒険を思い出す。',
+        ],
+    };
+    return List<String>.unmodifiable(plans.take(mode.pageCount));
   }
 
   void _showLoginRequiredDialog(BuildContext context) {

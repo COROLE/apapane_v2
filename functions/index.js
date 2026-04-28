@@ -25,6 +25,7 @@ const RATE_LIMIT_COLLECTION = 'aiRateLimits';
 const CHILD_SAFE_REWRITE_MESSAGE =
   'アパパネでは、子ども向けのやさしく安全なおはなしと絵だけを作れます。別のやさしい内容で試してください。';
 const STORY_GENERATION_MAX_ATTEMPTS = 3;
+const STORY_PREVIEW_MAX_ATTEMPTS = 3;
 const DEFAULT_STORY_MODE_KEY = 'mini';
 const DEFAULT_NEW_STORY_MODE_KEY = 'standard';
 const SILVER_MONTHLY_STORY_CREDITS = 6;
@@ -112,6 +113,14 @@ const STORY_OPTION_DEFAULTS = Object.freeze({
   endingStyle: 'funnyTwist',
   worldType: 'custom',
 });
+const GENERIC_PREVIEW_PLAN_FRAGMENTS = Object.freeze([
+  'ふしぎな出来事が広がり',
+  '一歩ずつ進む',
+  '力を合わせて解決',
+  '余韻で終わる',
+  '楽しく過ごしました',
+  '小さな願いを見つける',
+]);
 const STORY_BODY_PAGE_COUNT = STORY_MODES.mini.pageCount;
 const STORY_REQUIRED_PAGE_FIELDS = [
   'story',
@@ -669,13 +678,13 @@ async function generateSafeStoryPreview({
   storyOptions,
 }) {
   await enforceRateLimit(callerId, STORY_PREVIEW_RATE_LIMIT);
-  const prompt = buildStoryPreviewPrompt({
+  const basePrompt = buildStoryPreviewPrompt({
     chatLogs,
     summaryMainSettings,
     mode,
     storyOptions,
   });
-  const blockedCategory = findUnsafeCategory(prompt);
+  const blockedCategory = findUnsafeCategory(basePrompt);
   if (blockedCategory) {
     await writeSafetyAuditLog({
       uid: callerId,
@@ -683,7 +692,7 @@ async function generateSafeStoryPreview({
       stage: 'prompt',
       allowed: false,
       reason: blockedCategory,
-      prompt,
+      prompt: basePrompt,
     });
     throw createChildSafeError();
   }
@@ -693,40 +702,151 @@ async function generateSafeStoryPreview({
     'Return only valid JSON for a Japanese children story preview.',
   ].join('\n\n');
 
-  const text = await callGeminiText({
-    prompt,
-    systemPrompt: safeSystemPrompt,
-    apiKey: readEnv('GEMINI_API_KEY'),
-    jsonOutput: true,
-    responseSchema: buildStoryPreviewResponseSchema(mode),
-    maxOutputTokens: 2048,
-  });
-  const preview = parseGeneratedStoryPreviewJson(text, {
-    pageCount: mode.pageCount,
-  });
-  const responseCategory = findUnsafeCategory(JSON.stringify(preview));
-  if (responseCategory) {
+  let currentPrompt = basePrompt;
+  for (let attempt = 1; attempt <= STORY_PREVIEW_MAX_ATTEMPTS; attempt += 1) {
+    let text;
+    try {
+      text = await callGeminiText({
+        prompt: currentPrompt,
+        systemPrompt: safeSystemPrompt,
+        apiKey: readEnv('GEMINI_API_KEY'),
+        jsonOutput: true,
+        responseSchema: buildStoryPreviewResponseSchema(mode),
+        maxOutputTokens: 2048,
+      });
+    } catch (error) {
+      await writeSafetyAuditLog({
+        uid: callerId,
+        feature: 'storyPreview',
+        stage: 'response',
+        allowed: false,
+        reason: 'invalid_story_preview_json',
+        prompt: currentPrompt,
+        output: error instanceof Error ? error.message : String(error),
+        metadata: { attempt },
+      });
+      if (attempt >= STORY_PREVIEW_MAX_ATTEMPTS) {
+        throw error;
+      }
+      currentPrompt = buildStoryPreviewRepairPrompt({
+        prompt: basePrompt,
+        mode,
+        issues: [{
+          message: 'JSON形式または必須項目が不正です。',
+        }],
+        previousOutput: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+
+    let preview;
+    try {
+      preview = parseGeneratedStoryPreviewJson(text, {
+        pageCount: mode.pageCount,
+      });
+    } catch (error) {
+      await writeSafetyAuditLog({
+        uid: callerId,
+        feature: 'storyPreview',
+        stage: 'response',
+        allowed: false,
+        reason: 'invalid_story_preview_json',
+        prompt: currentPrompt,
+        output: text,
+        metadata: { attempt },
+      });
+      if (attempt >= STORY_PREVIEW_MAX_ATTEMPTS) {
+        throw error;
+      }
+      currentPrompt = buildStoryPreviewRepairPrompt({
+        prompt: basePrompt,
+        mode,
+        issues: [{
+          message: error instanceof Error ? error.message : String(error),
+        }],
+        previousOutput: text,
+      });
+      continue;
+    }
+
+    const responseCategory = findUnsafeCategory(JSON.stringify(preview));
+    if (responseCategory) {
+      await writeSafetyAuditLog({
+        uid: callerId,
+        feature: 'storyPreview',
+        stage: 'response',
+        allowed: false,
+        reason: responseCategory,
+        prompt: currentPrompt,
+        output: text,
+        metadata: { attempt },
+      });
+      throw createChildSafeError();
+    }
+
+    const qualityIssues = validateStoryPreviewQuality(preview, {
+      pageCount: mode.pageCount,
+    });
+    if (qualityIssues.length > 0) {
+      await writeSafetyAuditLog({
+        uid: callerId,
+        feature: 'storyPreview',
+        stage: 'response',
+        allowed: false,
+        reason: 'story_preview_quality',
+        prompt: currentPrompt,
+        output: text,
+        metadata: {
+          attempt,
+          qualityIssues: qualityIssues.map((issue) => issue.code),
+        },
+      });
+
+      if (attempt >= STORY_PREVIEW_MAX_ATTEMPTS) {
+        const fallbackPreview = buildFallbackStoryPreview({
+          preview,
+          chatLogs,
+          summaryMainSettings,
+          mode,
+          storyOptions,
+        });
+        await writeSafetyAuditLog({
+          uid: callerId,
+          feature: 'storyPreview',
+          stage: 'response',
+          allowed: true,
+          prompt: currentPrompt,
+          output: JSON.stringify(fallbackPreview),
+          metadata: {
+            attempt,
+            fallback: true,
+            qualityIssues: qualityIssues.map((issue) => issue.code),
+          },
+        });
+        return fallbackPreview;
+      }
+      currentPrompt = buildStoryPreviewRepairPrompt({
+        prompt: basePrompt,
+        mode,
+        issues: qualityIssues,
+        previousOutput: text,
+      });
+      continue;
+    }
+
     await writeSafetyAuditLog({
       uid: callerId,
       feature: 'storyPreview',
       stage: 'response',
-      allowed: false,
-      reason: responseCategory,
-      prompt,
+      allowed: true,
+      prompt: currentPrompt,
       output: text,
+      metadata: { attempt },
     });
-    throw createChildSafeError();
+    return preview;
   }
 
-  await writeSafetyAuditLog({
-    uid: callerId,
-    feature: 'storyPreview',
-    stage: 'response',
-    allowed: true,
-    prompt,
-    output: text,
-  });
-  return preview;
+  throw createChildSafeError();
 }
 
 function isStoryJsonRequest({ jsonOutput, responseSchema }) {
@@ -816,7 +936,14 @@ function normalizeStoryPreviewInput(preview, mode) {
   if (!title || !summary || pagePlan.length !== mode.pageCount) {
     return null;
   }
-  return { title, summary, pagePlan };
+  const normalized = { title, summary, pagePlan };
+  const qualityIssues = validateStoryPreviewQuality(normalized, {
+    pageCount: mode.pageCount,
+  });
+  if (qualityIssues.length > 0) {
+    return null;
+  }
+  return normalized;
 }
 
 function buildStoryResponseSchema(mode) {
@@ -884,13 +1011,25 @@ function buildStoryPreviewResponseSchema(mode) {
   return {
     type: 'object',
     properties: {
-      title: { type: 'string' },
-      summary: { type: 'string' },
+      title: {
+        type: 'string',
+        description: '短い日本語の絵本タイトル案。',
+      },
+      summary: {
+        type: 'string',
+        description: '物語全体のあらすじ。1〜2文で具体的に書く。',
+      },
       pagePlan: {
         type: 'array',
+        description:
+          'ページごとの展開案。同じ文型や同じ出来事を繰り返さず、各ページで違う行動・失敗・選択・発見を書く。',
         minItems: mode.pageCount,
         maxItems: mode.pageCount,
-        items: { type: 'string' },
+        items: {
+          type: 'string',
+          description:
+            '1ページ分の具体的な展開。前後のページと重複しない1文。',
+        },
       },
     },
     required: ['title', 'summary', 'pagePlan'],
@@ -1071,6 +1210,10 @@ ${pageBeats}
 - summary は1〜2文で、何が起きるおはなしなのか分かるようにする
 - pagePlan は必ず${mode.pageCount}件にする
 - 各 pagePlan は1文で、そのページの展開を具体的に書く
+- ページ構成の各番号を必ず反映し、同じ出来事・同じ文型・同じ言い回しを2ページ以上で繰り返さない
+- 「ふしぎな出来事が広がり、一歩ずつ進む」のような抽象文を埋め草にしない
+- 各ページでは、場所、行動、失敗、発見、選択、結果のいずれかが前ページから明確に変わるようにする
+- standard/premium では、失敗、ピンチ、主人公の選択、クライマックスが別ページとして分かるようにする
 - 子どもの入力内容を最低3箇所以上で意味のある形で反映する
 - 主人公の性格、好きなもの、仲間、場所が解決に関係するようにする
 - 説教臭い教訓や「みんなで楽しく過ごしました」のような薄い結末にしない
@@ -1079,6 +1222,145 @@ ${pageBeats}
 出力:
 JSONだけを返してください。Markdown、説明、コードブロックは出力しないでください。
 `.trim();
+}
+
+function buildStoryPreviewRepairPrompt({
+  prompt,
+  mode,
+  issues,
+  previousOutput,
+}) {
+  const issueText = issues
+    .map((issue) => `- ${issue.message}`)
+    .join('\n');
+
+  return `
+${prompt}
+
+前回のあらすじプレビューは内部品質チェックを通過しませんでした。
+検出された問題:
+${issueText}
+
+前回の出力:
+${previousOutput}
+
+同じJSON形式だけで作り直してください。
+特に pagePlan は${mode.pageCount}件すべてを、ページ構成に沿った別々の出来事として書いてください。
+2ページ以上で同じ文、同じ文型、同じ抽象表現を繰り返さないでください。
+Markdown、説明、コードブロックは出力しないでください。
+`.trim();
+}
+
+function buildFallbackStoryPreview({
+  preview,
+  chatLogs,
+  summaryMainSettings,
+  mode,
+  storyOptions,
+}) {
+  const seeds = extractStoryPreviewSeeds({
+    chatLogs,
+    summaryMainSettings,
+    storyOptions,
+  });
+  const pagePlan = buildFallbackPreviewPagePlan({ mode, seeds });
+  const title = preview.title || `${seeds.protagonist}と${seeds.place}`;
+  const summary =
+    preview.summary ||
+    `${seeds.protagonist}が${seeds.place}で${seeds.companion}と出会い、` +
+      `${seeds.strength}を使って小さな問題を解決するおはなしです。`;
+
+  return {
+    title,
+    summary,
+    pagePlan,
+  };
+}
+
+function extractStoryPreviewSeeds({
+  chatLogs,
+  summaryMainSettings,
+  storyOptions,
+}) {
+  const source = [summaryMainSettings, chatLogs].filter(Boolean).join('\n');
+  const worldLabel = STORY_OPTION_LABELS.worldType[storyOptions.worldType];
+  const toneLabel = STORY_OPTION_LABELS.tone[storyOptions.tone];
+  return {
+    protagonist:
+      readPreviewSetting(source, 'このおはなしの主人公') ||
+      readPreviewSetting(source, '主人公') ||
+      '主人公',
+    place:
+      readPreviewSetting(source, 'このおはなしの場所') ||
+      readPreviewSetting(source, '場所') ||
+      (storyOptions.worldType === 'custom' ? 'ふしぎな場所' : worldLabel),
+    companion:
+      readPreviewSetting(source, 'このおはなしの仲間') ||
+      readPreviewSetting(source, '仲間') ||
+      'なかま',
+    strength:
+      readPreviewSetting(source, '仲間のせつめい') ||
+      `${toneLabel}気持ち`,
+    wish:
+      readPreviewSetting(source, 'どんなおはなし') ||
+      readPreviewSetting(source, '願い') ||
+      '小さな願い',
+  };
+}
+
+function readPreviewSetting(source, label) {
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = String(source ?? '').match(
+    new RegExp(`${escapedLabel}\\s*[:：]\\s*([^\\n\\r]+)`),
+  );
+  if (!match) {
+    return '';
+  }
+  return sanitizePreviewSeed(match[1]);
+}
+
+function sanitizePreviewSeed(value) {
+  return String(value ?? '')
+    .replace(/[。.!！?？]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 30);
+}
+
+function buildFallbackPreviewPagePlan({ mode, seeds }) {
+  const plans = {
+    mini: [
+      `${seeds.protagonist}が${seeds.place}で${seeds.wish}を見つける。`,
+      `${seeds.companion}が現れ、ふたりで最初の手がかりを試す。`,
+      `${seeds.strength}を活かして困りごとの原因に気づく。`,
+      `解決したあと、${seeds.protagonist}が小さなごほうびを持って帰る。`,
+    ],
+    standard: [
+      `${seeds.protagonist}が${seeds.place}で${seeds.wish}に気づく。`,
+      `${seeds.companion}が助けを求め、ふしぎな道がひらく。`,
+      `ふたりは光る目印を追って、いつもと違う場所へ進む。`,
+      `${seeds.protagonist}が急ぎすぎて手がかりを見失う。`,
+      `${seeds.strength}を思い出し、別のやり方で手がかりを探す。`,
+      `大きな障害が道をふさぎ、ふたりは進むか戻るかを選ぶ。`,
+      `${seeds.protagonist}と${seeds.companion}が力を合わせ、問題の中心を解く。`,
+      `${seeds.place}に静けさが戻り、ふたりは笑える小さなごほうびを受け取る。`,
+    ],
+    premium: [
+      `${seeds.protagonist}が${seeds.place}でいつもの時間を過ごしている。`,
+      `${seeds.wish}がかなわず、少しだけ困った気持ちになる。`,
+      `足もとにふしぎな印が現れ、遠くから小さな音が聞こえる。`,
+      `${seeds.protagonist}は音を追って、知らない道へ一歩ふみ出す。`,
+      `${seeds.companion}が現れ、道具や合図の使い方を教える。`,
+      `最初の門で失敗し、ふたりは別の入り口を探す。`,
+      `${seeds.strength}が役に立ち、小さな通り道を見つける。`,
+      `奥でさらに大きな問題が起き、${seeds.place}全体がざわつく。`,
+      `${seeds.protagonist}は自分だけ進むか、${seeds.companion}を待つかを選ぶ。`,
+      `選んだ行動が道を変え、いちばん大きなピンチに向き合う。`,
+      `ふたりの工夫で問題がほどけ、なくしたものが戻ってくる。`,
+      `${seeds.protagonist}は安心して帰り、眠る前に今日の冒険を思い出す。`,
+    ],
+  };
+  return plans[mode.key].slice(0, mode.pageCount);
 }
 
 function stringifyGeneratedStoryJson(
@@ -1113,6 +1395,84 @@ function parseGeneratedStoryPreviewJson(
       return entry.replace(/\s+/g, ' ').trim();
     }),
   };
+}
+
+function validateStoryPreviewQuality(
+  preview,
+  { pageCount } = {},
+) {
+  const issues = [];
+  const pagePlan = Array.isArray(preview?.pagePlan) ? preview.pagePlan : [];
+  if (pagePlan.length !== pageCount) {
+    issues.push({
+      code: 'page_plan_count',
+      message: `pagePlan は${pageCount}件である必要があります。`,
+    });
+    return issues;
+  }
+
+  const normalizedPlans = pagePlan.map(normalizeForComparison);
+  const seen = new Map();
+  for (let index = 0; index < normalizedPlans.length; index += 1) {
+    const normalized = normalizedPlans[index];
+    if (!normalized) {
+      issues.push({
+        code: 'empty_page_plan',
+        message: `${index + 1}ページ目の展開案が空です。`,
+      });
+      continue;
+    }
+    if (seen.has(normalized)) {
+      issues.push({
+        code: 'duplicate_page_plan',
+        message:
+          `${seen.get(normalized) + 1}ページ目と${index + 1}ページ目の展開案が同じです。`,
+      });
+      break;
+    }
+    seen.set(normalized, index);
+  }
+
+  const repeatedSimilarPairs = [];
+  for (let first = 0; first < normalizedPlans.length; first += 1) {
+    for (let second = first + 1; second < normalizedPlans.length; second += 1) {
+      if (
+        normalizedPlans[first] &&
+        normalizedPlans[second] &&
+        similarityScore(normalizedPlans[first], normalizedPlans[second]) >= 0.88
+      ) {
+        repeatedSimilarPairs.push([first, second]);
+      }
+    }
+  }
+  if (repeatedSimilarPairs.length >= Math.max(2, Math.floor(pageCount / 3))) {
+    issues.push({
+      code: 'repetitive_page_plan',
+      message: '複数ページの展開案が似すぎています。',
+    });
+  }
+
+  const repeatedGenericFragment = GENERIC_PREVIEW_PLAN_FRAGMENTS.find(
+    (fragment) =>
+      pagePlan.filter((entry) => entry.includes(fragment)).length >= 2,
+  );
+  if (repeatedGenericFragment) {
+    issues.push({
+      code: 'generic_page_plan',
+      message:
+        `「${repeatedGenericFragment}」のような抽象表現を複数ページで繰り返しています。`,
+    });
+  }
+
+  const uniqueCount = new Set(normalizedPlans.filter(Boolean)).size;
+  if (uniqueCount < Math.ceil(pageCount * 0.75)) {
+    issues.push({
+      code: 'low_page_plan_variety',
+      message: 'ページごとの出来事の種類が少なすぎます。',
+    });
+  }
+
+  return issues;
 }
 
 function requirePreviewStringField(source, fieldName) {
@@ -2690,8 +3050,10 @@ exports.__test__ = {
   OPENAI_IMAGE_SIZE,
   SILVER_MONTHLY_STORY_CREDITS,
   STORY_MODES,
+  buildFallbackStoryPreview,
   buildOpenAiImageRequest,
   buildStoryPreviewPrompt,
+  buildStoryPreviewRepairPrompt,
   buildStoryPreviewResponseSchema,
   buildStoryPrompt,
   buildStoryRepairPrompt,
@@ -2699,6 +3061,7 @@ exports.__test__ = {
   evaluateStoryGenerationRefund,
   evaluateStoryGenerationReservation,
   extractApiError,
+  extractStoryPreviewSeeds,
   findUnsafeCategory,
   formatStoryOptionsForPrompt,
   hashGuestSessionId,
@@ -2721,4 +3084,5 @@ exports.__test__ = {
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,
   validateGeneratedStoryQuality,
+  validateStoryPreviewQuality,
 };

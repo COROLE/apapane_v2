@@ -87,6 +87,32 @@ void main() {
     expect(StoryMode.premium.coinCost, 3);
   });
 
+  test('local preview fallback uses distinct beats for standard stories', () {
+    final preview = ChatViewModel.localStoryPreviewForTesting(
+      answers: const [
+        'くま',
+        'ふわふわぐものくに',
+        'おしゃべりなどんぐり',
+        'あきらめない',
+      ],
+      mode: StoryMode.standard,
+      storyOptions: const StoryOptions(),
+    );
+
+    expect(preview.pagePlan, hasLength(8));
+    expect(preview.pagePlan.toSet(), hasLength(8));
+    expect(
+      preview.pagePlan
+          .where((entry) => entry.contains('ふしぎな出来事が広がり'))
+          .length,
+      0,
+    );
+    expect(
+      preview.pagePlan.where((entry) => entry.contains('一歩ずつ進む')).length,
+      0,
+    );
+  });
+
   test('structured drafts keep 8 and 12 page responses', () {
     final standardStory = <String, dynamic>{
       ...structuredStory,

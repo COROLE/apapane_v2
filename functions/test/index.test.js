@@ -268,6 +268,96 @@ test('parseGeneratedStoryPreviewJson enforces preview page plan length', () => {
   );
 });
 
+test('validateStoryPreviewQuality rejects repeated page plans', () => {
+  const preview = {
+    title: 'Penguin Test',
+    summary: 'A penguin tries a small adventure.',
+    pagePlan: [
+      'Penguin finds a small wish under a cedar tree.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'The same foggy event spreads while Penguin walks ahead.',
+      'Penguin and the bird solve the problem and rest.',
+    ],
+  };
+
+  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+
+  assert.ok(issues.some((issue) => issue.code === 'duplicate_page_plan'));
+});
+
+test('validateStoryPreviewQuality rejects repeated generic preview fragments', () => {
+  const preview = {
+    title: 'にじのもり',
+    summary: 'ペンギンがにじの森で願いを見つけます。',
+    pagePlan: [
+      'ペンギンがにじの森で小さな願いを見つける。',
+      'にじの森でふしぎな出来事が広がり、ペンギンが一歩ずつ進む。',
+      '赤い葉っぱの道でふしぎな出来事が広がり、ペンギンが一歩ずつ進む。',
+      'ペンギンが橋でころび、別の道を選ぶ。',
+      'ことりが光る種を見つけ、ペンギンが歌を思い出す。',
+      '黒い雲が広場をかくし、ふたりが急いで種を植える。',
+      '歌と種の光で雲がほどけ、森に道が戻る。',
+      'ペンギンが願いをそっとしまい、ことりと家へ帰る。',
+    ],
+  };
+
+  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+
+  assert.ok(issues.some((issue) => issue.code === 'generic_page_plan'));
+});
+
+test('validateStoryPreviewQuality accepts varied page plans', () => {
+  const preview = {
+    title: 'Penguin Test',
+    summary: 'A penguin and a bird cross a forest to fix a tiny problem.',
+    pagePlan: [
+      'Penguin finds a blue bell beside the cedar gate.',
+      'A letter asks Penguin to bring the bell to the sleeping pond.',
+      'Penguin and Bird enter the moss path and follow a soft sound.',
+      'Penguin drops the bell in mud and has to clean it carefully.',
+      'Bird uses a feather map while Penguin remembers a favorite song.',
+      'A tall vine blocks the pond just as the bell starts to glow.',
+      'Penguin sings, Bird lifts the vine, and the pond wakes up.',
+      'The pond gives them a tiny rainbow stone for the walk home.',
+    ],
+  };
+
+  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+
+  assert.deepEqual(issues, []);
+});
+
+test('buildFallbackStoryPreview creates distinct standard page plans from seeds', () => {
+  const preview = __test__.buildFallbackStoryPreview({
+    preview: {
+      title: 'にじのもり',
+      summary: 'ペンギンがことりとにじのもりを進みます。',
+      pagePlan: [],
+    },
+    chatLogs: '',
+    summaryMainSettings: [
+      'このおはなしの主人公: ペンギン',
+      'このおはなしの場所: にじのもり',
+      'このおはなしの仲間: ことり',
+      '仲間のせつめい: げんきなことり',
+    ].join('\n'),
+    mode: __test__.resolveStoryMode('standard'),
+    storyOptions: __test__.normalizeStoryOptions({}),
+  });
+
+  assert.equal(preview.pagePlan.length, 8);
+  assert.deepEqual(
+    __test__.validateStoryPreviewQuality(preview, { pageCount: 8 }),
+    [],
+  );
+  assert.ok(preview.pagePlan.some((entry) => entry.includes('ペンギン')));
+  assert.ok(preview.pagePlan.some((entry) => entry.includes('ことり')));
+});
+
 test('parseGeneratedStoryJson accepts fenced JSON and strips extra fields', () => {
   const rawStory = {
     ...buildValidStory(),
