@@ -45,7 +45,7 @@ class StoryViewModel extends ChangeNotifier {
   final Map<String, Uint8List> _fallbackImageCache = {};
   final Map<String, Future<Uint8List>> _pendingGeneratedImages = {};
   final Map<int, String> _imageDiagnostics = {};
-  static const Duration _imageFetchTimeout = Duration(seconds: 15);
+  static const Duration _imageFetchTimeout = Duration(seconds: 45);
   static const Duration _imageRecoveryTimeout = Duration(seconds: 45);
   bool _isOpeningSavedStory = false;
   List<Map<String, dynamic>> _storyPages = [];
@@ -208,7 +208,11 @@ class StoryViewModel extends ChangeNotifier {
     }
   }
 
-  Future<void> prewarmStoryImages({required bool isNew}) async {
+  Future<List<int>> prewarmStoryImages({
+    required bool isNew,
+    bool requireGeneratedImages = false,
+  }) async {
+    final failedPageIndexes = <int>{};
     final futures = <Future<void>>[];
     for (var pageIndex = 0; pageIndex < _storyPages.length; pageIndex += 1) {
       final page = _storyPages[pageIndex];
@@ -218,20 +222,35 @@ class StoryViewModel extends ChangeNotifier {
       }
 
       futures.add(
-        _prefetchStoryPageImage(
-          sentence: sentence,
-          pageIndex: pageIndex,
-          isNew: isNew,
-          imageSource: page['image']?.toString(),
-        ),
+        (requireGeneratedImages
+                ? _prefetchRequiredStoryPageImage(
+                    pageIndex: pageIndex,
+                    isNew: isNew,
+                    imageSource: page['image']?.toString(),
+                  )
+                : _prefetchStoryPageImage(
+                    sentence: sentence,
+                    pageIndex: pageIndex,
+                    isNew: isNew,
+                    imageSource: page['image']?.toString(),
+                  ))
+            .catchError((Object error) {
+          failedPageIndexes.add(pageIndex);
+          debugPrint('Story image prewarm failed for page $pageIndex: $error');
+        }),
       );
     }
 
     if (futures.isEmpty) {
-      return;
+      return failedPageIndexes.toList(growable: false);
     }
 
     await Future.wait(futures);
+
+    if (requireGeneratedImages) {
+      final sortedFailures = failedPageIndexes.toList(growable: false)..sort();
+      return sortedFailures;
+    }
 
     for (var pageIndex = 0; pageIndex < _storyPages.length; pageIndex += 1) {
       final page = _storyPages[pageIndex];
@@ -255,6 +274,9 @@ class StoryViewModel extends ChangeNotifier {
       );
       _preparedStoryPageImages[pageIndex] = fallbackImage;
     }
+
+    final sortedFailures = failedPageIndexes.toList(growable: false)..sort();
+    return sortedFailures;
   }
 
   void updateChatLogs({required String chatLogs}) {
@@ -601,6 +623,48 @@ class StoryViewModel extends ChangeNotifier {
     } catch (error) {
       debugPrint('Story image prewarm failed for page $pageIndex: $error');
     }
+  }
+
+  Future<void> _prefetchRequiredStoryPageImage({
+    required int pageIndex,
+    required bool isNew,
+    String? imageSource,
+  }) async {
+    final imageData = await _resolveRequiredGeneratedImage(
+      pageIndex: pageIndex,
+      isNew: isNew,
+      imageSource: imageSource,
+    );
+    _preparedStoryPageImages[pageIndex] = imageData;
+  }
+
+  Future<Uint8List> _resolveRequiredGeneratedImage({
+    required int pageIndex,
+    required bool isNew,
+    String? imageSource,
+  }) async {
+    final trimmedSource = imageSource?.trim() ?? '';
+    if (trimmedSource.isEmpty) {
+      throw StateError('Generated image source is missing.');
+    }
+
+    if (isNew && !_isRemoteImageUrl(trimmedSource)) {
+      final imageBytes = base64Decode(base64.normalize(trimmedSource));
+      if (imageBytes.isEmpty) {
+        throw StateError('Generated image bytes are empty.');
+      }
+      _imageCache[trimmedSource] = imageBytes;
+      _clearImageDiagnostic(pageIndex, notify: false);
+      return imageBytes;
+    }
+
+    final imageData = await fetchImageData(trimmedSource);
+    if (imageData == null || imageData.isEmpty) {
+      throw StateError('Generated image source did not return image bytes.');
+    }
+
+    _clearImageDiagnostic(pageIndex, notify: false);
+    return imageData;
   }
 
   Future<Uint8List> _recoverMissingGeneratedImage({

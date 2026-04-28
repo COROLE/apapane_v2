@@ -559,10 +559,6 @@ class ChatViewModel extends ChangeNotifier {
             );
       final newStoryMaps = storyPackage.storyPages;
       if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
-        await _apiRepository.completeStoryGeneration(
-          requestId: generationRequestId,
-        );
-
         storyViewModel.getTitleTextAndImage(
           title: storyPackage.title,
           image: storyPackage.titleImage,
@@ -579,7 +575,21 @@ class ChatViewModel extends ChangeNotifier {
         );
         storyViewModel.updateStoryMaps(newStoryMaps: newStoryMaps);
         storyViewModel.toStoryPageType = ToStoryPageType.newStory;
-        await storyViewModel.prewarmStoryImages(isNew: true);
+        final failedImagePageIndexes = await storyViewModel.prewarmStoryImages(
+          isNew: true,
+          requireGeneratedImages: true,
+        );
+        if (failedImagePageIndexes.isNotEmpty) {
+          debugPrint(
+            'Generated story image verification failed for pages: '
+            '$failedImagePageIndexes',
+          );
+          throw StateError(_incompleteImageGenerationMessage);
+        }
+
+        await _apiRepository.completeStoryGeneration(
+          requestId: generationRequestId,
+        );
 
         if (context.mounted) {
           context.pushReplacement('/story?isNew=true');

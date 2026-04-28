@@ -232,6 +232,10 @@ State as of 2026-04-28 JST:
   any body page image is missing, so reservation cancel/refund runs instead of
   completing with only a few images. Cloud Functions image rate limit was raised
   for 8/12 page stories and image generation failures now emit structured logs.
+- Display validation hotfix: story generation is not completed until the app has
+  actually loaded bytes for every generated body-page image. The previous check
+  only required an image source string, which still allowed fallback art if a
+  generated image URL failed to load on device.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
