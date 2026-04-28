@@ -248,6 +248,11 @@ State as of 2026-04-28 JST:
   `generateImageHttp` smoke call had returned `Billing hard limit has been
   reached.` on OpenAI, so the backend no longer requires `OPENAI_API_KEY` for
   story images.
+- Gemini Imagen switch deploy:
+  - Commit: `3e7e023 Switch story images to Gemini Imagen`
+  - Firebase Functions deploy: success with `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`
+  - Production `generateImageHttp` smoke: success, `model=imagen-4.0-fast-generate-001`, base64 returned, Storage URL returned, elapsed about 9.4 seconds
+  - TestFlight run: `25059842604`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25059842604`, result success through `Upload to TestFlight`
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
