@@ -16,7 +16,7 @@ class ApiService {
 
   final FirebaseFunctions _functions;
   static const Duration _functionCallTimeout = Duration(seconds: 90);
-  static const Duration _imageFunctionCallTimeout = Duration(seconds: 300);
+  static const Duration _imageFunctionCallTimeout = Duration(seconds: 420);
 
   Future<String> callClaude(
     String prompt,

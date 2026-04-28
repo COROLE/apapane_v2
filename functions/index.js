@@ -137,7 +137,7 @@ const STORY_REQUIRED_CHARACTER_FIELDS = [
 ];
 const OPENAI_IMAGE_MODEL = 'gpt-image-2';
 const OPENAI_IMAGE_SIZE = '1024x1536';
-const OPENAI_IMAGE_QUALITY = 'high';
+const OPENAI_IMAGE_QUALITY = 'medium';
 const OPENAI_IMAGE_OUTPUT_FORMAT = 'jpeg';
 const OPENAI_IMAGE_OUTPUT_COMPRESSION = 90;
 const IMAGE_OUTPUT_JPEG_QUALITY = 86;
@@ -2810,12 +2810,32 @@ async function postJson(url, { headers = {}, body }) {
   });
   const payload = await parseJson(response);
   if (!response.ok) {
+    const message = extractApiError(payload);
     throw new functions.https.HttpsError(
-      'internal',
-      extractApiError(payload),
+      apiErrorCodeForResponse(response.status, message),
+      message,
     );
   }
   return payload;
+}
+
+function apiErrorCodeForResponse(status, message) {
+  const normalized = String(message ?? '').toLowerCase();
+  if (
+    status === 429 ||
+    normalized.includes('billing hard limit') ||
+    normalized.includes('insufficient_quota') ||
+    normalized.includes('quota')
+  ) {
+    return 'resource-exhausted';
+  }
+  if (status === 401 || status === 403) {
+    return 'failed-precondition';
+  }
+  if (status >= 400 && status < 500) {
+    return 'failed-precondition';
+  }
+  return 'internal';
 }
 
 async function parseJson(response) {
@@ -3076,6 +3096,7 @@ exports.__test__ = {
   buildStoryResponseSchema,
   evaluateStoryGenerationRefund,
   evaluateStoryGenerationReservation,
+  apiErrorCodeForResponse,
   extractApiError,
   extractStoryPreviewSeeds,
   findUnsafeCategory,

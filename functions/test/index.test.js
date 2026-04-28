@@ -113,12 +113,23 @@ test('extractApiError prefers nested error messages', () => {
   );
 });
 
+test('apiErrorCodeForResponse maps billing limits to resource exhaustion', () => {
+  assert.equal(
+    __test__.apiErrorCodeForResponse(500, 'Billing hard limit has been reached.'),
+    'resource-exhausted',
+  );
+  assert.equal(
+    __test__.apiErrorCodeForResponse(429, 'rate limited'),
+    'resource-exhausted',
+  );
+});
+
 test('image generation uses GPT Image 2 with vertical output settings', () => {
   const request = __test__.buildOpenAiImageRequest('draw a friendly scene');
 
   assert.equal(__test__.OPENAI_IMAGE_MODEL, 'gpt-image-2');
   assert.equal(__test__.OPENAI_IMAGE_SIZE, '1024x1536');
-  assert.equal(__test__.OPENAI_IMAGE_QUALITY, 'high');
+  assert.equal(__test__.OPENAI_IMAGE_QUALITY, 'medium');
   assert.equal(__test__.OPENAI_IMAGE_OUTPUT_FORMAT, 'jpeg');
   assert.equal(__test__.OPENAI_IMAGE_OUTPUT_COMPRESSION, 90);
   assert.ok(__test__.IMAGE_OUTPUT_JPEG_QUALITY >= 85);
@@ -126,7 +137,7 @@ test('image generation uses GPT Image 2 with vertical output settings', () => {
     model: 'gpt-image-2',
     prompt: 'draw a friendly scene',
     size: '1024x1536',
-    quality: 'high',
+    quality: 'medium',
     output_format: 'jpeg',
     output_compression: 90,
     background: 'opaque',

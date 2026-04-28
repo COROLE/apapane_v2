@@ -59,6 +59,10 @@ class ChatViewModel extends ChangeNotifier {
   static const String _incompleteImageGenerationMessage =
       '\u753b\u50cf\u3092\u5168\u90e8\u4f5c\u308c\u307e\u305b\u3093\u3067\u3057\u305f\u3002'
       '\u5c11\u3057\u5f85\u3063\u3066\u3082\u3046\u4e00\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002';
+  static const String _imageQuotaMessage =
+      '\u753b\u50cf\u751f\u6210API\u306e\u5229\u7528\u4e0a\u9650\u306b\u9054\u3057\u3066\u3044\u307e\u3059\u3002'
+      '\u7ba1\u7406\u8005\u5074\u3067OpenAI\u306e\u8ab2\u91d1\u4e0a\u9650\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002';
+  static const int _directImageConcurrency = 3;
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
   static const String _directImageStylePrompt =
@@ -928,49 +932,16 @@ class ChatViewModel extends ChangeNotifier {
       (index) => Map<String, dynamic>.from(fallbackStory[index]),
     );
 
-    try {
-      titleImage = await _generateImageSource(
-        primaryPrompt: StoryGenerationComposer.buildCoverImagePrompt(
-          draft: draft,
-        ),
-        secondaryPrompt: StoryGenerationComposer.buildCoverImagePrompt(
-          draft: draft,
-        ),
-        seed: _buildStructuredPageSeed(storySeed, -1),
-        debugKey: 'cover',
+    final failedPageIndexes = await _generateDirectStoryPageImages(
+      draft: draft,
+      prefetchedStory: prefetchedStory,
+      storySeed: storySeed,
+    );
+    if (failedPageIndexes.isNotEmpty) {
+      debugPrint(
+        'Direct image generation failed for pages: $failedPageIndexes',
       );
-    } catch (error) {
-      debugPrint('Direct cover image generation failed: $error');
-    }
-
-    for (var pageIndex = 0; pageIndex < draft.pages.length; pageIndex += 1) {
-      final story = draft.pages[pageIndex].story.trim();
-      if (story.isEmpty) {
-        continue;
-      }
-
-      try {
-        final imageSource = await _generateImageSource(
-          primaryPrompt: _buildStructuredStoryImagePrompt(
-            draft: draft,
-            pageIndex: pageIndex,
-          ),
-          secondaryPrompt: _buildStructuredRetryImagePrompt(
-            draft: draft,
-            pageIndex: pageIndex,
-          ),
-          seed: _buildStructuredPageSeed(storySeed, pageIndex),
-          debugKey: 'page_$pageIndex',
-        );
-        prefetchedStory[pageIndex] = {
-          'story': story,
-          'image': imageSource,
-        };
-      } catch (error) {
-        debugPrint(
-            'Direct image generation failed for page $pageIndex: $error');
-        throw StateError(_incompleteImageGenerationMessage);
-      }
+      throw StateError(_incompleteImageGenerationMessage);
     }
 
     final missingImagePageIndexes =
@@ -1001,6 +972,70 @@ class ChatViewModel extends ChangeNotifier {
       preview: preview,
       generationRequestId: generationRequestId,
     );
+  }
+
+  Future<List<int>> _generateDirectStoryPageImages({
+    required StoryGenerationDraft draft,
+    required List<SDMap> prefetchedStory,
+    required int storySeed,
+  }) async {
+    final failedPageIndexes = <int>{};
+    Object? fatalError;
+    for (var start = 0;
+        start < draft.pages.length;
+        start += _directImageConcurrency) {
+      final end = (start + _directImageConcurrency) > draft.pages.length
+          ? draft.pages.length
+          : start + _directImageConcurrency;
+      final batch = <Future<void>>[];
+
+      for (var pageIndex = start; pageIndex < end; pageIndex += 1) {
+        final story = draft.pages[pageIndex].story.trim();
+        if (story.isEmpty) {
+          failedPageIndexes.add(pageIndex);
+          continue;
+        }
+
+        batch.add(() async {
+          try {
+            final imageSource = await _generateImageSource(
+              primaryPrompt: _buildStructuredStoryImagePrompt(
+                draft: draft,
+                pageIndex: pageIndex,
+              ),
+              secondaryPrompt: _buildStructuredRetryImagePrompt(
+                draft: draft,
+                pageIndex: pageIndex,
+              ),
+              seed: _buildStructuredPageSeed(storySeed, pageIndex),
+              debugKey: 'page_$pageIndex',
+            );
+            prefetchedStory[pageIndex] = {
+              'story': story,
+              'image': imageSource,
+            };
+          } catch (error) {
+            failedPageIndexes.add(pageIndex);
+            if (_isImageQuotaError(error)) {
+              fatalError ??= error;
+            }
+            debugPrint(
+              'Direct image generation failed for page $pageIndex: $error',
+            );
+          }
+        }());
+      }
+
+      if (batch.isNotEmpty) {
+        await Future.wait(batch);
+      }
+      if (fatalError != null) {
+        throw StateError(_imageQuotaMessage);
+      }
+    }
+
+    final sortedFailures = failedPageIndexes.toList(growable: false)..sort();
+    return sortedFailures;
   }
 
   // ignore: unused_element
@@ -1162,6 +1197,9 @@ class ChatViewModel extends ChangeNotifier {
           debugPrint(
             'Direct image generation failed for $debugKey on attempt ${attempt + 1}: $error',
           );
+          if (_isImageQuotaError(error)) {
+            throw StateError(_imageQuotaMessage);
+          }
           return null;
         },
       );
@@ -1172,6 +1210,14 @@ class ChatViewModel extends ChangeNotifier {
     }
 
     throw StateError('Image generation failed for $debugKey.');
+  }
+
+  static bool _isImageQuotaError(Object? error) {
+    final message = error?.toString().toLowerCase().trim() ?? '';
+    return message.contains('resource-exhausted') ||
+        message.contains('billing hard limit') ||
+        message.contains('insufficient_quota') ||
+        message.contains('quota');
   }
 
   String? _extractImageSource(SDMap response) {
@@ -1896,6 +1942,9 @@ class ChatViewModel extends ChangeNotifier {
     final message = error?.toString().trim() ?? '';
     if (message.isEmpty) {
       return 'おはなし作りに失敗しました。設定を確認して、もう一度お試しください。';
+    }
+    if (_isImageQuotaError(error)) {
+      return _imageQuotaMessage;
     }
     return message.replaceFirst('Bad state: ', '');
   }

@@ -192,6 +192,10 @@ class ApiRepository {
       'forbidden',
       'unauthenticated',
       'invalid-argument',
+      'resource-exhausted',
+      'billing hard limit',
+      'insufficient_quota',
+      'quota',
       'app check',
       'appcheck',
     ];
