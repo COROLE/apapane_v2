@@ -110,7 +110,7 @@ class PurchasePage extends ConsumerWidget {
           ),
           SizedBox(height: 12),
           Text(
-            'おはなし作成は 1 回 1 コインです。定期購入中はコイン消費なしで作成できます。初回登録時は 5 コインから始まります。',
+            'おはなし作成は長さに応じて 1〜3 コインです。Silverなら毎月6コイン分のおはなし作成枠が使えます。足りないときは追加コインで作れます。',
             style: TextStyle(
               fontSize: 16,
               color: Color(0xFF333333),
@@ -361,6 +361,7 @@ class PurchasePage extends ConsumerWidget {
                 ),
               ),
               title: const Text('プレミアムパス'),
+              subtitle: const Text('毎月6コイン分のおはなし作成枠'),
               trailing: const Icon(Icons.check_circle, color: Colors.green),
             ),
         ],

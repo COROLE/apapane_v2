@@ -227,9 +227,28 @@ class ArchiveViewModel extends BaseLogViewModel {
         updatedAt: Timestamp.now(),
       );
 
+      final favoriteStoryJson = story.toJson();
+      final rawStoryData = storyDoc.data();
+      if (rawStoryData != null) {
+        for (final key in [
+          'schemaVersion',
+          'mode',
+          'pageCount',
+          'coinCost',
+          'storyOptions',
+          'previewSummary',
+          'pagePlan',
+          'generationRequestId',
+        ]) {
+          if (rawStoryData.containsKey(key)) {
+            favoriteStoryJson[key] = rawStoryData[key];
+          }
+        }
+      }
+
       final result = await _firestoreRepository.createDoc(
         ColRefCore.favoriteStoriesColRef(currentUser.uid).doc(storyId),
-        story.toJson(),
+        favoriteStoryJson,
       );
       result.when(
         success: (_) => _updateLikeFunction(mainViewModel, true),

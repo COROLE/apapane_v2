@@ -205,6 +205,69 @@ test('buildStoryPrompt includes story quality requirements', () => {
   assert.match(prompt, /4ページ/);
 });
 
+test('story modes define server-owned page counts and costs', () => {
+  assert.equal(__test__.resolveStoryMode('mini').pageCount, 4);
+  assert.equal(__test__.resolveStoryMode('mini').coinCost, 1);
+  assert.equal(__test__.resolveStoryMode('standard').pageCount, 8);
+  assert.equal(__test__.resolveStoryMode('standard').coinCost, 2);
+  assert.equal(__test__.resolveStoryMode('premium').pageCount, 12);
+  assert.equal(__test__.resolveStoryMode('premium').coinCost, 3);
+});
+
+test('invalid story mode and client-owned pricing are rejected', () => {
+  assert.throws(
+    () => __test__.resolveStoryMode('long'),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'invalid-argument',
+  );
+  assert.throws(
+    () => __test__.rejectClientStoryPricing({ pageCount: 99 }),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'invalid-argument',
+  );
+  assert.throws(
+    () => __test__.rejectClientStoryPricing({ coinCost: 0 }),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'invalid-argument',
+  );
+});
+
+test('story response schema follows the selected mode only', () => {
+  const schema = __test__.buildStoryResponseSchema(
+    __test__.resolveStoryMode('premium'),
+  );
+
+  assert.equal(schema.properties.pages.minItems, 12);
+  assert.equal(schema.properties.pages.maxItems, 12);
+});
+
+test('parseGeneratedStoryPreviewJson enforces preview page plan length', () => {
+  const validPreview = {
+    title: 'にじのもり',
+    summary: 'ふしぎな森で小さな冒険をします。',
+    pagePlan: Array.from({ length: 8 }, (_, index) => `${index + 1}ページ`),
+  };
+
+  const parsed = __test__.parseGeneratedStoryPreviewJson(
+    JSON.stringify(validPreview),
+    { pageCount: 8 },
+  );
+
+  assert.equal(parsed.pagePlan.length, 8);
+  assert.throws(
+    () =>
+      __test__.parseGeneratedStoryPreviewJson(JSON.stringify(validPreview), {
+        pageCount: 12,
+      }),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'internal',
+  );
+});
+
 test('parseGeneratedStoryJson accepts fenced JSON and strips extra fields', () => {
   const rawStory = {
     ...buildValidStory(),
@@ -250,6 +313,19 @@ test('parseGeneratedStoryJson rejects responses without 4 pages', () => {
   );
 });
 
+test('parseGeneratedStoryJson accepts mode-specific page counts', () => {
+  const pages = Array.from({ length: 8 }, (_, index) => ({
+    ...buildValidStory().pages[index % 4],
+    story: `ページ${index + 1}の本文です。`,
+  }));
+  const parsed = __test__.parseGeneratedStoryJson(
+    JSON.stringify(buildValidStory({ pages })),
+    { pageCount: 8 },
+  );
+
+  assert.equal(parsed.pages.length, 8);
+});
+
 test('validateGeneratedStoryQuality detects banned endings', () => {
   const story = buildValidStory({
     pages: [
@@ -282,4 +358,78 @@ test('stringifyGeneratedStoryJson preserves the existing response shape', () => 
     'dialogue',
     'visibleCast',
   ]);
+});
+
+test('reservation uses Silver credits before coins when enough remain', () => {
+  const decision = __test__.evaluateStoryGenerationReservation({
+    userData: {
+      coins: 10,
+      silverSubscription: {
+        isActive: true,
+        endAt: new Date('2030-01-01T00:00:00Z').toISOString(),
+      },
+    },
+    usageData: { storyCreditsUsed: 3, storiesCreated: 1 },
+    mode: __test__.resolveStoryMode('standard'),
+    now: new Date('2026-04-10T00:00:00Z'),
+  });
+
+  assert.equal(decision.canReserve, true);
+  assert.equal(decision.paymentSource, 'silver');
+  assert.equal(decision.storyCreditsUsedAfter, 5);
+  assert.equal(decision.coinsAfter, 10);
+});
+
+test('reservation falls back to coins when Silver credits are short', () => {
+  const decision = __test__.evaluateStoryGenerationReservation({
+    userData: {
+      coins: 3,
+      silverSubscription: {
+        isActive: true,
+        endAt: new Date('2030-01-01T00:00:00Z').toISOString(),
+      },
+    },
+    usageData: { storyCreditsUsed: 5, storiesCreated: 2 },
+    mode: __test__.resolveStoryMode('standard'),
+    now: new Date('2026-04-10T00:00:00Z'),
+  });
+
+  assert.equal(decision.canReserve, true);
+  assert.equal(decision.paymentSource, 'coins');
+  assert.equal(decision.coinsAfter, 1);
+});
+
+test('reservation is denied when both Silver credits and coins are short', () => {
+  const decision = __test__.evaluateStoryGenerationReservation({
+    userData: {
+      coins: 1,
+      silverSubscription: {
+        isActive: true,
+        endAt: new Date('2030-01-01T00:00:00Z').toISOString(),
+      },
+    },
+    usageData: { storyCreditsUsed: 5, storiesCreated: 2 },
+    mode: __test__.resolveStoryMode('standard'),
+    now: new Date('2026-04-10T00:00:00Z'),
+  });
+
+  assert.equal(decision.canReserve, false);
+  assert.equal(decision.paymentSource, 'none');
+});
+
+test('refund returns reserved Silver credits or coins', () => {
+  const silverRefund = __test__.evaluateStoryGenerationRefund({
+    request: { paymentSource: 'silver', coinCost: 3 },
+    userData: { coins: 0 },
+    usageData: { storyCreditsUsed: 6, storiesCreated: 2 },
+  });
+  const coinRefund = __test__.evaluateStoryGenerationRefund({
+    request: { paymentSource: 'coins', coinCost: 2 },
+    userData: { coins: 1 },
+    usageData: {},
+  });
+
+  assert.equal(silverRefund.storyCreditsUsedAfter, 3);
+  assert.equal(silverRefund.storiesCreatedAfter, 1);
+  assert.equal(coinRefund.coinsAfter, 3);
 });

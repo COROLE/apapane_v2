@@ -15,7 +15,7 @@ class ApiService {
       : _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFunctions _functions;
-  static const Duration _functionCallTimeout = Duration(seconds: 45);
+  static const Duration _functionCallTimeout = Duration(seconds: 90);
   static const Duration _imageFunctionCallTimeout = Duration(seconds: 150);
 
   Future<String> callClaude(
@@ -24,6 +24,9 @@ class ApiService {
     String apiKeyName, {
     bool jsonOutput = false,
     SDMap? responseJsonSchema,
+    String? storyMode,
+    SDMap? storyOptions,
+    SDMap? preview,
   }) async {
     final data = await _callFunction(
       'generateStory',
@@ -33,6 +36,9 @@ class ApiService {
         'profile': apiKeyName,
         'jsonOutput': jsonOutput,
         if (responseJsonSchema != null) 'responseSchema': responseJsonSchema,
+        if (storyMode != null) 'mode': storyMode,
+        if (storyOptions != null) 'storyOptions': storyOptions,
+        if (preview != null) 'preview': preview,
       },
     );
     final text = data['text'];
@@ -40,6 +46,64 @@ class ApiService {
       throw StateError('generateStory returned an empty response.');
     }
     return text.trim();
+  }
+
+  Future<SDMap> generateStoryPreview({
+    required String chatLogs,
+    required String summaryMainSettings,
+    required String mode,
+    required SDMap storyOptions,
+  }) async {
+    return _callFunction(
+      'generateStoryPreview',
+      {
+        'chatLogs': chatLogs,
+        'summaryMainSettings': summaryMainSettings,
+        'mode': mode,
+        'storyOptions': storyOptions,
+      },
+    );
+  }
+
+  Future<SDMap> getStoryCreationStatus() {
+    return _callFunction('getStoryCreationStatus', const {});
+  }
+
+  Future<SDMap> reserveStoryGeneration({
+    required String mode,
+    required String requestId,
+  }) {
+    return _callFunction(
+      'reserveStoryGeneration',
+      {
+        'mode': mode,
+        'requestId': requestId,
+      },
+    );
+  }
+
+  Future<SDMap> completeStoryGeneration({
+    required String requestId,
+  }) {
+    return _callFunction(
+      'completeStoryGeneration',
+      {
+        'requestId': requestId,
+      },
+    );
+  }
+
+  Future<SDMap> cancelStoryGeneration({
+    required String requestId,
+    required String reason,
+  }) {
+    return _callFunction(
+      'cancelStoryGeneration',
+      {
+        'requestId': requestId,
+        'reason': reason,
+      },
+    );
   }
 
   Future<SDMap> callStableDiffusion(String prompt, String negativePrompt,

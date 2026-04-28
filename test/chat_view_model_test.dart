@@ -1,5 +1,6 @@
 import 'package:apapane/models/auth/local_session_user.dart';
 import 'package:apapane/models/purchase/purchase_entitlements.dart';
+import 'package:apapane/models/story/story_generation_config.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/view_models/chat_view_model.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,6 +73,59 @@ void main() {
     expect(
       pages.map((page) => page['story']).contains('月のランタン'),
       isFalse,
+    );
+  });
+
+  test('story modes expose page counts, costs, and standard recommendation',
+      () {
+    expect(StoryMode.mini.pageCount, 4);
+    expect(StoryMode.mini.coinCost, 1);
+    expect(StoryMode.standard.pageCount, 8);
+    expect(StoryMode.standard.coinCost, 2);
+    expect(StoryMode.standard.isRecommended, isTrue);
+    expect(StoryMode.premium.pageCount, 12);
+    expect(StoryMode.premium.coinCost, 3);
+  });
+
+  test('structured drafts keep 8 and 12 page responses', () {
+    final standardStory = <String, dynamic>{
+      ...structuredStory,
+      'mode': 'standard',
+      'pages': [
+        for (var index = 0; index < 8; index += 1)
+          {
+            ...((structuredStory['pages'] as List)[index % 4]
+                as Map<String, dynamic>),
+            'story': '8ページ版 ${index + 1}',
+          },
+      ],
+    };
+    final premiumStory = <String, dynamic>{
+      ...structuredStory,
+      'mode': 'premium',
+      'pages': [
+        for (var index = 0; index < 12; index += 1)
+          {
+            ...((structuredStory['pages'] as List)[index % 4]
+                as Map<String, dynamic>),
+            'story': '12ページ版 ${index + 1}',
+          },
+      ],
+    };
+
+    expect(
+      ChatViewModel.storyPagesForTesting(
+        standardStory,
+        fallbackAnswers: fallbackAnswers,
+      ),
+      hasLength(8),
+    );
+    expect(
+      ChatViewModel.storyPagesForTesting(
+        premiumStory,
+        fallbackAnswers: fallbackAnswers,
+      ),
+      hasLength(12),
     );
   });
 

@@ -11,6 +11,7 @@ import 'package:apapane/enums/to_story_page_type.dart';
 import 'package:apapane/local/local_firestore.dart';
 import 'package:apapane/models/chat_log/chat_log.dart';
 import 'package:apapane/models/story/story.dart';
+import 'package:apapane/models/story/story_generation_config.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/repositories/api_repository.dart';
 import 'package:apapane/repositories/firestore_repository.dart';
@@ -52,6 +53,10 @@ class StoryViewModel extends ChangeNotifier {
   String _titleImage = '';
   StoryGenerationDraft? _transientNewStoryDraft;
   int? _transientNewStorySeed;
+  StoryMode? _transientStoryMode;
+  StoryOptions? _transientStoryOptions;
+  StoryPreview? _transientStoryPreview;
+  String? _transientGenerationRequestId;
 
   List<Map<String, dynamic>> get storyPages => _storyPages;
   String get titleText => _titleText;
@@ -127,9 +132,25 @@ class StoryViewModel extends ChangeNotifier {
     _transientNewStorySeed = storySeed;
   }
 
+  void setTransientStoryMetadata({
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+    required StoryPreview? preview,
+    required String generationRequestId,
+  }) {
+    _transientStoryMode = mode;
+    _transientStoryOptions = storyOptions;
+    _transientStoryPreview = preview;
+    _transientGenerationRequestId = generationRequestId;
+  }
+
   void clearTransientNewStorySession() {
     _transientNewStoryDraft = null;
     _transientNewStorySeed = null;
+    _transientStoryMode = null;
+    _transientStoryOptions = null;
+    _transientStoryPreview = null;
+    _transientGenerationRequestId = null;
   }
 
   void updateStoryMaps({
@@ -351,10 +372,29 @@ class StoryViewModel extends ChangeNotifier {
       userName: firestoreUser.userName,
       updatedAt: now,
     );
+    final storyJson = story.toJson();
+    final transientMode = _transientStoryMode;
+    final transientOptions = _transientStoryOptions;
+    final transientPreview = _transientStoryPreview;
+    if (transientMode != null) {
+      storyJson.addAll({
+        'schemaVersion': 2,
+        'mode': transientMode.key,
+        'pageCount': transientMode.pageCount,
+        'coinCost': transientMode.coinCost,
+        if (transientOptions != null) 'storyOptions': transientOptions.toJson(),
+        if (transientPreview != null) ...{
+          'previewSummary': transientPreview.summary,
+          'pagePlan': transientPreview.pagePlan,
+        },
+        if (_transientGenerationRequestId?.isNotEmpty == true)
+          'generationRequestId': _transientGenerationRequestId,
+      });
+    }
 
     final saveStoryResult = await _firestoreRepository.createDoc(
       ColRefCore.storiesColRef(activeUid, id).doc(id),
-      story.toJson(),
+      storyJson,
     );
     var didSaveStory = true;
     await saveStoryResult.when(

@@ -77,14 +77,10 @@ Return JSON only with this exact shape:
 
 Requirements:
 - Output Japanese text values.
-- `pages` must contain exactly 4 body pages.
+- `pages` must contain the exact number of body pages requested by the server.
 - First internally create 3 Story Plans, evaluate them, and choose the best one. Do not output the plans or evaluation.
-- The chosen plan must include: the protagonist's small wish, a strange rule that happens only today, a troublesome incident, a plan that fails, an unexpected realization or reversal, a solution, and a small funny final beat.
-- The four pages must clearly cover:
-  1. daily life, the small wish, and the strange event starting;
-  2. a failed attempt that makes the situation a little worse;
-  3. an interaction, observation, or misunderstanding that reveals an unexpected plan;
-  4. the solution plus a small funny ending beat.
+- The chosen plan must include: the protagonist's small wish, a strange rule or invitation, a troublesome incident, a plan that fails, an unexpected realization or reversal, a solution, and a small final beat.
+- Follow the page-by-page structure supplied by the server for the selected story mode.
 - Each `story` must be concrete and vivid, not abstract, and use 2 to 4 short sentences.
 - Include at least one short spoken line somewhere in the story.
 - `title` is for the cover only and must not be repeated as a body page.
@@ -102,7 +98,7 @@ Requirements:
 ''';
 
   static const String claudeStorySystemPrompt =
-      'Return only valid JSON for a Japanese children\'s story package. The package must include title, coverScene, characterSheet, and exactly 4 pages.';
+      'Return only valid JSON for a Japanese children\'s story package. The package must include title, coverScene, characterSheet, and the requested number of pages.';
 
   static const String claudeImagePrompt = '''
 Story package:

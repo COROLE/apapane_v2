@@ -6,6 +6,7 @@ import 'package:apapane/core/id_core/id_core.dart';
 import 'package:apapane/enums/to_story_page_type.dart';
 import 'package:apapane/models/auth/local_session_user.dart';
 import 'package:apapane/models/purchase/purchase_entitlements.dart';
+import 'package:apapane/models/story/story_generation_config.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/repositories/api_repository.dart';
 import 'package:apapane/repositories/purchase_repository.dart';
@@ -31,6 +32,10 @@ class _GeneratedStoryPackage {
     required this.storyPages,
     required this.draft,
     required this.storySeed,
+    required this.mode,
+    required this.storyOptions,
+    required this.preview,
+    required this.generationRequestId,
   });
 
   final String title;
@@ -38,6 +43,10 @@ class _GeneratedStoryPackage {
   final List<SDMap> storyPages;
   final StoryGenerationDraft draft;
   final int storySeed;
+  final StoryMode mode;
+  final StoryOptions storyOptions;
+  final StoryPreview? preview;
+  final String generationRequestId;
 }
 
 enum StoryCreationAccessState {
@@ -75,6 +84,12 @@ class ChatViewModel extends ChangeNotifier {
   String _messageListString = "";
   String _summaryMainSettings = '';
   String _exampleText = "";
+  StoryMode _selectedMode = StoryMode.standard;
+  StoryOptions _storyOptions = const StoryOptions();
+  StoryPreview? _storyPreview;
+  StoryCreationStatus? _storyCreationStatus;
+  int _previewGenerationCount = 0;
+  static const int _maxPreviewGenerationCount = 3;
   final Map<int, int> _exampleCursorByStage = {};
   int _exampleSeed = DateTime.now().millisecondsSinceEpoch;
   late int _seed;
@@ -98,6 +113,13 @@ class ChatViewModel extends ChangeNotifier {
   List<types.Message> get messages => _messages;
   types.User get user => _user;
   String get exampleText => _exampleText.trim();
+  StoryMode get selectedMode => _selectedMode;
+  StoryOptions get storyOptions => _storyOptions;
+  StoryPreview? get storyPreview => _storyPreview;
+  StoryCreationStatus? get storyCreationStatus => _storyCreationStatus;
+  int get previewGenerationCount => _previewGenerationCount;
+  bool get canRegeneratePreview =>
+      _previewGenerationCount < _maxPreviewGenerationCount;
   String get exampleButtonLabel {
     final text = exampleText;
     if (text.isEmpty) {
@@ -321,7 +343,13 @@ class ChatViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<_GeneratedStoryPackage> _makeStory({required String chatLogs}) async {
+  Future<_GeneratedStoryPackage> _makeStory({
+    required String chatLogs,
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+    required StoryPreview? preview,
+    required String generationRequestId,
+  }) async {
     debugPrint('summary: $_summaryMainSettings');
     final prompt = PromptConstant.generateClaudePromptForStory(
       chatLogs,
@@ -345,7 +373,16 @@ class ChatViewModel extends ChangeNotifier {
             systemPrompt,
             'story',
             jsonOutput: true,
-            responseJsonSchema: _storyJsonSchema,
+            responseJsonSchema: _storyJsonSchemaForMode(mode),
+            storyMode: mode.key,
+            storyOptions: storyOptions.toJson(),
+            preview: preview == null
+                ? null
+                : {
+                    'title': preview.title,
+                    'summary': preview.summary,
+                    'pagePlan': preview.pagePlan,
+                  },
           );
           return result.when(
             success: (res) => jsonDecode(res),
@@ -356,21 +393,47 @@ class ChatViewModel extends ChangeNotifier {
       );
     } catch (error) {
       debugPrint('Falling back to local story text: $error');
-      return _buildLocalStoryPackage(chatLogs: chatLogs);
+      return _buildLocalStoryPackage(
+        chatLogs: chatLogs,
+        mode: mode,
+        storyOptions: storyOptions,
+        preview: preview,
+        generationRequestId: generationRequestId,
+      );
     }
 
     debugPrint('story: $storyText');
-    final draft = _draftFromStoryResponse(storyText);
+    final draft = _draftFromStoryResponse(
+      storyText,
+      mode: mode,
+      pageCount: mode.pageCount,
+    );
     final fallbackStory = StoryGenerationComposer.storyPagesFromDraft(draft);
     return _buildStoryWithDirectImages(
       draft: draft,
       fallbackStory: fallbackStory,
+      mode: mode,
+      storyOptions: storyOptions,
+      preview: preview,
+      generationRequestId: generationRequestId,
     );
   }
 
   void createButtonPressed({
     required BuildContext context,
-    required StoryViewModel storyViewModel,
+  }) async {
+    await generateStoryPreviewButtonPressed(
+      context: context,
+      mode: _selectedMode,
+      storyOptions: _storyOptions,
+    );
+  }
+
+  Future<void> generateStoryPreviewButtonPressed({
+    required BuildContext context,
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+    bool navigate = true,
   }) async {
     final countIsMeMessages =
         _messages.where((message) => message.author.id == _user.id).length;
@@ -378,25 +441,78 @@ class ChatViewModel extends ChangeNotifier {
       debugPrint('Not enough messages to proceed');
       return;
     }
+    if (!canRegeneratePreview) {
+      await UIHelper.showFlutterToast('あらすじの作り直しは3回までです。');
+      return;
+    }
+
+    _selectedMode = mode;
+    _storyOptions = storyOptions;
+    _startLoading();
+    try {
+      final chatLogs = _messageListToString();
+      final result = await _apiRepository.generateStoryPreview(
+        chatLogs: chatLogs,
+        summaryMainSettings: _summaryMainSettings,
+        mode: mode.key,
+        storyOptions: storyOptions.toJson(),
+      );
+      _storyPreview = await result.when(
+        success: (json) async => StoryPreview.fromJson(
+          json,
+          fallbackMode: mode,
+          fallbackOptions: storyOptions,
+        ),
+        failure: (_) async => _buildLocalStoryPreview(
+          mode: mode,
+          storyOptions: storyOptions,
+        ),
+      );
+      _previewGenerationCount += 1;
+      _storyCreationStatus = await _loadStoryCreationStatus();
+      notifyListeners();
+      if (context.mounted && navigate) {
+        context.push('/story/preview');
+      }
+    } finally {
+      if (context.mounted) {
+        _endLoading();
+      }
+    }
+  }
+
+  Future<void> regenerateStoryPreview({
+    required BuildContext context,
+  }) async {
+    await generateStoryPreviewButtonPressed(
+      context: context,
+      mode: _selectedMode,
+      storyOptions: _storyOptions,
+      navigate: false,
+    );
+  }
+
+  Future<void> confirmPreviewAndCreate({
+    required BuildContext context,
+    required StoryViewModel storyViewModel,
+  }) async {
+    final preview = _storyPreview;
+    if (preview == null) {
+      await UIHelper.showFlutterToast('あらすじを先に作ってください。');
+      return;
+    }
 
     final currentUser = _currentUserReader();
-    if (currentUser == null || currentUser.isGuest) {
-      _showLoginRequiredDialog(context);
+    final entitlements = currentUser == null || currentUser.isGuest
+        ? PurchaseEntitlements.initial()
+        : await _loadStoryCreationEntitlements(currentUser.uid);
+    if (!context.mounted) {
       return;
     }
-
-    final entitlements = await _loadStoryCreationEntitlements(currentUser.uid);
-    if (entitlements == null) {
-      if (context.mounted) {
-        await UIHelper.showFlutterToast('利用状況を確認できませんでした。');
-      }
-      return;
-    }
-    if (!context.mounted) return;
-
     final accessState = storyCreationAccessForTesting(
       currentUser: currentUser,
-      entitlements: entitlements,
+      entitlements: entitlements ?? PurchaseEntitlements.initial(),
+      coinCost: preview.coinCost,
     );
     if (accessState == StoryCreationAccessState.loginRequired) {
       _showLoginRequiredDialog(context);
@@ -407,29 +523,42 @@ class ChatViewModel extends ChangeNotifier {
       return;
     }
 
+    StoryGenerationReservation? reservation;
+    final generationRequestId = IDCore.uuidV4();
     _startLoading();
     final chatLogs = _messageListToString();
     storyViewModel.updateChatLogs(chatLogs: chatLogs);
     try {
+      final reserveResult = await _apiRepository.reserveStoryGeneration(
+        mode: preview.mode.key,
+        requestId: generationRequestId,
+      );
+      reservation = await reserveResult.when(
+        success: (json) async => StoryGenerationReservation.fromJson(json),
+        failure: (error) async =>
+            throw error ?? const StoryCreationAccessDenied(),
+      );
+
       final storyPackage = _hasStoryGenerationAccess()
-          ? await _makeStory(chatLogs: chatLogs)
-          : _buildLocalStoryPackage(chatLogs: chatLogs);
+          ? await _makeStory(
+              chatLogs: chatLogs,
+              mode: preview.mode,
+              storyOptions: _storyOptions,
+              preview: preview,
+              generationRequestId: generationRequestId,
+            )
+          : _buildLocalStoryPackage(
+              chatLogs: chatLogs,
+              mode: preview.mode,
+              storyOptions: _storyOptions,
+              preview: preview,
+              generationRequestId: generationRequestId,
+            );
       final newStoryMaps = storyPackage.storyPages;
       if (newStoryMaps.isNotEmpty && newStoryMaps[0]['story'] != null) {
-        try {
-          await _purchaseRepository.claimStoryCreationAccess(currentUser.uid);
-        } on StoryCreationAccessDenied {
-          if (context.mounted) {
-            _showStoreRequiredDialog(context);
-          }
-          return;
-        } catch (error) {
-          debugPrint('Failed to claim story creation access: $error');
-          if (context.mounted) {
-            await UIHelper.showFlutterToast('コインの反映に失敗しました。');
-          }
-          return;
-        }
+        await _apiRepository.completeStoryGeneration(
+          requestId: generationRequestId,
+        );
 
         storyViewModel.getTitleTextAndImage(
           title: storyPackage.title,
@@ -439,12 +568,19 @@ class ChatViewModel extends ChangeNotifier {
           draft: storyPackage.draft,
           storySeed: storyPackage.storySeed,
         );
+        storyViewModel.setTransientStoryMetadata(
+          mode: storyPackage.mode,
+          storyOptions: storyPackage.storyOptions,
+          preview: storyPackage.preview,
+          generationRequestId: storyPackage.generationRequestId,
+        );
         storyViewModel.updateStoryMaps(newStoryMaps: newStoryMaps);
         storyViewModel.toStoryPageType = ToStoryPageType.newStory;
         await storyViewModel.prewarmStoryImages(isNew: true);
 
         if (context.mounted) {
           context.pushReplacement('/story?isNew=true');
+          _messages.clear();
           debugPrint('Navigating to StoryScreen');
         } else {
           debugPrint('not mounted!');
@@ -455,14 +591,18 @@ class ChatViewModel extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error fetching story: $e');
+      if (reservation != null) {
+        await _apiRepository.cancelStoryGeneration(
+          requestId: generationRequestId,
+          reason: e.toString(),
+        );
+      }
       if (context.mounted) {
-        context.pop();
         await UIHelper.showFlutterToast(_errorMessage(e));
       }
     } finally {
       if (context.mounted) {
         _endLoading();
-        _messages.clear();
         notifyListeners();
       }
     }
@@ -560,6 +700,11 @@ class ChatViewModel extends ChangeNotifier {
     _summaryMainSettings = '';
     _isExampleLoading = false;
     _isValidCreate = false;
+    _selectedMode = StoryMode.standard;
+    _storyOptions = const StoryOptions();
+    _storyPreview = null;
+    _storyCreationStatus = null;
+    _previewGenerationCount = 0;
     _textController.clear();
     notifyListeners();
   }
@@ -744,6 +889,10 @@ class ChatViewModel extends ChangeNotifier {
   Future<_GeneratedStoryPackage> _buildStoryWithDirectImages({
     required StoryGenerationDraft draft,
     required List<SDMap> fallbackStory,
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+    required StoryPreview? preview,
+    required String generationRequestId,
   }) async {
     final storySeed = _buildStructuredStorySeed(draft);
     if (fallbackStory.isEmpty) {
@@ -753,6 +902,10 @@ class ChatViewModel extends ChangeNotifier {
         storyPages: fallbackStory,
         draft: draft,
         storySeed: storySeed,
+        mode: mode,
+        storyOptions: storyOptions,
+        preview: preview,
+        generationRequestId: generationRequestId,
       );
     }
 
@@ -819,6 +972,10 @@ class ChatViewModel extends ChangeNotifier {
       storyPages: prefetchedStory,
       draft: draft,
       storySeed: storySeed,
+      mode: mode,
+      storyOptions: storyOptions,
+      preview: preview,
+      generationRequestId: generationRequestId,
     );
   }
 
@@ -1142,16 +1299,29 @@ class ChatViewModel extends ChangeNotifier {
         .toList(growable: false);
   }
 
-  StoryGenerationDraft _draftFromStoryResponse(SDMap storyText) {
+  StoryGenerationDraft _draftFromStoryResponse(
+    SDMap storyText, {
+    StoryMode mode = StoryMode.mini,
+    int? pageCount,
+  }) {
     return StoryGenerationDraft.fromResponse(
       storyText,
       fallbackAnswers: _userAnswers(),
+      mode: mode,
+      pageCount: pageCount,
     );
   }
 
-  _GeneratedStoryPackage _buildLocalStoryPackage({required String chatLogs}) {
+  _GeneratedStoryPackage _buildLocalStoryPackage({
+    required String chatLogs,
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+    required StoryPreview? preview,
+    required String generationRequestId,
+  }) {
     final draft = StoryGenerationComposer.fallbackDraft(
       answers: _userAnswers(),
+      mode: mode,
     );
     final storySeed = StoryGenerationComposer.buildStorySeed(
       draft: draft,
@@ -1163,6 +1333,10 @@ class ChatViewModel extends ChangeNotifier {
       storyPages: StoryGenerationComposer.storyPagesFromDraft(draft),
       draft: draft,
       storySeed: storySeed,
+      mode: mode,
+      storyOptions: storyOptions,
+      preview: preview,
+      generationRequestId: generationRequestId,
     );
   }
 
@@ -1192,6 +1366,51 @@ class ChatViewModel extends ChangeNotifier {
     }
   }
 
+  Future<StoryCreationStatus?> _loadStoryCreationStatus() async {
+    final currentUser = _currentUserReader();
+    if (currentUser == null || currentUser.isGuest) {
+      return null;
+    }
+    final result = await _apiRepository.getStoryCreationStatus();
+    return result.when(
+      success: (json) => StoryCreationStatus.fromJson(json),
+      failure: (_) => null,
+    );
+  }
+
+  StoryPreview _buildLocalStoryPreview({
+    required StoryMode mode,
+    required StoryOptions storyOptions,
+  }) {
+    final answers = _userAnswers();
+    final protagonist = answers.isNotEmpty ? answers[0] : 'やさしい ぼうけんか';
+    final place = answers.length > 1 ? answers[1] : 'ひみつの もり';
+    final companion = answers.length > 2 ? answers[2] : 'たよりに なる なかま';
+    final pagePlan = List<String>.generate(
+      mode.pageCount,
+      (index) {
+        if (index == 0) {
+          return '$protagonist が $place で 小さな願いを見つける。';
+        }
+        if (index == mode.pageCount - 1) {
+          return '$companion と力を合わせて解決し、くすっとする余韻で終わる。';
+        }
+        return '$place でふしぎな出来事が広がり、$protagonist が一歩ずつ進む。';
+      },
+      growable: false,
+    );
+    return StoryPreview(
+      title: '$protagonistの ぼうけん',
+      summary: '$protagonist が $place で $companion と出会い、'
+          'ふしぎな困りごとを解決するおはなしです。',
+      pagePlan: pagePlan,
+      mode: mode,
+      pageCount: mode.pageCount,
+      coinCost: mode.coinCost,
+      storyOptions: storyOptions,
+    );
+  }
+
   void _showLoginRequiredDialog(BuildContext context) {
     DialogCore.cupertinoAlertDialog(
       context,
@@ -1207,7 +1426,7 @@ class ChatViewModel extends ChangeNotifier {
   void _showStoreRequiredDialog(BuildContext context) {
     DialogCore.cupertinoAlertDialog(
       context,
-      'おはなしをつくるには、1コインまたは定期購入が必要です。初回登録時の5コインは保護者アカウントに付与されます。',
+      'おはなしをつくるには、選んだ長さに応じたコインまたはSilverの月間枠が必要です。Silverは毎月6コイン分まで使えます。',
       'コインが必要です',
       () {
         context.pop();
@@ -1220,11 +1439,12 @@ class ChatViewModel extends ChangeNotifier {
   static StoryCreationAccessState storyCreationAccessForTesting({
     required LocalSessionUser? currentUser,
     required PurchaseEntitlements entitlements,
+    int coinCost = 1,
   }) {
     if (currentUser == null || currentUser.isGuest) {
       return StoryCreationAccessState.loginRequired;
     }
-    if (entitlements.isSubscriptionActive || entitlements.coins > 0) {
+    if (entitlements.isSubscriptionActive || entitlements.coins >= coinCost) {
       return StoryCreationAccessState.allowed;
     }
     return StoryCreationAccessState.purchaseRequired;
@@ -1397,64 +1617,64 @@ class ChatViewModel extends ChangeNotifier {
     return 'もり';
   }
 
-  static const SDMap _storyJsonSchema = {
-    'type': 'object',
-    'properties': {
-      'title': {'type': 'string'},
-      'coverScene': {'type': 'string'},
-      'characterSheet': {
+  static SDMap _storyJsonSchemaForMode(StoryMode mode) => {
         'type': 'object',
         'properties': {
-          'protagonist': {'type': 'string'},
-          'companion': {'type': 'string'},
-          'worldDetails': {'type': 'string'},
-          'artDirection': {'type': 'string'},
-        },
-        'required': [
-          'protagonist',
-          'companion',
-          'worldDetails',
-          'artDirection',
-        ],
-      },
-      'pages': {
-        'type': 'array',
-        'minItems': 4,
-        'maxItems': 4,
-        'items': {
-          'type': 'object',
-          'properties': {
-            'story': {'type': 'string'},
-            'visualFocus': {'type': 'string'},
-            'mood': {'type': 'string'},
-            'dialogue': {'type': 'string'},
-            'visibleCast': {
-              'type': 'array',
-              'minItems': 1,
-              'maxItems': 2,
-              'items': {
-                'type': 'string',
-                'enum': ['protagonist', 'companion'],
+          'title': {'type': 'string'},
+          'coverScene': {'type': 'string'},
+          'characterSheet': {
+            'type': 'object',
+            'properties': {
+              'protagonist': {'type': 'string'},
+              'companion': {'type': 'string'},
+              'worldDetails': {'type': 'string'},
+              'artDirection': {'type': 'string'},
+            },
+            'required': [
+              'protagonist',
+              'companion',
+              'worldDetails',
+              'artDirection',
+            ],
+          },
+          'pages': {
+            'type': 'array',
+            'minItems': mode.pageCount,
+            'maxItems': mode.pageCount,
+            'items': {
+              'type': 'object',
+              'properties': {
+                'story': {'type': 'string'},
+                'visualFocus': {'type': 'string'},
+                'mood': {'type': 'string'},
+                'dialogue': {'type': 'string'},
+                'visibleCast': {
+                  'type': 'array',
+                  'minItems': 1,
+                  'maxItems': 2,
+                  'items': {
+                    'type': 'string',
+                    'enum': ['protagonist', 'companion'],
+                  },
+                },
               },
+              'required': [
+                'story',
+                'visualFocus',
+                'mood',
+                'dialogue',
+                'visibleCast',
+              ],
             },
           },
-          'required': [
-            'story',
-            'visualFocus',
-            'mood',
-            'dialogue',
-            'visibleCast',
-          ],
         },
-      },
-    },
-    'required': [
-      'title',
-      'coverScene',
-      'characterSheet',
-      'pages',
-    ],
-  };
+        'required': [
+          'title',
+          'coverScene',
+          'characterSheet',
+          'pages',
+        ],
+      };
 
   @visibleForTesting
   static StoryGenerationDraft storyDraftForTesting(

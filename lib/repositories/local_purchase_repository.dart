@@ -22,7 +22,7 @@ class LocalPurchaseRepository {
       Product(
         id: subscriptionId,
         title: 'Silver Subscription',
-        description: '30日間コイン消費なしで遊べます。',
+        description: '30日間、毎月6コイン分のおはなし作成枠が使えます。',
         price: 'Demo',
         currencyCode: 'JPY',
         isSubscription: true,

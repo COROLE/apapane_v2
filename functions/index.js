@@ -6,6 +6,7 @@ const sharp = require('sharp');
 const withAppCheck = functions.runWith({ enforceAppCheck: true });
 const withGeminiSecret = functions.runWith({
   secrets: ['GEMINI_API_KEY'],
+  timeoutSeconds: 120,
 });
 const withOpenAiSecret = functions.runWith({
   secrets: ['OPENAI_API_KEY'],
@@ -24,7 +25,94 @@ const RATE_LIMIT_COLLECTION = 'aiRateLimits';
 const CHILD_SAFE_REWRITE_MESSAGE =
   'アパパネでは、子ども向けのやさしく安全なおはなしと絵だけを作れます。別のやさしい内容で試してください。';
 const STORY_GENERATION_MAX_ATTEMPTS = 3;
-const STORY_BODY_PAGE_COUNT = 4;
+const DEFAULT_STORY_MODE_KEY = 'mini';
+const DEFAULT_NEW_STORY_MODE_KEY = 'standard';
+const SILVER_MONTHLY_STORY_CREDITS = 6;
+const STORY_MODES = Object.freeze({
+  mini: Object.freeze({
+    key: 'mini',
+    displayName: 'みじかい',
+    pageCount: 4,
+    coinCost: 1,
+    usage: 'おためし、短いおはなし',
+    beats: Object.freeze([
+      '主人公紹介',
+      '事件やお願い',
+      '解決',
+      '余韻・オチ',
+    ]),
+  }),
+  standard: Object.freeze({
+    key: 'standard',
+    displayName: 'ふつう',
+    pageCount: 8,
+    coinCost: 2,
+    usage: 'メイン商品。ちゃんと冒険できる',
+    beats: Object.freeze([
+      '主人公と願い',
+      'ふしぎな出来事・招待・お願い',
+      '冒険の始まり',
+      '最初の失敗',
+      '子どもが選んだ性格・道具・仲間が活きる',
+      '大きなピンチ',
+      '解決・クライマックス',
+      'ごほうび・オチ・余韻',
+    ]),
+  }),
+  premium: Object.freeze({
+    key: 'premium',
+    displayName: 'たっぷり',
+    pageCount: 12,
+    coinCost: 3,
+    usage: '特別な1冊、長めの冒険',
+    beats: Object.freeze([
+      '主人公と日常',
+      '願い・悩み・好きなもの',
+      'ふしぎなきっかけ',
+      '冒険開始',
+      '仲間または道具の登場',
+      '最初の挑戦',
+      '小さな成功',
+      'より大きな問題',
+      '主人公の選択',
+      'クライマックス',
+      '解決',
+      '余韻・眠る前にも読める締め',
+    ]),
+  }),
+});
+const STORY_OPTION_VALUES = Object.freeze({
+  tone: Object.freeze(['funny', 'heartwarming', 'bedtime', 'adventure']),
+  endingStyle: Object.freeze(['happy', 'gentle', 'funnyTwist']),
+  worldType: Object.freeze(['forest', 'ocean', 'space', 'sweets', 'dinosaur', 'custom']),
+});
+const STORY_OPTION_LABELS = Object.freeze({
+  tone: Object.freeze({
+    funny: 'おもしろい',
+    heartwarming: 'あたたかい',
+    bedtime: '寝る前向け',
+    adventure: 'ぼうけん',
+  }),
+  endingStyle: Object.freeze({
+    happy: 'ハッピーエンド',
+    gentle: 'ほっとする終わり',
+    funnyTwist: 'ちょっと笑える終わり',
+  }),
+  worldType: Object.freeze({
+    forest: '森',
+    ocean: '海',
+    space: '宇宙',
+    sweets: 'おかしの国',
+    dinosaur: '恐竜の島',
+    custom: '子どもの入力を優先',
+  }),
+});
+const STORY_OPTION_DEFAULTS = Object.freeze({
+  tone: 'adventure',
+  endingStyle: 'funnyTwist',
+  worldType: 'custom',
+});
+const STORY_BODY_PAGE_COUNT = STORY_MODES.mini.pageCount;
 const STORY_REQUIRED_PAGE_FIELDS = [
   'story',
   'visualFocus',
@@ -59,6 +147,11 @@ const BANNED_STORY_ENDINGS = [
 const STORY_RATE_LIMIT = {
   key: 'story',
   maxCalls: 12,
+  windowMs: 60 * 1000,
+};
+const STORY_PREVIEW_RATE_LIMIT = {
+  key: 'storyPreview',
+  maxCalls: 8,
   windowMs: 60 * 1000,
 };
 const IMAGE_RATE_LIMIT = {
@@ -137,6 +230,7 @@ const db = admin.firestore();
 
 exports.generateStory = withGeminiSecret.https.onCall(async (data, context) => {
   const caller = resolveGeneratorCaller(context, data);
+  rejectClientStoryPricing(data);
 
   const prompt = readString(data.prompt, 'prompt');
   const systemPrompt = readString(data.systemPrompt, 'systemPrompt');
@@ -147,17 +241,103 @@ exports.generateStory = withGeminiSecret.https.onCall(async (data, context) => {
       : data.responseJsonSchema && typeof data.responseJsonSchema === 'object'
           ? data.responseJsonSchema
           : null;
+  const requestedStoryJson = isStoryJsonRequest({ jsonOutput, responseSchema });
+  const mode = requestedStoryJson
+    ? resolveStoryMode(data.mode, DEFAULT_STORY_MODE_KEY)
+    : null;
+  const storyOptions = requestedStoryJson
+    ? normalizeStoryOptions(data.storyOptions)
+    : STORY_OPTION_DEFAULTS;
+  const effectiveResponseSchema = requestedStoryJson
+    ? buildStoryResponseSchema(mode)
+    : responseSchema;
+  const preview =
+    data.preview && typeof data.preview === 'object'
+      ? normalizeStoryPreviewInput(data.preview, mode)
+      : null;
 
   const text = await generateSafeStory({
     callerId: caller.id,
     prompt,
     systemPrompt,
     jsonOutput,
-    responseSchema,
+    responseSchema: effectiveResponseSchema,
+    mode,
+    storyOptions,
+    preview,
   });
 
   return { text };
 });
+
+exports.generateStoryPreview = withGeminiSecret.https.onCall(
+  async (data, context) => {
+    const caller = resolveGeneratorCaller(context, data);
+    rejectClientStoryPricing(data);
+    const mode = resolveStoryMode(data.mode, DEFAULT_NEW_STORY_MODE_KEY);
+    const storyOptions = normalizeStoryOptions(data.storyOptions);
+    const chatLogs = readString(data.chatLogs, 'chatLogs');
+    const summaryMainSettings =
+      typeof data.summaryMainSettings === 'string'
+        ? data.summaryMainSettings.trim()
+        : '';
+
+    const preview = await generateSafeStoryPreview({
+      callerId: caller.id,
+      chatLogs,
+      summaryMainSettings,
+      mode,
+      storyOptions,
+    });
+
+    return {
+      ...preview,
+      mode: mode.key,
+      pageCount: mode.pageCount,
+      coinCost: mode.coinCost,
+      storyOptions,
+    };
+  },
+);
+
+exports.getStoryCreationStatus = withAppCheck.https.onCall(
+  async (_, context) => {
+    requireCallableAppCheck(context);
+    const uid = requireParentAccount(context);
+    return getStoryCreationStatusForUid(uid);
+  },
+);
+
+exports.reserveStoryGeneration = withAppCheck.https.onCall(
+  async (data, context) => {
+    requireCallableAppCheck(context);
+    const uid = requireParentAccount(context);
+    rejectClientStoryPricing(data);
+    const mode = resolveStoryMode(data.mode, DEFAULT_NEW_STORY_MODE_KEY);
+    const requestId = readRequestId(data.requestId);
+    return reserveStoryGenerationForUid({ uid, mode, requestId });
+  },
+);
+
+exports.completeStoryGeneration = withAppCheck.https.onCall(
+  async (data, context) => {
+    requireCallableAppCheck(context);
+    const uid = requireParentAccount(context);
+    const requestId = readRequestId(data.requestId);
+    return completeStoryGenerationForUid({ uid, requestId });
+  },
+);
+
+exports.cancelStoryGeneration = withAppCheck.https.onCall(
+  async (data, context) => {
+    requireCallableAppCheck(context);
+    const uid = requireParentAccount(context);
+    const requestId = readRequestId(data.requestId);
+    const reason =
+      typeof data.reason === 'string' ? data.reason.trim().slice(0, 120) : '';
+    return cancelStoryGenerationForUid({ uid, requestId, reason });
+  },
+);
 
 exports.generateImage = withOpenAiSecret.https.onCall(async (data, context) => {
   const caller = resolveGeneratorCaller(context, data);
@@ -345,6 +525,9 @@ async function generateSafeStory({
   systemPrompt,
   jsonOutput,
   responseSchema,
+  mode = null,
+  storyOptions = STORY_OPTION_DEFAULTS,
+  preview = null,
 }) {
   await enforceRateLimit(callerId, STORY_RATE_LIMIT);
 
@@ -365,7 +548,17 @@ async function generateSafeStory({
     .filter(Boolean)
     .join('\n\n');
   const storyJsonRequest = isStoryJsonRequest({ jsonOutput, responseSchema });
-  const basePrompt = storyJsonRequest ? buildStoryPrompt({ prompt }) : prompt;
+  const modeInfo = storyJsonRequest
+    ? mode || STORY_MODES[DEFAULT_STORY_MODE_KEY]
+    : null;
+  const basePrompt = storyJsonRequest
+    ? buildStoryPrompt({
+        prompt,
+        mode: modeInfo,
+        storyOptions,
+        preview,
+      })
+    : prompt;
   let currentPrompt = basePrompt;
   let qualityRepairUsed = false;
 
@@ -379,6 +572,10 @@ async function generateSafeStory({
         jsonOutput,
         responseSchema,
         normalizeStoryJson: storyJsonRequest,
+        storyPageCount: modeInfo?.pageCount,
+        maxOutputTokens: storyJsonRequest
+          ? maxStoryOutputTokens(modeInfo.pageCount)
+          : undefined,
       });
     } catch (error) {
       if (!storyJsonRequest || attempt >= STORY_GENERATION_MAX_ATTEMPTS) {
@@ -400,8 +597,12 @@ async function generateSafeStory({
     const responseCategory = findUnsafeCategory(text);
     if (!responseCategory) {
       if (storyJsonRequest) {
-        const story = parseGeneratedStoryJson(text);
-        const qualityIssues = validateGeneratedStoryQuality(story);
+        const story = parseGeneratedStoryJson(text, {
+          pageCount: modeInfo.pageCount,
+        });
+        const qualityIssues = validateGeneratedStoryQuality(story, {
+          pageCount: modeInfo.pageCount,
+        });
         if (qualityIssues.length > 0) {
           await writeSafetyAuditLog({
             uid: callerId,
@@ -424,6 +625,7 @@ async function generateSafeStory({
               prompt: basePrompt,
               story,
               issues: qualityIssues,
+              mode: modeInfo,
             });
             continue;
           }
@@ -459,6 +661,74 @@ async function generateSafeStory({
   throw createChildSafeError();
 }
 
+async function generateSafeStoryPreview({
+  callerId,
+  chatLogs,
+  summaryMainSettings,
+  mode,
+  storyOptions,
+}) {
+  await enforceRateLimit(callerId, STORY_PREVIEW_RATE_LIMIT);
+  const prompt = buildStoryPreviewPrompt({
+    chatLogs,
+    summaryMainSettings,
+    mode,
+    storyOptions,
+  });
+  const blockedCategory = findUnsafeCategory(prompt);
+  if (blockedCategory) {
+    await writeSafetyAuditLog({
+      uid: callerId,
+      feature: 'storyPreview',
+      stage: 'prompt',
+      allowed: false,
+      reason: blockedCategory,
+      prompt,
+    });
+    throw createChildSafeError();
+  }
+
+  const safeSystemPrompt = [
+    CHILD_SAFE_STORY_PREFIX,
+    'Return only valid JSON for a Japanese children story preview.',
+  ].join('\n\n');
+
+  const text = await callGeminiText({
+    prompt,
+    systemPrompt: safeSystemPrompt,
+    apiKey: readEnv('GEMINI_API_KEY'),
+    jsonOutput: true,
+    responseSchema: buildStoryPreviewResponseSchema(mode),
+    maxOutputTokens: 2048,
+  });
+  const preview = parseGeneratedStoryPreviewJson(text, {
+    pageCount: mode.pageCount,
+  });
+  const responseCategory = findUnsafeCategory(JSON.stringify(preview));
+  if (responseCategory) {
+    await writeSafetyAuditLog({
+      uid: callerId,
+      feature: 'storyPreview',
+      stage: 'response',
+      allowed: false,
+      reason: responseCategory,
+      prompt,
+      output: text,
+    });
+    throw createChildSafeError();
+  }
+
+  await writeSafetyAuditLog({
+    uid: callerId,
+    feature: 'storyPreview',
+    stage: 'response',
+    allowed: true,
+    prompt,
+    output: text,
+  });
+  return preview;
+}
+
 function isStoryJsonRequest({ jsonOutput, responseSchema }) {
   if (jsonOutput !== true || !responseSchema || typeof responseSchema !== 'object') {
     return false;
@@ -467,16 +737,211 @@ function isStoryJsonRequest({ jsonOutput, responseSchema }) {
   const properties = responseSchema.properties;
   return Boolean(
     properties &&
-      typeof properties === 'object' &&
-      properties.pages &&
-      typeof properties.pages === 'object',
+    typeof properties === 'object' &&
+    properties.pages &&
+    typeof properties.pages === 'object',
   );
 }
 
-function buildStoryPrompt({ prompt }) {
+function rejectClientStoryPricing(data) {
+  if (!data || typeof data !== 'object') {
+    return;
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'pageCount')) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'pageCount はサーバー側で mode から決定します。',
+    );
+  }
+  if (Object.prototype.hasOwnProperty.call(data, 'coinCost')) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'coinCost はサーバー側で mode から決定します。',
+    );
+  }
+}
+
+function resolveStoryMode(value, fallbackKey = DEFAULT_STORY_MODE_KEY) {
+  const key = typeof value === 'string' && value.trim()
+    ? value.trim()
+    : fallbackKey;
+  const mode = STORY_MODES[key];
+  if (!mode) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `未対応のおはなしモードです: ${key}`,
+    );
+  }
+  return mode;
+}
+
+function normalizeStoryOptions(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {};
+  const normalized = { ...STORY_OPTION_DEFAULTS };
+  for (const [key, allowedValues] of Object.entries(STORY_OPTION_VALUES)) {
+    const rawValue = typeof source[key] === 'string' ? source[key].trim() : '';
+    if (!rawValue) {
+      continue;
+    }
+    if (!allowedValues.includes(rawValue)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `storyOptions.${key} が不正です: ${rawValue}`,
+      );
+    }
+    normalized[key] = rawValue;
+  }
+  return normalized;
+}
+
+function formatStoryOptionsForPrompt(storyOptions) {
+  return [
+    `- 雰囲気: ${STORY_OPTION_LABELS.tone[storyOptions.tone]}`,
+    `- 終わり方: ${STORY_OPTION_LABELS.endingStyle[storyOptions.endingStyle]}`,
+    `- 世界: ${STORY_OPTION_LABELS.worldType[storyOptions.worldType]}`,
+  ].join('\n');
+}
+
+function normalizeStoryPreviewInput(preview, mode) {
+  const title = typeof preview.title === 'string' ? preview.title.trim() : '';
+  const summary =
+    typeof preview.summary === 'string' ? preview.summary.trim() : '';
+  const pagePlan = Array.isArray(preview.pagePlan)
+    ? preview.pagePlan
+        .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+        .filter(Boolean)
+    : [];
+  if (!title || !summary || pagePlan.length !== mode.pageCount) {
+    return null;
+  }
+  return { title, summary, pagePlan };
+}
+
+function buildStoryResponseSchema(mode) {
+  return {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      coverScene: { type: 'string' },
+      characterSheet: {
+        type: 'object',
+        properties: {
+          protagonist: { type: 'string' },
+          companion: { type: 'string' },
+          worldDetails: { type: 'string' },
+          artDirection: { type: 'string' },
+        },
+        required: [
+          'protagonist',
+          'companion',
+          'worldDetails',
+          'artDirection',
+        ],
+      },
+      pages: {
+        type: 'array',
+        minItems: mode.pageCount,
+        maxItems: mode.pageCount,
+        items: {
+          type: 'object',
+          properties: {
+            story: { type: 'string' },
+            visualFocus: { type: 'string' },
+            mood: { type: 'string' },
+            dialogue: { type: 'string' },
+            visibleCast: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 2,
+              items: {
+                type: 'string',
+                enum: ['protagonist', 'companion'],
+              },
+            },
+          },
+          required: [
+            'story',
+            'visualFocus',
+            'mood',
+            'dialogue',
+            'visibleCast',
+          ],
+        },
+      },
+    },
+    required: [
+      'title',
+      'coverScene',
+      'characterSheet',
+      'pages',
+    ],
+  };
+}
+
+function buildStoryPreviewResponseSchema(mode) {
+  return {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      summary: { type: 'string' },
+      pagePlan: {
+        type: 'array',
+        minItems: mode.pageCount,
+        maxItems: mode.pageCount,
+        items: { type: 'string' },
+      },
+    },
+    required: ['title', 'summary', 'pagePlan'],
+  };
+}
+
+function maxStoryOutputTokens(pageCount) {
+  if (pageCount >= 12) {
+    return 8192;
+  }
+  if (pageCount >= 8) {
+    return 6144;
+  }
+  return 4096;
+}
+
+function buildStoryPrompt({
+  prompt,
+  mode = STORY_MODES[DEFAULT_STORY_MODE_KEY],
+  storyOptions = STORY_OPTION_DEFAULTS,
+  preview = null,
+}) {
+  const pageBeats = mode.beats
+    .map((beat, index) => `${index + 1}. ${beat}`)
+    .join('\n');
+  const optionText = formatStoryOptionsForPrompt(storyOptions);
+  const previewText = preview
+    ? [
+        `タイトル案: ${preview.title}`,
+        `あらすじ: ${preview.summary}`,
+        'ページごとの展開案:',
+        ...preview.pagePlan.map((beat, index) => `${index + 1}. ${beat}`),
+      ].join('\n')
+    : 'なし。入力内容から最もよい構成を作る。';
+
   return `
 あなたは3〜8歳向けの日本語絵本作家です。
 子どもが「次のページを見たい」と思う、短くてわかりやすく、少し不思議で、最後に小さなオチがある絵本を作ってください。
+
+おはなしモード:
+- mode: ${mode.key}
+- 表示名: ${mode.displayName}
+- ページ数: ${mode.pageCount}ページ
+- 必要コイン: ${mode.coinCost}
+- 用途: ${mode.usage}
+
+選択された雰囲気:
+${optionText}
+
+ユーザーが確認したあらすじプレビュー:
+${previewText}
 
 既存アプリから渡された入力と出力スキーマ:
 ${prompt}
@@ -501,19 +966,19 @@ Story Plan には次を含めてください。
 - 説教くさくないか
 - 絵にしやすいか
 
-最も良い Story Plan を1つだけ選び、それをもとに4ページの絵本を作ってください。
+最も良い Story Plan を1つだけ選び、それをもとに${mode.pageCount}ページの絵本を作ってください。
 Story Plan と評価内容は出力しないでください。
 
 各ページの条件:
-- 4ページ構成にする
-- 1ページ目: 主人公の日常、願い、変な出来事の発生
-- 2ページ目: 主人公が試すが失敗し、状況が少し悪化
-- 3ページ目: 仲間とのやりとり、観察、または勘違いから、意外な作戦に気づく
-- 4ページ目: 解決し、最後に小さな笑えるオチを入れる
+- ${mode.pageCount}ページ構成にする
+${pageBeats}
 - 少なくとも1ページに短い会話を入れる
 - 各ページに、行動・変化・次を読みたくなる要素を入れる
 - 抽象的な説明ではなく、見える・聞こえる・触れる場面を書く
-- 1ページあたり80〜140字程度を目安にし、音読しやすくする
+- 1ページあたり60〜120字程度を目安にし、音読しやすくする
+- 子どもの入力内容を最低3箇所以上で意味のある形で反映する
+- 主人公の性格、好きなもの、仲間、場所が話の解決に関係するようにする
+- 「やさしいけど薄い話」にならないよう、失敗・選択・ピンチ・解決を入れる
 
 画像用の場面情報:
 - visualFocus には、場所、主人公、仲間、そのページ固有の事件や変化、主人公の表情、絵本らしい安全で明るい雰囲気、9:16縦長に向いた構図を入れる
@@ -542,7 +1007,12 @@ JSON以外の文字を含めないでください。
 `.trim();
 }
 
-function buildStoryRepairPrompt({ prompt, story, issues }) {
+function buildStoryRepairPrompt({
+  prompt,
+  story,
+  issues,
+  mode = STORY_MODES[DEFAULT_STORY_MODE_KEY],
+}) {
   const issueText = issues
     .map((issue) => `- ${issue.message}`)
     .join('\n');
@@ -557,18 +1027,108 @@ ${issueText}
 前回のJSON:
 ${JSON.stringify(story)}
 
-同じ既存JSON形式だけで、4ページの本文と visualFocus を修正してください。
+同じ既存JSON形式だけで、${mode.pageCount}ページの本文と visualFocus を修正してください。
 Story Plan、評価内容、説明文、Markdown、コードブロックは出力しないでください。
 `.trim();
 }
 
-function stringifyGeneratedStoryJson(rawText) {
-  return JSON.stringify(parseGeneratedStoryJson(rawText));
+function buildStoryPreviewPrompt({
+  chatLogs,
+  summaryMainSettings,
+  mode,
+  storyOptions,
+}) {
+  const pageBeats = mode.beats
+    .map((beat, index) => `${index + 1}. ${beat}`)
+    .join('\n');
+
+  return `
+あなたは3〜8歳向けの日本語絵本編集者です。
+画像は作らず、保護者と子どもが確認できる「あらすじプレビュー」だけを作ってください。
+
+おはなしモード:
+- mode: ${mode.key}
+- 表示名: ${mode.displayName}
+- ページ数: ${mode.pageCount}ページ
+- 必要コイン: ${mode.coinCost}
+- 用途: ${mode.usage}
+
+選択された雰囲気:
+${formatStoryOptionsForPrompt(storyOptions)}
+
+会話ログ:
+${chatLogs}
+
+収集済みの設定メモ:
+${summaryMainSettings || 'なし'}
+
+ページ構成:
+${pageBeats}
+
+要件:
+- 日本語で出力する
+- title は短く、絵本の題名らしくする
+- summary は1〜2文で、何が起きるおはなしなのか分かるようにする
+- pagePlan は必ず${mode.pageCount}件にする
+- 各 pagePlan は1文で、そのページの展開を具体的に書く
+- 子どもの入力内容を最低3箇所以上で意味のある形で反映する
+- 主人公の性格、好きなもの、仲間、場所が解決に関係するようにする
+- 説教臭い教訓や「みんなで楽しく過ごしました」のような薄い結末にしない
+- 怖すぎる展開、危険、個人情報、外部連絡、夢オチは使わない
+
+出力:
+JSONだけを返してください。Markdown、説明、コードブロックは出力しないでください。
+`.trim();
 }
 
-function parseGeneratedStoryJson(rawText) {
+function stringifyGeneratedStoryJson(
+  rawText,
+  { pageCount = STORY_BODY_PAGE_COUNT } = {},
+) {
+  return JSON.stringify(parseGeneratedStoryJson(rawText, { pageCount }));
+}
+
+function parseGeneratedStoryPreviewJson(
+  rawText,
+  { pageCount } = {},
+) {
   const parsed = parseJsonObjectText(rawText);
-  return normalizeGeneratedStory(parsed);
+  const title = requirePreviewStringField(parsed, 'title');
+  const summary = requirePreviewStringField(parsed, 'summary');
+  const pagePlan = parsed.pagePlan;
+  if (!Array.isArray(pagePlan) || pagePlan.length !== pageCount) {
+    throw createStoryJsonError(
+      `Story preview must contain exactly ${pageCount} pagePlan items.`,
+    );
+  }
+  return {
+    title,
+    summary,
+    pagePlan: pagePlan.map((entry, index) => {
+      if (typeof entry !== 'string' || entry.trim().length === 0) {
+        throw createStoryJsonError(
+          `Story preview pagePlan ${index + 1} must be a string.`,
+        );
+      }
+      return entry.replace(/\s+/g, ' ').trim();
+    }),
+  };
+}
+
+function requirePreviewStringField(source, fieldName) {
+  const value = source?.[fieldName];
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw createStoryJsonError(`Story preview is missing ${fieldName}.`);
+  }
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function parseGeneratedStoryJson(
+  rawText,
+  { pageCount = STORY_BODY_PAGE_COUNT } = {},
+) {
+  const parsed = parseJsonObjectText(rawText);
+  return normalizeGeneratedStory(parsed, { pageCount });
 }
 
 function parseJsonObjectText(rawText) {
@@ -597,7 +1157,10 @@ function parseJsonObjectText(rawText) {
   }
 }
 
-function normalizeGeneratedStory(story) {
+function normalizeGeneratedStory(
+  story,
+  { pageCount = STORY_BODY_PAGE_COUNT } = {},
+) {
   const title = requireStoryStringField(story, 'title');
   const coverScene = requireStoryStringField(story, 'coverScene');
   const characterSheet = story.characterSheet;
@@ -610,8 +1173,10 @@ function normalizeGeneratedStory(story) {
   }
 
   const pages = story.pages;
-  if (!Array.isArray(pages) || pages.length !== STORY_BODY_PAGE_COUNT) {
-    throw createStoryJsonError('Story JSON must contain exactly 4 pages.');
+  if (!Array.isArray(pages) || pages.length !== pageCount) {
+    throw createStoryJsonError(
+      `Story JSON must contain exactly ${pageCount} pages.`,
+    );
   }
 
   return {
@@ -664,13 +1229,16 @@ function requireStoryStringField(source, fieldName, { allowEmpty = false } = {})
   return value.replace(/\s+/g, ' ').trim();
 }
 
-function validateGeneratedStoryQuality(story) {
+function validateGeneratedStoryQuality(
+  story,
+  { pageCount = STORY_BODY_PAGE_COUNT } = {},
+) {
   const issues = [];
   const pages = Array.isArray(story?.pages) ? story.pages : [];
-  if (pages.length !== STORY_BODY_PAGE_COUNT) {
+  if (pages.length !== pageCount) {
     issues.push({
       code: 'page_count',
-      message: 'pages は4ページである必要があります。',
+      message: `pages は${pageCount}ページである必要があります。`,
     });
   }
 
@@ -684,7 +1252,7 @@ function validateGeneratedStoryQuality(story) {
     });
   }
 
-  const finalStory = pages[STORY_BODY_PAGE_COUNT - 1]?.story ?? '';
+  const finalStory = pages[pageCount - 1]?.story ?? '';
   if (hasBannedStoryEnding(finalStory)) {
     issues.push({
       code: 'banned_ending',
@@ -699,7 +1267,11 @@ function validateGeneratedStoryQuality(story) {
     });
   }
 
-  if (hasHighlySimilarStrings(pages.map((page) => page?.story ?? ''))) {
+  if (
+    hasHighlySimilarStrings(pages.map((page) => page?.story ?? ''), {
+      minCount: pageCount,
+    })
+  ) {
     issues.push({
       code: 'repetitive_story',
       message: '全ページの本文が似すぎています。',
@@ -710,8 +1282,8 @@ function validateGeneratedStoryQuality(story) {
     .map((page) => (typeof page?.visualFocus === 'string' ? page.visualFocus : ''))
     .filter((value) => value.trim().length > 0);
   if (
-    visualFocusValues.length === STORY_BODY_PAGE_COUNT &&
-    hasHighlySimilarStrings(visualFocusValues)
+    visualFocusValues.length === pageCount &&
+    hasHighlySimilarStrings(visualFocusValues, { minCount: pageCount })
   ) {
     issues.push({
       code: 'repetitive_visual_focus',
@@ -741,11 +1313,14 @@ function hasBannedStoryEnding(story) {
   );
 }
 
-function hasHighlySimilarStrings(values) {
+function hasHighlySimilarStrings(
+  values,
+  { minCount = STORY_BODY_PAGE_COUNT } = {},
+) {
   const normalizedValues = values
     .map(normalizeForComparison)
     .filter((value) => value.length > 0);
-  if (normalizedValues.length < STORY_BODY_PAGE_COUNT) {
+  if (normalizedValues.length < minCount) {
     return false;
   }
 
@@ -913,8 +1488,16 @@ async function callGeminiText({
   jsonOutput,
   responseSchema,
   normalizeStoryJson = false,
+  storyPageCount = STORY_BODY_PAGE_COUNT,
+  maxOutputTokens,
 }) {
   const model = jsonOutput ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
+  const outputTokenLimit =
+    Number.isInteger(maxOutputTokens) && maxOutputTokens > 0
+      ? maxOutputTokens
+      : jsonOutput
+          ? 4096
+          : 256;
   const payload = await postJson(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -932,7 +1515,7 @@ async function callGeminiText({
         },
         generationConfig: {
           temperature: jsonOutput ? 0.7 : 0.4,
-          maxOutputTokens: jsonOutput ? 4096 : 256,
+          maxOutputTokens: outputTokenLimit,
           ...(jsonOutput ? { responseMimeType: 'application/json' } : {}),
           ...(jsonOutput && responseSchema
             ? { responseSchema }
@@ -957,7 +1540,7 @@ async function callGeminiText({
     );
   }
   if (normalizeStoryJson) {
-    return stringifyGeneratedStoryJson(text);
+    return stringifyGeneratedStoryJson(text, { pageCount: storyPageCount });
   }
   return text;
 }
@@ -1373,6 +1956,404 @@ async function grantSubscription({
   return readUserData(uid);
 }
 
+async function getStoryCreationStatusForUid(uid, now = new Date()) {
+  const userRef = db.collection('users').doc(uid);
+  const usageMonthKey = storyUsageMonthKey(now);
+  const [userSnapshot, usageSnapshot] = await Promise.all([
+    userRef.get(),
+    userRef.collection('subscriptionUsage').doc(usageMonthKey).get(),
+  ]);
+  const userData = userSnapshot.data() || {};
+  const usageData = usageSnapshot.data() || {};
+  const isSubscriptionActive = isSilverSubscriptionActive(userData, now);
+  const storyCreditsUsed = Math.max(
+    0,
+    Number(usageData.storyCreditsUsed ?? 0),
+  );
+  const storyCreditsRemaining = isSubscriptionActive
+    ? Math.max(0, SILVER_MONTHLY_STORY_CREDITS - storyCreditsUsed)
+    : 0;
+  return {
+    coins: Math.max(0, Number(userData.coins ?? 0)),
+    isSubscriptionActive,
+    subscriptionEndAt: normalizeTimestampMillis(
+      userData.silverSubscription?.endAt,
+    ),
+    usageMonthKey,
+    monthlyStoryCredits: SILVER_MONTHLY_STORY_CREDITS,
+    storyCreditsUsed,
+    storyCreditsRemaining,
+  };
+}
+
+async function reserveStoryGenerationForUid({ uid, mode, requestId }) {
+  const userRef = db.collection('users').doc(uid);
+  const requestRef = userRef.collection('generationRequests').doc(requestId);
+  const now = new Date();
+  const usageMonthKey = storyUsageMonthKey(now);
+  const usageRef = userRef.collection('subscriptionUsage').doc(usageMonthKey);
+
+  return db.runTransaction(async (transaction) => {
+    const existingRequest = await transaction.get(requestRef);
+    if (existingRequest.exists) {
+      const data = existingRequest.data() || {};
+      if (data.uid !== uid || data.mode !== mode.key) {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          '同じ requestId が別の生成内容で使われています。',
+        );
+      }
+      if (data.status === 'canceled') {
+        throw new functions.https.HttpsError(
+          'failed-precondition',
+          'キャンセル済みの生成 requestId です。',
+        );
+      }
+      return storyReservationResponse({
+        requestId,
+        request: data,
+        idempotent: true,
+      });
+    }
+
+    const [userSnapshot, usageSnapshot] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(usageRef),
+    ]);
+    const userData = userSnapshot.data() || {};
+    const usageData = usageSnapshot.data() || {};
+    const decision = evaluateStoryGenerationReservation({
+      userData,
+      usageData,
+      mode,
+      now,
+    });
+    if (!decision.canReserve) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'このおはなしを作るためのSilver枠またはコインが足りません。',
+      );
+    }
+
+    const requestData = {
+      uid,
+      requestId,
+      mode: mode.key,
+      pageCount: mode.pageCount,
+      coinCost: mode.coinCost,
+      paymentSource: decision.paymentSource,
+      usageMonthKey,
+      status: 'reserved',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (decision.paymentSource === 'silver') {
+      transaction.set(
+        usageRef,
+        {
+          storyCreditsUsed: decision.storyCreditsUsedAfter,
+          storiesCreated: decision.storiesCreatedAfter,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else if (decision.paymentSource === 'coins') {
+      transaction.set(
+        userRef,
+        {
+          coins: decision.coinsAfter,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    transaction.set(requestRef, requestData);
+    return storyReservationResponse({
+      requestId,
+      request: requestData,
+      idempotent: false,
+      decision,
+    });
+  });
+}
+
+async function completeStoryGenerationForUid({ uid, requestId }) {
+  const requestRef = db
+    .collection('users')
+    .doc(uid)
+    .collection('generationRequests')
+    .doc(requestId);
+  return db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(requestRef);
+    if (!snapshot.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        '生成予約が見つかりません。',
+      );
+    }
+    const data = snapshot.data() || {};
+    if (data.uid !== uid) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        '生成予約の所有者が一致しません。',
+      );
+    }
+    if (data.status === 'completed') {
+      return storyReservationResponse({ requestId, request: data, idempotent: true });
+    }
+    if (data.status === 'canceled') {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'キャンセル済みの生成予約です。',
+      );
+    }
+    transaction.update(requestRef, {
+      status: 'completed',
+      completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return storyReservationResponse({
+      requestId,
+      request: { ...data, status: 'completed' },
+      idempotent: false,
+    });
+  });
+}
+
+async function cancelStoryGenerationForUid({ uid, requestId, reason }) {
+  const userRef = db.collection('users').doc(uid);
+  const requestRef = userRef.collection('generationRequests').doc(requestId);
+  return db.runTransaction(async (transaction) => {
+    const requestSnapshot = await transaction.get(requestRef);
+    if (!requestSnapshot.exists) {
+      return { requestId, status: 'missing', refunded: false };
+    }
+    const request = requestSnapshot.data() || {};
+    if (request.uid !== uid) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        '生成予約の所有者が一致しません。',
+      );
+    }
+    if (request.status === 'canceled') {
+      return storyReservationResponse({ requestId, request, idempotent: true });
+    }
+    if (request.status === 'completed') {
+      return storyReservationResponse({
+        requestId,
+        request,
+        idempotent: true,
+        refunded: false,
+      });
+    }
+
+    const userSnapshot = await transaction.get(userRef);
+    const userData = userSnapshot.data() || {};
+    let usageRef = null;
+    let usageData = {};
+    if (request.paymentSource === 'silver') {
+      usageRef = userRef
+        .collection('subscriptionUsage')
+        .doc(request.usageMonthKey);
+      const usageSnapshot = await transaction.get(usageRef);
+      usageData = usageSnapshot.data() || {};
+    }
+
+    const refund = evaluateStoryGenerationRefund({
+      request,
+      userData,
+      usageData,
+    });
+    if (refund.paymentSource === 'silver' && usageRef) {
+      transaction.set(
+        usageRef,
+        {
+          storyCreditsUsed: refund.storyCreditsUsedAfter,
+          storiesCreated: refund.storiesCreatedAfter,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    } else if (refund.paymentSource === 'coins') {
+      transaction.set(
+        userRef,
+        {
+          coins: refund.coinsAfter,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    transaction.update(requestRef, {
+      status: 'canceled',
+      cancelReason: reason,
+      canceledAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return storyReservationResponse({
+      requestId,
+      request: { ...request, status: 'canceled' },
+      idempotent: false,
+      refunded: refund.refunded,
+    });
+  });
+}
+
+function evaluateStoryGenerationReservation({
+  userData,
+  usageData,
+  mode,
+  now = new Date(),
+}) {
+  const coins = Math.max(0, Number(userData?.coins ?? 0));
+  const storyCreditsUsed = Math.max(
+    0,
+    Number(usageData?.storyCreditsUsed ?? 0),
+  );
+  const storiesCreated = Math.max(0, Number(usageData?.storiesCreated ?? 0));
+  if (
+    isSilverSubscriptionActive(userData, now) &&
+    storyCreditsUsed + mode.coinCost <= SILVER_MONTHLY_STORY_CREDITS
+  ) {
+    return {
+      canReserve: true,
+      paymentSource: 'silver',
+      coinCost: mode.coinCost,
+      coinsAfter: coins,
+      storyCreditsUsedAfter: storyCreditsUsed + mode.coinCost,
+      storiesCreatedAfter: storiesCreated + 1,
+      storyCreditsRemainingAfter:
+        SILVER_MONTHLY_STORY_CREDITS - storyCreditsUsed - mode.coinCost,
+    };
+  }
+  if (coins >= mode.coinCost) {
+    return {
+      canReserve: true,
+      paymentSource: 'coins',
+      coinCost: mode.coinCost,
+      coinsAfter: coins - mode.coinCost,
+      storyCreditsUsedAfter: storyCreditsUsed,
+      storiesCreatedAfter: storiesCreated,
+      storyCreditsRemainingAfter: Math.max(
+        0,
+        SILVER_MONTHLY_STORY_CREDITS - storyCreditsUsed,
+      ),
+    };
+  }
+  return {
+    canReserve: false,
+    paymentSource: 'none',
+    coinCost: mode.coinCost,
+    coinsAfter: coins,
+    storyCreditsUsedAfter: storyCreditsUsed,
+    storiesCreatedAfter: storiesCreated,
+    storyCreditsRemainingAfter: Math.max(
+      0,
+      SILVER_MONTHLY_STORY_CREDITS - storyCreditsUsed,
+    ),
+  };
+}
+
+function evaluateStoryGenerationRefund({ request, userData, usageData }) {
+  const coinCost = Math.max(0, Number(request?.coinCost ?? 0));
+  if (request?.paymentSource === 'silver') {
+    const storyCreditsUsed = Math.max(
+      0,
+      Number(usageData?.storyCreditsUsed ?? 0),
+    );
+    const storiesCreated = Math.max(0, Number(usageData?.storiesCreated ?? 0));
+    return {
+      refunded: coinCost > 0,
+      paymentSource: 'silver',
+      storyCreditsUsedAfter: Math.max(0, storyCreditsUsed - coinCost),
+      storiesCreatedAfter: Math.max(0, storiesCreated - 1),
+    };
+  }
+  if (request?.paymentSource === 'coins') {
+    const coins = Math.max(0, Number(userData?.coins ?? 0));
+    return {
+      refunded: coinCost > 0,
+      paymentSource: 'coins',
+      coinsAfter: coins + coinCost,
+    };
+  }
+  return { refunded: false, paymentSource: 'none' };
+}
+
+function storyReservationResponse({
+  requestId,
+  request,
+  idempotent = false,
+  decision = null,
+  refunded,
+}) {
+  return {
+    requestId,
+    status: request.status,
+    mode: request.mode,
+    pageCount: Number(request.pageCount ?? 0),
+    coinCost: Number(request.coinCost ?? 0),
+    paymentSource: request.paymentSource,
+    usageMonthKey: request.usageMonthKey,
+    idempotent,
+    ...(decision
+      ? {
+          coinsAfter: decision.coinsAfter,
+          storyCreditsUsedAfter: decision.storyCreditsUsedAfter,
+          storyCreditsRemainingAfter: decision.storyCreditsRemainingAfter,
+        }
+      : {}),
+    ...(typeof refunded === 'boolean' ? { refunded } : {}),
+  };
+}
+
+function isSilverSubscriptionActive(userData, now = new Date()) {
+  const subscription = userData?.silverSubscription || {};
+  if (subscription.isActive !== true) {
+    return false;
+  }
+  const endAtMs = normalizeTimestampMillis(subscription.endAt);
+  return !endAtMs || endAtMs > now.getTime();
+}
+
+function normalizeTimestampMillis(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value.toMillis === 'function') {
+    return value.toMillis();
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Date.parse(value.trim());
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  if (typeof value === 'object') {
+    const seconds = value.seconds ?? value._seconds;
+    const nanoseconds = value.nanoseconds ?? value._nanoseconds ?? 0;
+    if (Number.isFinite(seconds)) {
+      return seconds * 1000 + Math.round(nanoseconds / 1000000);
+    }
+  }
+  return null;
+}
+
+function storyUsageMonthKey(now = new Date()) {
+  const jst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const year = jst.getUTCFullYear();
+  const month = String(jst.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}${month}`;
+}
+
 async function readUserData(uid) {
   const snapshot = await db.collection('users').doc(uid).get();
   return snapshot.data() || {};
@@ -1688,6 +2669,17 @@ function readString(value, fieldName) {
   return value.trim();
 }
 
+function readRequestId(value) {
+  const requestId = readString(value, 'requestId');
+  if (!/^[A-Za-z0-9_-]{8,80}$/.test(requestId)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'requestId の形式が不正です。',
+    );
+  }
+  return requestId;
+}
+
 exports.__test__ = {
   CHILD_SAFE_REWRITE_MESSAGE,
   IMAGE_OUTPUT_JPEG_QUALITY,
@@ -1696,21 +2688,37 @@ exports.__test__ = {
   OPENAI_IMAGE_OUTPUT_FORMAT,
   OPENAI_IMAGE_QUALITY,
   OPENAI_IMAGE_SIZE,
+  SILVER_MONTHLY_STORY_CREDITS,
+  STORY_MODES,
   buildOpenAiImageRequest,
+  buildStoryPreviewPrompt,
+  buildStoryPreviewResponseSchema,
   buildStoryPrompt,
   buildStoryRepairPrompt,
+  buildStoryResponseSchema,
+  evaluateStoryGenerationRefund,
+  evaluateStoryGenerationReservation,
   extractApiError,
   findUnsafeCategory,
+  formatStoryOptionsForPrompt,
   hashGuestSessionId,
   isStoryJsonRequest,
+  isSilverSubscriptionActive,
+  maxStoryOutputTokens,
   normalizeHttpBody,
+  normalizeStoryOptions,
+  parseGeneratedStoryPreviewJson,
   parseGeneratedStoryJson,
   readHeaderValue,
+  readRequestId,
   readString,
+  rejectClientStoryPricing,
   requireCallableAppCheck,
   requireHttpAppCheck,
+  resolveStoryMode,
   resolveGeneratorCaller,
   sanitizeOpenAiImagePrompt,
   stringifyGeneratedStoryJson,
+  storyUsageMonthKey,
   validateGeneratedStoryQuality,
 };

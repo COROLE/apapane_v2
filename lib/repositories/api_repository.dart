@@ -15,6 +15,9 @@ class ApiRepository {
     String apiKeyName, {
     bool jsonOutput = false,
     Map<String, dynamic>? responseJsonSchema,
+    String? storyMode,
+    Map<String, dynamic>? storyOptions,
+    Map<String, dynamic>? preview,
   }) async {
     try {
       final result = await _apiService.callClaude(
@@ -23,6 +26,80 @@ class ApiRepository {
         apiKeyName,
         jsonOutput: jsonOutput,
         responseJsonSchema: responseJsonSchema,
+        storyMode: storyMode,
+        storyOptions: storyOptions,
+        preview: preview,
+      );
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
+  FutureResult<Map<String, dynamic>> generateStoryPreview({
+    required String chatLogs,
+    required String summaryMainSettings,
+    required String mode,
+    required Map<String, dynamic> storyOptions,
+  }) async {
+    try {
+      final result = await _apiService.generateStoryPreview(
+        chatLogs: chatLogs,
+        summaryMainSettings: summaryMainSettings,
+        mode: mode,
+        storyOptions: storyOptions,
+      );
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
+  FutureResult<Map<String, dynamic>> getStoryCreationStatus() async {
+    try {
+      final result = await _apiService.getStoryCreationStatus();
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
+  FutureResult<Map<String, dynamic>> reserveStoryGeneration({
+    required String mode,
+    required String requestId,
+  }) async {
+    try {
+      final result = await _apiService.reserveStoryGeneration(
+        mode: mode,
+        requestId: requestId,
+      );
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
+  FutureResult<Map<String, dynamic>> completeStoryGeneration({
+    required String requestId,
+  }) async {
+    try {
+      final result = await _apiService.completeStoryGeneration(
+        requestId: requestId,
+      );
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
+  FutureResult<Map<String, dynamic>> cancelStoryGeneration({
+    required String requestId,
+    required String reason,
+  }) async {
+    try {
+      final result = await _apiService.cancelStoryGeneration(
+        requestId: requestId,
+        reason: reason,
       );
       return Result.success(result);
     } catch (e) {

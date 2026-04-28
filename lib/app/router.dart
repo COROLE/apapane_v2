@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 //pages
 import 'package:apapane/views/login_signup_screen/login_signup_screen.dart';
 import 'package:apapane/views/chat_screen/chat_screen.dart';
+import 'package:apapane/views/story_preview_screen.dart';
 import 'package:apapane/views/story_screen/story_screen.dart';
 
 final router = GoRouter(
@@ -47,6 +48,11 @@ final router = GoRouter(
       path: '/chat',
       name: 'chat',
       builder: (context, state) => const ChatScreen(),
+    ),
+    GoRoute(
+      path: '/story/preview',
+      name: 'story-preview',
+      builder: (context, state) => const StoryPreviewScreen(),
     ),
     GoRoute(
       path: '/mic',

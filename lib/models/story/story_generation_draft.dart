@@ -1,4 +1,5 @@
 import 'package:apapane/typedefs/firestore_typedef.dart';
+import 'package:apapane/models/story/story_generation_config.dart';
 
 const String _protagonistCastRole = 'protagonist';
 const String _companionCastRole = 'companion';
@@ -82,7 +83,7 @@ class StoryGenerationPage {
 }
 
 class StoryGenerationDraft {
-  static const int bodyPageCount = 4;
+  static const int legacyBodyPageCount = 4;
 
   const StoryGenerationDraft({
     required this.title,
@@ -99,9 +100,15 @@ class StoryGenerationDraft {
   factory StoryGenerationDraft.fromResponse(
     SDMap response, {
     List<String> fallbackAnswers = const [],
+    StoryMode mode = StoryMode.mini,
+    int? pageCount,
   }) {
+    final parsedMode = storyModeFromKey(response['mode']?.toString());
+    final resolvedMode = response['mode'] == null ? mode : parsedMode;
     final fallbackDraft = StoryGenerationComposer.fallbackDraft(
       answers: fallbackAnswers,
+      mode: resolvedMode,
+      pageCount: pageCount,
     );
 
     final parsedPages = response['pages'] is List
@@ -111,10 +118,17 @@ class StoryGenerationDraft {
             .toList(growable: false)
         : _legacyPagesFromResponse(response);
 
+    final resolvedPageCount = pageCount ??
+        (parsedPages.length > resolvedMode.pageCount
+            ? parsedPages.length
+            : resolvedMode.pageCount);
     final pages = List<StoryGenerationPage>.generate(
-      bodyPageCount,
+      resolvedPageCount,
       (index) {
-        final fallbackPage = fallbackDraft.pages[index];
+        final fallbackPage = fallbackDraft.pages[
+            index < fallbackDraft.pages.length
+                ? index
+                : fallbackDraft.pages.length - 1];
         if (index >= parsedPages.length) {
           return fallbackPage;
         }
@@ -141,7 +155,11 @@ class StoryGenerationDraft {
 }
 
 class StoryGenerationComposer {
-  static StoryGenerationDraft fallbackDraft({required List<String> answers}) {
+  static StoryGenerationDraft fallbackDraft({
+    required List<String> answers,
+    StoryMode mode = StoryMode.mini,
+    int? pageCount,
+  }) {
     final protagonist = _answerAt(
       answers,
       0,
@@ -163,6 +181,7 @@ class StoryGenerationComposer {
       fallback: 'まっすぐで ゆうきが ある',
     );
 
+    final resolvedPageCount = pageCount ?? mode.pageCount;
     return StoryGenerationDraft(
       title: '$protagonistの ぼうけん',
       coverScene: '$protagonist が $place で $companion と たびの いっぽを ふみだす しゅんかん',
@@ -172,82 +191,23 @@ class StoryGenerationComposer {
         worldDetails: '$place。子ども向け絵本らしい、やわらかい色と安心できる景色。',
         artDirection: '$specialDetail。やさしい絵本タッチ、手描き感、あたたかい空気。',
       ),
-      pages: const [
-        StoryGenerationPage(
-          story: '',
-          visualFocus: '',
-          mood: '',
-          dialogue: '',
-          visibleCast: _allVisibleCast,
+      pages: List<StoryGenerationPage>.generate(
+        resolvedPageCount,
+        (index) => _fallbackPage(
+          index: index,
+          pageCount: resolvedPageCount,
+          protagonist: protagonist,
+          place: place,
+          companion: companion,
+          specialDetail: specialDetail,
         ),
-        StoryGenerationPage(
-          story: '',
-          visualFocus: '',
-          mood: '',
-          dialogue: '',
-          visibleCast: _allVisibleCast,
-        ),
-        StoryGenerationPage(
-          story: '',
-          visualFocus: '',
-          mood: '',
-          dialogue: '',
-          visibleCast: _allVisibleCast,
-        ),
-        StoryGenerationPage(
-          story: '',
-          visualFocus: '',
-          mood: '',
-          dialogue: '',
-          visibleCast: _allVisibleCast,
-        ),
-      ].asMap().entries.map((entry) {
-        switch (entry.key) {
-          case 0:
-            return StoryGenerationPage(
-              story:
-                  '$protagonist は $place に つくと、$companion と いっしょに きょうの ぼうけんを はじめた。'
-                  '「いってみよう」と えがおで すすんだ。',
-              visualFocus: '$protagonist と $companion が $place の 入口に 立つ場面',
-              mood: 'わくわくして あたたかい',
-              dialogue: 'いってみよう',
-              visibleCast: _allVisibleCast,
-            );
-          case 1:
-            return StoryGenerationPage(
-              story: 'ふたりの まえに ちいさな トラブルが あらわれた。'
-                  'でも $protagonist は $specialDetail ところを 思いだし、あわてずに まわりを 見た。',
-              visualFocus: '$protagonist が 困りごとを 見つめて 考える場面',
-              mood: 'どきどきするが 前向き',
-              dialogue: 'だいじょうぶ、きっと みつかるよ',
-              visibleCast: _allVisibleCast,
-            );
-          case 2:
-            return StoryGenerationPage(
-              story: '$companion が ひみつの 手がかりを 見つけると、景色の 見え方が くるりと 変わった。'
-                  '思っていたよりも やさしい 答えが その先に かくれていた。',
-              visualFocus: 'ひみつの 手がかりを 見つけて 景色が ひらく場面',
-              mood: 'ふしぎで きらきら',
-              dialogue: 'こんな ところに あったんだ',
-              visibleCast: _allVisibleCast,
-            );
-          default:
-            return StoryGenerationPage(
-              story: '$protagonist は $companion と 力を あわせて、さいごまで やりとげた。'
-                  '帰るころには、はじめよりも もっと じしんに みちた 顔に なっていた。',
-              visualFocus: 'ぼうけんを やりとげて よろこぶ ふたり',
-              mood: '達成感があって やさしい',
-              dialogue: 'できたね',
-              visibleCast: _allVisibleCast,
-            );
-        }
-      }).toList(growable: false),
+        growable: false,
+      ),
     );
   }
 
   static List<SDMap> storyPagesFromDraft(StoryGenerationDraft draft) {
     return draft.pages
-        .take(StoryGenerationDraft.bodyPageCount)
         .map(
           (page) => <String, dynamic>{
             'story': page.story,
@@ -323,7 +283,7 @@ class StoryGenerationComposer {
       buildStyleGuide(draft: draft),
       buildCharacterLock(draft: draft),
       buildPageCastRules(page: page),
-      'Illustrate body page ${pageIndex + 1} of ${StoryGenerationDraft.bodyPageCount}.',
+      'Illustrate body page ${pageIndex + 1} of ${draft.pages.length}.',
       'Story beat: ${page.story}.',
       if (page.visualFocus.isNotEmpty) 'Visual focus: ${page.visualFocus}.',
       if (page.mood.isNotEmpty) 'Mood: ${page.mood}.',
@@ -396,8 +356,7 @@ class StoryGenerationComposer {
         .map((page) => Map<String, dynamic>.from(page))
         .toList(growable: true);
 
-    if (pages.length > StoryGenerationDraft.bodyPageCount &&
-        normalizedTitle.isNotEmpty) {
+    if (pages.length > 1 && normalizedTitle.isNotEmpty) {
       final firstStory = _comparisonKey(pages.first['story']);
       if (firstStory == normalizedTitle) {
         pages.removeAt(0);
@@ -406,6 +365,54 @@ class StoryGenerationComposer {
 
     return pages;
   }
+}
+
+StoryGenerationPage _fallbackPage({
+  required int index,
+  required int pageCount,
+  required String protagonist,
+  required String place,
+  required String companion,
+  required String specialDetail,
+}) {
+  if (index == 0) {
+    return StoryGenerationPage(
+      story: '$protagonist は $place に つくと、$companion と いっしょに '
+          'きょうの ぼうけんを はじめた。「いってみよう」と えがおで すすんだ。',
+      visualFocus: '$protagonist と $companion が $place の入口に立つ場面',
+      mood: 'わくわくして あたたかい',
+      dialogue: 'いってみよう',
+      visibleCast: _allVisibleCast,
+    );
+  }
+  if (index == pageCount - 1) {
+    return StoryGenerationPage(
+      story: '$protagonist は $companion と 力をあわせて、さいごまで やりとげた。'
+          '帰るころには、はじめよりも もっと じしんにみちた 顔に なっていた。',
+      visualFocus: 'ぼうけんをやりとげて よろこぶ ふたり',
+      mood: '達成感があって やさしい',
+      dialogue: 'できたね',
+      visibleCast: _allVisibleCast,
+    );
+  }
+  if (index < pageCount / 2) {
+    return StoryGenerationPage(
+      story: 'ふたりの まえに ちいさな トラブルが あらわれた。'
+          'でも $protagonist は $specialDetail ところを 思いだし、あわてずに まわりを見た。',
+      visualFocus: '$protagonist が 困りごとを見つめて 考える場面',
+      mood: 'どきどきするが 前向き',
+      dialogue: 'だいじょうぶ、きっと みつかるよ',
+      visibleCast: _allVisibleCast,
+    );
+  }
+  return StoryGenerationPage(
+    story: '$companion が ひみつの 手がかりを見つけると、景色の見え方が くるりと変わった。'
+        '思っていたよりも やさしい 答えが その先に かくれていた。',
+    visualFocus: 'ひみつの手がかりを見つけて 景色がひらく場面',
+    mood: 'ふしぎで きらきら',
+    dialogue: 'こんな ところに あったんだ',
+    visibleCast: _allVisibleCast,
+  );
 }
 
 List<StoryGenerationPage> _legacyPagesFromResponse(SDMap response) {
@@ -460,8 +467,7 @@ List<String> _normalizeVisibleCast(Object? value) {
     }
 
     final castRole = _normalizeText(entry).toLowerCase();
-    if ((castRole == _protagonistCastRole ||
-            castRole == _companionCastRole) &&
+    if ((castRole == _protagonistCastRole || castRole == _companionCastRole) &&
         !normalized.contains(castRole)) {
       normalized.add(castRole);
     }

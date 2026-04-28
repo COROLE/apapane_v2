@@ -11,6 +11,7 @@ import 'package:apapane/views/common/rounded_mic_button.dart';
 import 'package:apapane/views/chat_screen/components/custom_chat_theme.dart';
 import 'package:apapane/views/chat_screen/components/judge_ui.dart';
 import 'package:apapane/views/chat_screen/components/rounded_example_button.dart';
+import 'package:apapane/views/chat_screen/components/story_setup_sheet.dart';
 import 'package:apapane/providers/make_story_providers.dart';
 
 class ChatScreen extends ConsumerWidget {
@@ -19,9 +20,25 @@ class ChatScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final chatViewModel = ref.watch(chatViewModelProvider);
-    final storyViewModel = ref.watch(storyViewModelProvider);
     double screenHeight = MediaQuery.of(context).size.height;
     double screenWidth = MediaQuery.of(context).size.width;
+
+    Future<void> openStorySetup() async {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => StorySetupSheet(
+          initialMode: chatViewModel.selectedMode,
+          initialOptions: chatViewModel.storyOptions,
+          onPreview: (mode, options) =>
+              chatViewModel.generateStoryPreviewButtonPressed(
+            context: context,
+            mode: mode,
+            storyOptions: options,
+          ),
+        ),
+      );
+    }
 
     return chatViewModel.isLoading
         ? const CircleProgressIndicator(
@@ -122,9 +139,7 @@ class ChatScreen extends ConsumerWidget {
                             onPressed: chatViewModel.isCommentLoading
                                 ? () async => await UIHelper.showFlutterToast(
                                     pleaseWaitMSG)
-                                : () => chatViewModel.createButtonPressed(
-                                    context: context,
-                                    storyViewModel: storyViewModel)),
+                                : openStorySetup),
                         SizedBox(width: screenWidth * 0.03),
                       ],
                     ),
@@ -145,10 +160,7 @@ class ChatScreen extends ConsumerWidget {
                           ? () async => await UIHelper.showFlutterToast(
                                 pleaseWaitMSG,
                               )
-                          : () => chatViewModel.createButtonPressed(
-                                context: context,
-                                storyViewModel: storyViewModel,
-                              ),
+                          : openStorySetup,
                       chatViewModel: chatViewModel,
                     )
                   : const SizedBox.shrink()

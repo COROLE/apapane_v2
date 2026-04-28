@@ -6,7 +6,7 @@ void main() {
   final expiredSubscriptionEnd = DateTime(2026, 4, 9);
   final now = DateTime(2026, 4, 10);
 
-  test('story creation uses subscription without consuming coins', () {
+  test('story creation preflight allows active subscriptions', () {
     final decision = PurchaseRepository.evaluateStoryCreationClaim(
       {
         'coins': 3,

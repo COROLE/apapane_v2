@@ -163,27 +163,12 @@ class PurchaseRepository {
   }
 
   Future<PurchaseEntitlements> claimStoryCreationAccess(String uid) async {
-    final userRef = _firestore.collection('users').doc(uid);
-    return _firestore.runTransaction((transaction) async {
-      final snapshot = await transaction.get(userRef);
-      final currentData = snapshot.data();
-      final decision = evaluateStoryCreationClaim(currentData);
-      if (!decision.canCreate) {
-        throw const StoryCreationAccessDenied();
-      }
-
-      if (decision.shouldConsumeCoin) {
-        transaction.set(
-          userRef,
-          {
-            'coins': decision.entitlements.coins,
-          },
-          SetOptions(merge: true),
-        );
-      }
-
-      return decision.entitlements;
-    });
+    if (uid.trim().isEmpty) {
+      throw const StoryCreationAccessDenied();
+    }
+    throw StateError(
+      'おはなし作成の権利確保は Cloud Functions の予約処理で行います。',
+    );
   }
 
   Future<Uri?> subscriptionManagementUri() async {
