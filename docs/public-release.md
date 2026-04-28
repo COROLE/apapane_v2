@@ -10,7 +10,6 @@
 - `FIREBASE_IOS_BUNDLE_ID`, `GOOGLE_WEB_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`, and `GOOGLE_IOS_URL_SCHEME` must match the live Firebase Auth configuration after each OAuth or signing-certificate change.
 - Deploy Cloud Functions with server secrets:
   - `GEMINI_API_KEY`
-  - `OPENAI_API_KEY`
   - `PLAY_SERVICE_ACCOUNT_JSON`
   - `APPLE_SHARED_SECRET`
 - Cloud Functions now require App Check for public traffic. Release builds must send App Check on callable APIs and on the HTTP image generation endpoint.

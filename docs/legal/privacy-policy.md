@@ -83,7 +83,6 @@ Apapane は、子ども向けのやさしい物語体験を想定した、AI ス
 - Google Sign-In
 - Sign in with Apple
 - Google Gemini API
-- OpenAI API
 - Google Cloud Text-to-Speech
 - Apple App Store / Google Play による課金基盤
 

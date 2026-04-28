@@ -96,7 +96,6 @@ It is not the same credential as `PLAY_SERVICE_ACCOUNT_JSON`.
 Required existing Cloud Functions secrets:
 
 - `GEMINI_API_KEY`
-- `OPENAI_API_KEY`
 - `PLAY_SERVICE_ACCOUNT_JSON`
 - `APPLE_SHARED_SECRET`
 
@@ -238,18 +237,17 @@ State as of 2026-04-28 JST:
   generated image URL failed to load on device.
 - Image transport hotfix: generated image functions now return base64 even when
   Storage upload succeeds, and the app prefers base64 over remote preview URLs
-  for newly generated pages. Client image call timeout is 300 seconds and the
-  OpenAI image function timeout is 360 seconds because production image calls
-  were observed taking roughly 130-148 seconds each.
+  for newly generated pages. Client image call timeout is 420 seconds and the
+  image function timeout is 360 seconds because production image calls were
+  observed taking roughly 130-148 seconds each.
 - Image generation reliability hotfix: body-page images are now generated in
   batches of 3 instead of fully sequentially, the separate cover image request
-  was removed, and GPT image quality was lowered from high to medium to reduce
-  per-page latency. The first body-page image is used as the title image.
-- OpenAI billing blocker observed: a direct production `generateImageHttp`
-  smoke call returned `Billing hard limit has been reached.` Until the OpenAI
-  project billing hard limit is raised or credits are added, paid story
-  generation cannot produce full AI image sets. Code now maps this to a
-  non-retryable quota/resource-exhausted error and shows a clearer app message.
+  was removed, and the first body-page image is used as the title image.
+- Image provider switch: image generation was moved from OpenAI GPT Image to
+  Gemini Imagen 4 Fast via the existing `GEMINI_API_KEY`. A direct production
+  `generateImageHttp` smoke call had returned `Billing hard limit has been
+  reached.` on OpenAI, so the backend no longer requires `OPENAI_API_KEY` for
+  story images.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`

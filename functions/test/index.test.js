@@ -124,28 +124,26 @@ test('apiErrorCodeForResponse maps billing limits to resource exhaustion', () =>
   );
 });
 
-test('image generation uses GPT Image 2 with vertical output settings', () => {
-  const request = __test__.buildOpenAiImageRequest('draw a friendly scene');
+test('image generation uses Imagen 4 fast with vertical output settings', () => {
+  const request = __test__.buildImagenImageRequest('draw a friendly scene');
 
-  assert.equal(__test__.OPENAI_IMAGE_MODEL, 'gpt-image-2');
-  assert.equal(__test__.OPENAI_IMAGE_SIZE, '1024x1536');
-  assert.equal(__test__.OPENAI_IMAGE_QUALITY, 'medium');
-  assert.equal(__test__.OPENAI_IMAGE_OUTPUT_FORMAT, 'jpeg');
-  assert.equal(__test__.OPENAI_IMAGE_OUTPUT_COMPRESSION, 90);
+  assert.equal(__test__.IMAGEN_IMAGE_MODEL, 'imagen-4.0-fast-generate-001');
+  assert.equal(__test__.IMAGEN_IMAGE_ASPECT_RATIO, '9:16');
+  assert.equal(__test__.IMAGEN_IMAGE_SAMPLE_COUNT, 1);
+  assert.equal(__test__.IMAGEN_PERSON_GENERATION, 'allow_all');
   assert.ok(__test__.IMAGE_OUTPUT_JPEG_QUALITY >= 85);
   assert.deepEqual(request, {
-    model: 'gpt-image-2',
-    prompt: 'draw a friendly scene',
-    size: '1024x1536',
-    quality: 'medium',
-    output_format: 'jpeg',
-    output_compression: 90,
-    background: 'opaque',
+    instances: [{ prompt: 'draw a friendly scene' }],
+    parameters: {
+      sampleCount: 1,
+      aspectRatio: '9:16',
+      personGeneration: 'allow_all',
+    },
   });
 });
 
-test('sanitizeOpenAiImagePrompt avoids GPT Image 2 safety trigger wording', () => {
-  const prompt = __test__.sanitizeOpenAiImagePrompt(
+test('sanitizeImagePrompt avoids provider safety trigger wording', () => {
+  const prompt = __test__.sanitizeImagePrompt(
     'Children picture-book illustration for a young audience, different age, adult themes',
   );
 

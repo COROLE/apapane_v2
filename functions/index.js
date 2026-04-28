@@ -8,8 +8,8 @@ const withGeminiSecret = functions.runWith({
   secrets: ['GEMINI_API_KEY'],
   timeoutSeconds: 120,
 });
-const withOpenAiSecret = functions.runWith({
-  secrets: ['OPENAI_API_KEY'],
+const withGeminiImageSecret = functions.runWith({
+  secrets: ['GEMINI_API_KEY'],
   timeoutSeconds: 360,
   memory: '1GB',
 });
@@ -135,11 +135,10 @@ const STORY_REQUIRED_CHARACTER_FIELDS = [
   'worldDetails',
   'artDirection',
 ];
-const OPENAI_IMAGE_MODEL = 'gpt-image-2';
-const OPENAI_IMAGE_SIZE = '1024x1536';
-const OPENAI_IMAGE_QUALITY = 'medium';
-const OPENAI_IMAGE_OUTPUT_FORMAT = 'jpeg';
-const OPENAI_IMAGE_OUTPUT_COMPRESSION = 90;
+const IMAGEN_IMAGE_MODEL = 'imagen-4.0-fast-generate-001';
+const IMAGEN_IMAGE_ASPECT_RATIO = '9:16';
+const IMAGEN_IMAGE_SAMPLE_COUNT = 1;
+const IMAGEN_PERSON_GENERATION = 'allow_all';
 const IMAGE_OUTPUT_JPEG_QUALITY = 86;
 const BANNED_STORY_ENDINGS = [
   'みんなで楽しく過ごしました',
@@ -344,65 +343,69 @@ exports.cancelStoryGeneration = functions.https.onCall(
   },
 );
 
-exports.generateImage = withOpenAiSecret.https.onCall(async (data, context) => {
-  const caller = resolveGeneratorCaller(context, data);
+exports.generateImage = withGeminiImageSecret.https.onCall(
+  async (data, context) => {
+    const caller = resolveGeneratorCaller(context, data);
 
-  try {
-    const prompt = readString(data.prompt, 'prompt');
-    const negativePrompt =
-      typeof data.negativePrompt === 'string' ? data.negativePrompt : '';
-    const seed = Number.isInteger(data.seed) ? data.seed : 0;
+    try {
+      const prompt = readString(data.prompt, 'prompt');
+      const negativePrompt =
+        typeof data.negativePrompt === 'string' ? data.negativePrompt : '';
+      const seed = Number.isInteger(data.seed) ? data.seed : 0;
 
-    return await generateSafeImage({
-      callerId: caller.id,
-      prompt,
-      negativePrompt,
-      seed,
-    });
-  } catch (error) {
-    logImageGenerationFailure('generateImage', caller.id, error);
-    throw error;
-  }
-});
+      return await generateSafeImage({
+        callerId: caller.id,
+        prompt,
+        negativePrompt,
+        seed,
+      });
+    } catch (error) {
+      logImageGenerationFailure('generateImage', caller.id, error);
+      throw error;
+    }
+  },
+);
 
-exports.generateImageHttp = withOpenAiSecret.https.onRequest(async (req, res) => {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-AppCheck');
-  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+exports.generateImageHttp = withGeminiImageSecret.https.onRequest(
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-AppCheck');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return;
-  }
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
 
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'method-not-allowed' });
-    return;
-  }
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'method-not-allowed' });
+      return;
+    }
 
-  let callerId = 'http';
-  try {
-    const body = normalizeHttpBody(req.body);
-    const caller = resolveGeneratorCaller({ rawRequest: req }, body);
-    callerId = caller.id;
-    const prompt = readString(body.prompt, 'prompt');
-    const negativePrompt =
-      typeof body.negativePrompt === 'string' ? body.negativePrompt : '';
-    const seed = Number.isInteger(body.seed) ? body.seed : 0;
+    let callerId = 'http';
+    try {
+      const body = normalizeHttpBody(req.body);
+      const caller = resolveGeneratorCaller({ rawRequest: req }, body);
+      callerId = caller.id;
+      const prompt = readString(body.prompt, 'prompt');
+      const negativePrompt =
+        typeof body.negativePrompt === 'string' ? body.negativePrompt : '';
+      const seed = Number.isInteger(body.seed) ? body.seed : 0;
 
-    const result = await generateSafeImage({
-      callerId: caller.id,
-      prompt,
-      negativePrompt,
-      seed,
-    });
+      const result = await generateSafeImage({
+        callerId: caller.id,
+        prompt,
+        negativePrompt,
+        seed,
+      });
 
-    res.status(200).json(result);
-  } catch (error) {
-    logImageGenerationFailure('generateImageHttp', callerId, error);
-    sendHttpError(res, error);
-  }
-});
+      res.status(200).json(result);
+    } catch (error) {
+      logImageGenerationFailure('generateImageHttp', callerId, error);
+      sendHttpError(res, error);
+    }
+  },
+);
 
 exports.synthesizeVoice = withAppCheck.https.onCall(async (data, context) => {
   requireCallableAppCheck(context);
@@ -1774,12 +1777,12 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
     throw createChildSafeError();
   }
 
-  const result = await callOpenAiImage({
+  const result = await callGeminiImagen({
     prompt: [CHILD_SAFE_IMAGE_PREFIX, prompt].join('\n\n'),
     negativePrompt: [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
       .filter(Boolean)
       .join(', '),
-    apiKey: readEnv('OPENAI_API_KEY'),
+    apiKey: readEnv('GEMINI_API_KEY'),
     seed,
   });
 
@@ -1921,9 +1924,9 @@ async function callGeminiText({
   return text;
 }
 
-async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
-  const safePrompt = sanitizeOpenAiImagePrompt(prompt);
-  const safeNegativePrompt = sanitizeOpenAiImagePrompt(negativePrompt);
+async function callGeminiImagen({ prompt, negativePrompt, apiKey, seed }) {
+  const safePrompt = sanitizeImagePrompt(prompt);
+  const safeNegativePrompt = sanitizeImagePrompt(negativePrompt);
   const mergedPrompt = [
     safePrompt.trim(),
     safeNegativePrompt.trim()
@@ -1933,23 +1936,30 @@ async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
     .filter(Boolean)
     .join('\n\n');
 
-  const payload = await postJson('https://api.openai.com/v1/images/generations', {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
+  const payload = await postJson(
+    `https://generativelanguage.googleapis.com/v1beta/models/${IMAGEN_IMAGE_MODEL}:predict`,
+    {
+      headers: {
+        'x-goog-api-key': apiKey,
+      },
+      body: buildImagenImageRequest(mergedPrompt),
     },
-    body: buildOpenAiImageRequest(mergedPrompt),
-  });
+  );
 
-  const images = Array.isArray(payload.data) ? payload.data : [];
-  const base64 = images.find(
-    (image) => typeof image?.b64_json === 'string' && image.b64_json.trim(),
-  )?.b64_json;
+  const predictions = Array.isArray(payload.predictions)
+    ? payload.predictions
+    : [];
+  const base64 = predictions.find(
+    (prediction) =>
+      typeof prediction?.bytesBase64Encoded === 'string' &&
+      prediction.bytesBase64Encoded.trim(),
+  )?.bytesBase64Encoded;
   if (typeof base64 === 'string' && base64.trim().length > 0) {
     const normalizedBuffer = await normalizeGeneratedImage(base64.trim());
     return {
       imageBuffer: normalizedBuffer,
       seed: seed || Date.now(),
-      model: OPENAI_IMAGE_MODEL,
+      model: IMAGEN_IMAGE_MODEL,
     };
   }
 
@@ -1959,7 +1969,7 @@ async function callOpenAiImage({ prompt, negativePrompt, apiKey, seed }) {
   );
 }
 
-function sanitizeOpenAiImagePrompt(value) {
+function sanitizeImagePrompt(value) {
   if (typeof value !== 'string') {
     return '';
   }
@@ -1973,15 +1983,14 @@ function sanitizeOpenAiImagePrompt(value) {
     .trim();
 }
 
-function buildOpenAiImageRequest(prompt) {
+function buildImagenImageRequest(prompt) {
   return {
-    model: OPENAI_IMAGE_MODEL,
-    prompt,
-    size: OPENAI_IMAGE_SIZE,
-    quality: OPENAI_IMAGE_QUALITY,
-    output_format: OPENAI_IMAGE_OUTPUT_FORMAT,
-    output_compression: OPENAI_IMAGE_OUTPUT_COMPRESSION,
-    background: 'opaque',
+    instances: [{ prompt }],
+    parameters: {
+      sampleCount: IMAGEN_IMAGE_SAMPLE_COUNT,
+      aspectRatio: IMAGEN_IMAGE_ASPECT_RATIO,
+      personGeneration: IMAGEN_PERSON_GENERATION,
+    },
   };
 }
 
@@ -2824,6 +2833,9 @@ function apiErrorCodeForResponse(status, message) {
   if (
     status === 429 ||
     normalized.includes('billing hard limit') ||
+    normalized.includes('resource exhausted') ||
+    normalized.includes('resource_exhausted') ||
+    normalized.includes('rate limit') ||
     normalized.includes('insufficient_quota') ||
     normalized.includes('quota')
   ) {
@@ -3079,15 +3091,14 @@ function readRequestId(value) {
 exports.__test__ = {
   CHILD_SAFE_REWRITE_MESSAGE,
   IMAGE_OUTPUT_JPEG_QUALITY,
-  OPENAI_IMAGE_MODEL,
-  OPENAI_IMAGE_OUTPUT_COMPRESSION,
-  OPENAI_IMAGE_OUTPUT_FORMAT,
-  OPENAI_IMAGE_QUALITY,
-  OPENAI_IMAGE_SIZE,
+  IMAGEN_IMAGE_ASPECT_RATIO,
+  IMAGEN_IMAGE_MODEL,
+  IMAGEN_IMAGE_SAMPLE_COUNT,
+  IMAGEN_PERSON_GENERATION,
   SILVER_MONTHLY_STORY_CREDITS,
   STORY_MODES,
   buildFallbackStoryPreview,
-  buildOpenAiImageRequest,
+  buildImagenImageRequest,
   buildStoryPreviewPrompt,
   buildStoryPreviewRepairPrompt,
   buildStoryPreviewResponseSchema,
@@ -3117,7 +3128,7 @@ exports.__test__ = {
   requireHttpAppCheck,
   resolveStoryMode,
   resolveGeneratorCaller,
-  sanitizeOpenAiImagePrompt,
+  sanitizeImagePrompt,
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,
   validateGeneratedStoryQuality,
