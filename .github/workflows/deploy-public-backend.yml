@@ -1,6 +1,9 @@
 name: Deploy Public Backend
 
 on:
+  push:
+    branches:
+      - codex/backend-deploy-d9ac92f
   workflow_dispatch:
 
 concurrency:
