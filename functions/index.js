@@ -309,17 +309,15 @@ exports.generateStoryPreview = withGeminiSecret.https.onCall(
   },
 );
 
-exports.getStoryCreationStatus = withAppCheck.https.onCall(
+exports.getStoryCreationStatus = functions.https.onCall(
   async (_, context) => {
-    requireCallableAppCheck(context);
     const uid = requireParentAccount(context);
     return getStoryCreationStatusForUid(uid);
   },
 );
 
-exports.reserveStoryGeneration = withAppCheck.https.onCall(
+exports.reserveStoryGeneration = functions.https.onCall(
   async (data, context) => {
-    requireCallableAppCheck(context);
     const uid = requireParentAccount(context);
     rejectClientStoryPricing(data);
     const mode = resolveStoryMode(data.mode, DEFAULT_NEW_STORY_MODE_KEY);
@@ -328,18 +326,16 @@ exports.reserveStoryGeneration = withAppCheck.https.onCall(
   },
 );
 
-exports.completeStoryGeneration = withAppCheck.https.onCall(
+exports.completeStoryGeneration = functions.https.onCall(
   async (data, context) => {
-    requireCallableAppCheck(context);
     const uid = requireParentAccount(context);
     const requestId = readRequestId(data.requestId);
     return completeStoryGenerationForUid({ uid, requestId });
   },
 );
 
-exports.cancelStoryGeneration = withAppCheck.https.onCall(
+exports.cancelStoryGeneration = functions.https.onCall(
   async (data, context) => {
-    requireCallableAppCheck(context);
     const uid = requireParentAccount(context);
     const requestId = readRequestId(data.requestId);
     const reason =
