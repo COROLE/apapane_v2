@@ -236,6 +236,11 @@ State as of 2026-04-28 JST:
   actually loaded bytes for every generated body-page image. The previous check
   only required an image source string, which still allowed fallback art if a
   generated image URL failed to load on device.
+- Image transport hotfix: generated image functions now return base64 even when
+  Storage upload succeeds, and the app prefers base64 over remote preview URLs
+  for newly generated pages. Client image call timeout is 300 seconds and the
+  OpenAI image function timeout is 360 seconds because production image calls
+  were observed taking roughly 130-148 seconds each.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`

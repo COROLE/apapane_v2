@@ -876,14 +876,14 @@ class StoryViewModel extends ChangeNotifier {
   }
 
   String? _extractImageSource(Map<String, dynamic> response) {
-    final imageUrl = response['imageUrl'];
-    if (imageUrl is String && imageUrl.trim().isNotEmpty) {
-      return imageUrl.trim();
-    }
-
     final base64Image = response['base64'];
     if (base64Image is String && base64Image.trim().isNotEmpty) {
       return base64Image.trim();
+    }
+
+    final imageUrl = response['imageUrl'];
+    if (imageUrl is String && imageUrl.trim().isNotEmpty) {
+      return imageUrl.trim();
     }
 
     return null;

@@ -10,7 +10,7 @@ const withGeminiSecret = functions.runWith({
 });
 const withOpenAiSecret = functions.runWith({
   secrets: ['OPENAI_API_KEY'],
-  timeoutSeconds: 180,
+  timeoutSeconds: 360,
   memory: '1GB',
 });
 const withPurchaseSecrets = functions.runWith({
@@ -1784,6 +1784,7 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
   });
 
   const response = {
+    base64: result.imageBuffer.toString('base64'),
     seed: result.seed,
     model: result.model,
   };
@@ -1798,7 +1799,6 @@ async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
     response.storagePath = uploadedImage.storagePath;
   } catch (error) {
     functions.logger.error('Failed to store generated image preview.', error);
-    response.base64 = result.imageBuffer.toString('base64');
   }
 
   await writeSafetyAuditLog({
