@@ -298,9 +298,19 @@ State as of 2026-04-29 JST:
   - Earlier duplicate deploy runs `25112533065` and `25112729099` were cancelled
     before upload; use `25112816000` as the valid TestFlight run for this fix.
 - Imagen quality model trial:
+  - Commit: `f3a5c39 Switch Imagen model to quality variant`
   - Backend image model was changed from `imagen-4.0-fast-generate-001` to
     `imagen-4.0-generate-001` to test whether the non-Fast Imagen 4 model
     follows story-specific prompts better.
+  - Verification passed: `npm --prefix functions run lint` and
+    `npm --prefix functions test`.
+  - Firebase Functions deploy: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Production `generateImageHttp` smoke after deploy: success,
+    `model=imagen-4.0-generate-001`, base64 returned, Storage URL returned,
+    elapsed about 20.7 seconds, base64 length about 426k characters.
+  - Push-triggered TestFlight run `25115450599` was cancelled because this was a
+    backend-only model constant change and did not require a new app binary.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
