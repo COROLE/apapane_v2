@@ -272,7 +272,10 @@ class StoryViewModel extends ChangeNotifier {
         sentence: sentence,
         pageIndex: pageIndex,
       );
-      _preparedStoryPageImages[pageIndex] = fallbackImage;
+      _cacheFallbackStoryImage(
+        pageIndex: pageIndex,
+        imageBytes: fallbackImage,
+      );
     }
 
     final sortedFailures = failedPageIndexes.toList(growable: false)..sort();
@@ -595,6 +598,14 @@ class StoryViewModel extends ChangeNotifier {
         return buildFallbackStoryImage(
           sentence: sentence,
           pageIndex: pageIndex,
+        ).then(
+          (fallbackImage) {
+            _cacheFallbackStoryImage(
+              pageIndex: pageIndex,
+              imageBytes: fallbackImage,
+            );
+            return fallbackImage;
+          },
         );
       },
     );
@@ -696,7 +707,10 @@ class StoryViewModel extends ChangeNotifier {
             sentence: sentence,
             pageIndex: pageIndex,
           );
-          _preparedStoryPageImages[pageIndex] = fallbackImage;
+          _cacheFallbackStoryImage(
+            pageIndex: pageIndex,
+            imageBytes: fallbackImage,
+          );
           return fallbackImage;
         }
 
@@ -716,7 +730,10 @@ class StoryViewModel extends ChangeNotifier {
             sentence: sentence,
             pageIndex: pageIndex,
           );
-          _preparedStoryPageImages[pageIndex] = fallbackImage;
+          _cacheFallbackStoryImage(
+            pageIndex: pageIndex,
+            imageBytes: fallbackImage,
+          );
           return fallbackImage;
         }
       },
@@ -727,7 +744,10 @@ class StoryViewModel extends ChangeNotifier {
           sentence: sentence,
           pageIndex: pageIndex,
         );
-        _preparedStoryPageImages[pageIndex] = fallbackImage;
+        _cacheFallbackStoryImage(
+          pageIndex: pageIndex,
+          imageBytes: fallbackImage,
+        );
         return fallbackImage;
       },
     );
@@ -749,6 +769,31 @@ class StoryViewModel extends ChangeNotifier {
     _preparedStoryPageImages[pageIndex] = imageBytes;
     _imageCache[imageSource] = imageBytes;
     _clearImageDiagnostic(pageIndex, notify: false);
+
+    if (pageIndex == 0) {
+      _titleImage = imageSource;
+    }
+
+    notifyListeners();
+  }
+
+  void _cacheFallbackStoryImage({
+    required int pageIndex,
+    required Uint8List imageBytes,
+  }) {
+    if (pageIndex < 0 ||
+        pageIndex >= _storyPages.length ||
+        imageBytes.isEmpty) {
+      return;
+    }
+
+    final imageSource = base64Encode(imageBytes);
+    _storyPages[pageIndex] = {
+      ..._storyPages[pageIndex],
+      'image': imageSource,
+    };
+    _preparedStoryPageImages[pageIndex] = imageBytes;
+    _imageCache[imageSource] = imageBytes;
 
     if (pageIndex == 0) {
       _titleImage = imageSource;

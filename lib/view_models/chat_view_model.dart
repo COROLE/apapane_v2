@@ -56,9 +56,6 @@ enum StoryCreationAccessState {
 }
 
 class ChatViewModel extends ChangeNotifier {
-  static const String _incompleteImageGenerationMessage =
-      '\u753b\u50cf\u3092\u5168\u90e8\u4f5c\u308c\u307e\u305b\u3093\u3067\u3057\u305f\u3002'
-      '\u5c11\u3057\u5f85\u3063\u3066\u3082\u3046\u4e00\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002';
   static const String _imageQuotaMessage =
       '\u753b\u50cf\u751f\u6210API\u306e\u5229\u7528\u4e0a\u9650\u306b\u9054\u3057\u3066\u3044\u307e\u3059\u3002'
       '\u7ba1\u7406\u8005\u5074\u3067\u753b\u50cf\u751f\u6210API\u306e\u4e0a\u9650\u8a2d\u5b9a\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002';
@@ -581,14 +578,13 @@ class ChatViewModel extends ChangeNotifier {
         storyViewModel.toStoryPageType = ToStoryPageType.newStory;
         final failedImagePageIndexes = await storyViewModel.prewarmStoryImages(
           isNew: true,
-          requireGeneratedImages: true,
+          requireGeneratedImages: false,
         );
         if (failedImagePageIndexes.isNotEmpty) {
           debugPrint(
-            'Generated story image verification failed for pages: '
+            'Generated story image prewarm recovered with fallbacks for pages: '
             '$failedImagePageIndexes',
           );
-          throw StateError(_incompleteImageGenerationMessage);
         }
 
         await _apiRepository.completeStoryGeneration(
@@ -939,19 +935,19 @@ class ChatViewModel extends ChangeNotifier {
     );
     if (failedPageIndexes.isNotEmpty) {
       debugPrint(
-        'Direct image generation failed for pages: $failedPageIndexes',
+        'Direct image generation failed for pages and will recover during '
+        'story prewarm: $failedPageIndexes',
       );
-      throw StateError(_incompleteImageGenerationMessage);
     }
 
     final missingImagePageIndexes =
         _missingStoryImagePageIndexes(prefetchedStory);
     if (missingImagePageIndexes.isNotEmpty) {
       debugPrint(
-        'Story image generation completed with missing images: '
+        'Story image generation completed with missing images; story prewarm '
+        'will recover pages: '
         '$missingImagePageIndexes',
       );
-      throw StateError(_incompleteImageGenerationMessage);
     }
 
     if (titleImage.isEmpty && prefetchedStory.isNotEmpty) {
