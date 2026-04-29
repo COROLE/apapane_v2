@@ -297,6 +297,10 @@ State as of 2026-04-29 JST:
   - TestFlight run: `25112816000`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25112816000`, workflow run number/build number `49`, result success through `Upload to TestFlight`.
   - Earlier duplicate deploy runs `25112533065` and `25112729099` were cancelled
     before upload; use `25112816000` as the valid TestFlight run for this fix.
+- Imagen quality model trial:
+  - Backend image model was changed from `imagen-4.0-fast-generate-001` to
+    `imagen-4.0-generate-001` to test whether the non-Fast Imagen 4 model
+    follows story-specific prompts better.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`

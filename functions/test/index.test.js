@@ -124,10 +124,10 @@ test('apiErrorCodeForResponse maps billing limits to resource exhaustion', () =>
   );
 });
 
-test('image generation uses Imagen 4 fast with vertical output settings', () => {
+test('image generation uses Imagen 4 with vertical output settings', () => {
   const request = __test__.buildImagenImageRequest('draw a friendly scene');
 
-  assert.equal(__test__.IMAGEN_IMAGE_MODEL, 'imagen-4.0-fast-generate-001');
+  assert.equal(__test__.IMAGEN_IMAGE_MODEL, 'imagen-4.0-generate-001');
   assert.equal(__test__.IMAGEN_IMAGE_ASPECT_RATIO, '9:16');
   assert.equal(__test__.IMAGEN_IMAGE_SAMPLE_COUNT, 1);
   assert.equal(__test__.IMAGEN_PERSON_GENERATION, 'allow_all');

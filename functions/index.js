@@ -135,7 +135,7 @@ const STORY_REQUIRED_CHARACTER_FIELDS = [
   'worldDetails',
   'artDirection',
 ];
-const IMAGEN_IMAGE_MODEL = 'imagen-4.0-fast-generate-001';
+const IMAGEN_IMAGE_MODEL = 'imagen-4.0-generate-001';
 const IMAGEN_IMAGE_ASPECT_RATIO = '9:16';
 const IMAGEN_IMAGE_SAMPLE_COUNT = 1;
 const IMAGEN_PERSON_GENERATION = 'allow_all';
