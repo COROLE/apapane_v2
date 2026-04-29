@@ -60,6 +60,9 @@ Notes:
 
 - iOS builds run on a macOS runner and use Flutter, CocoaPods, Fastlane, match
   signing assets, and App Store Connect API credentials.
+- App Store Connect now rejects IPA uploads built with the iOS 18.5 SDK. Keep
+  the iOS TestFlight job on `macos-26` or another runner that includes Xcode 26
+  / iOS 26 SDK or later.
 - The workflow restores `.env` from `APP_DOTENV_BASE64` and builds with
   `flutter build ipa --dart-define-from-file=.env`.
 - After upload, App Store Connect processing and tester availability still need

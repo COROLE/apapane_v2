@@ -218,7 +218,7 @@ jobs:
          github.ref == 'refs/heads/master' ||
          github.ref == 'refs/heads/codex/ios-actions-check')) ||
       github.event.inputs.deploy_ios == 'true'
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 45
 
     steps:
