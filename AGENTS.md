@@ -311,6 +311,29 @@ State as of 2026-04-29 JST:
     elapsed about 20.7 seconds, base64 length about 426k characters.
   - Push-triggered TestFlight run `25115450599` was cancelled because this was a
     backend-only model constant change and did not require a new app binary.
+- Structured Imagen prompt pipeline:
+  - Commit: `64300c0 Implement structured Imagen prompt pipeline`
+  - Story image generation no longer sends raw Japanese story/page text directly
+    to Imagen. The app now calls `generateImageSpecs` once per book to build a
+    `CharacterProfile` and page-level `ImagePageSpec[]`; `generateImage` and
+    `generateImageHttp` then build the final English Imagen prompt server-side.
+  - Existing `prompt` image API input remains as legacy compatibility, but new
+    story generation and recovery prefer `imagePageSpec`.
+  - Verification passed:
+    `flutter analyze --no-fatal-warnings --no-fatal-infos`, `flutter test`,
+    `npm --prefix functions run lint`, and `npm --prefix functions test`.
+  - Firebase Functions deploy: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Created function: `generateImageSpecs`. Updated image functions:
+    `generateImage`, `generateImageHttp`.
+  - Production `generateImageSpecs` smoke after deploy: success, returned a
+    character profile and 4 page specs for mini mode.
+  - Production `generateImageHttp` smoke with `imagePageSpec` after deploy:
+    success, `model=imagen-4.0-generate-001`, base64 returned, Storage URL
+    returned, base64 length about 283k characters.
+  - TestFlight run: `25117014464`, URL
+    `https://github.com/COROLE/apapane_v2/actions/runs/25117014464`, workflow
+    build number `51`, result success through `Upload to TestFlight`.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
