@@ -268,6 +268,13 @@ State as of 2026-04-28 JST:
     now rejects iOS 18.5 SDK / Xcode 16.4 uploads.
   - Commit: `2682199 Use Xcode 26 runner for TestFlight`
   - TestFlight run: `25100150937`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25100150937`, result success through `Upload to TestFlight`.
+- Partial image failure behavior:
+  - Commit: `3b0d070 Do not abort stories on partial image failure`
+  - Story creation no longer cancels the whole reservation when a subset of
+    page images fails generation or verification. Failed pages are recovered
+    during story prewarm; if remote recovery still fails, a local fallback image
+    is cached into the page so the story can be completed and saved.
+  - TestFlight run: `25102588267`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25102588267`, result success through `Upload to TestFlight`.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
