@@ -256,6 +256,18 @@ State as of 2026-04-28 JST:
   - Firebase Functions deploy: success with `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`
   - Production `generateImageHttp` smoke: success, `model=imagen-4.0-fast-generate-001`, base64 returned, Storage URL returned, elapsed about 9.4 seconds
   - TestFlight run: `25059842604`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25059842604`, result success through `Upload to TestFlight`
+- Image reliability follow-up:
+  - Commit: `3143ad1 Make story image generation more reliable`
+  - Client image generation concurrency was reduced from 3 to 1 to avoid mobile
+    network failures while receiving multiple large image responses.
+  - Functions image normalization was reduced to 900x1600 JPEG quality 84 to
+    lower response payload size, but local Firebase CLI auth expired before
+    this Functions-only change could be deployed. Run
+    `npx firebase-tools@14 login --reauth` and then redeploy functions.
+  - TestFlight initially failed on run `25099125550` because App Store Connect
+    now rejects iOS 18.5 SDK / Xcode 16.4 uploads.
+  - Commit: `2682199 Use Xcode 26 runner for TestFlight`
+  - TestFlight run: `25100150937`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25100150937`, result success through `Upload to TestFlight`.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
