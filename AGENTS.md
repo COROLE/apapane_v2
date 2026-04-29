@@ -220,7 +220,7 @@ After a successful backend deploy, verify from a release candidate build:
 
 ## Current Branch Notes
 
-State as of 2026-04-28 JST:
+State as of 2026-04-29 JST:
 
 - Main implementation branch: `codex/ios-actions-check`
 - TestFlight upload: completed
@@ -278,6 +278,25 @@ State as of 2026-04-28 JST:
     during story prewarm; if remote recovery still fails, a local fallback image
     is cached into the page so the story can be completed and saved.
   - TestFlight run: `25102588267`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25102588267`, result success through `Upload to TestFlight`.
+- Image relevance hotfix:
+  - Commit: `4c89226 Improve story image prompt relevance`
+  - Story JSON generation now instructs Gemini to keep Japanese story text but
+    write image-only fields such as `coverScene`, `characterSheet`, and
+    `pages[].visualFocus` in concrete English for Imagen.
+  - Client image prompts now front-load `MUST depict this exact scene`, shorten
+    weaker cast wording, keep explicit visible-cast guidance, and raise remote
+    recovery timeout from 45 seconds to 120 seconds before local fallback.
+  - Verification passed:
+    `flutter analyze --no-fatal-warnings --no-fatal-infos`, `flutter test`,
+    `npm --prefix functions run lint`, and `npm --prefix functions test`.
+  - Firebase Functions deploy: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Production `generateImageHttp` smoke after deploy: success,
+    `model=imagen-4.0-fast-generate-001`, base64 returned, Storage URL returned,
+    elapsed about 12.8 seconds, base64 length about 306k characters.
+  - TestFlight run: `25112816000`, URL `https://github.com/COROLE/apapane_v2/actions/runs/25112816000`, workflow run number/build number `49`, result success through `Upload to TestFlight`.
+  - Earlier duplicate deploy runs `25112533065` and `25112729099` were cancelled
+    before upload; use `25112816000` as the valid TestFlight run for this fix.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
