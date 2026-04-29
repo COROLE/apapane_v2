@@ -142,6 +142,36 @@ const IMAGEN_PERSON_GENERATION = 'allow_all';
 const IMAGE_OUTPUT_WIDTH = 900;
 const IMAGE_OUTPUT_HEIGHT = 1600;
 const IMAGE_OUTPUT_JPEG_QUALITY = 84;
+const DEFAULT_IMAGE_STYLE =
+  'Soft children\'s picture book illustration, warm pastel color palette, gentle lighting, clean composition, simple readable shapes, visually appealing for young children, polished and cohesive, high-quality storytelling illustration.';
+const DEFAULT_AVOID_TERMS = Object.freeze([
+  'text',
+  'letters',
+  'captions',
+  'speech bubbles',
+  'scary expression',
+  'horror mood',
+  'dark atmosphere',
+  'cluttered background',
+  'distorted hands',
+  'distorted limbs',
+  'extra fingers',
+  'malformed body parts',
+  'blurry face',
+  'overly realistic texture',
+]);
+const IMAGE_SPEC_REQUIRED_FIELDS = Object.freeze([
+  'page',
+  'sceneGoal',
+  'mainCharacterDescription',
+  'supportingCharacters',
+  'sceneDescription',
+  'composition',
+  'emotion',
+  'backgroundDescription',
+  'style',
+  'avoid',
+]);
 const BANNED_STORY_ENDINGS = [
   'みんなで楽しく過ごしました',
   'みんなでたのしくすごしました',
@@ -169,6 +199,11 @@ const IMAGE_RATE_LIMIT = {
   maxCalls: 40,
   windowMs: 60 * 1000,
 };
+const IMAGE_SPEC_RATE_LIMIT = {
+  key: 'imageSpec',
+  maxCalls: 20,
+  windowMs: 60 * 1000,
+};
 const TTS_RATE_LIMIT = {
   key: 'tts',
   maxCalls: 24,
@@ -187,6 +222,29 @@ Create a wholesome family picture-book illustration.
 - Prefer bright colors, friendly expressions, soft lighting, and cozy, non-threatening scenes.
 - Do not include readable text, captions, logos, or watermarks in the image.
 `.trim();
+/**
+ * @typedef {Object} CharacterProfile
+ * @property {string} name
+ * @property {string} appearance
+ * @property {string} clothing
+ * @property {string} colors
+ * @property {string} expressionStyle
+ * @property {string} personalityTone
+ * @property {string} worldStyle
+ */
+/**
+ * @typedef {Object} ImagePageSpec
+ * @property {number} page
+ * @property {string} sceneGoal
+ * @property {string} mainCharacterDescription
+ * @property {string} supportingCharacters
+ * @property {string} sceneDescription
+ * @property {string} composition
+ * @property {string} emotion
+ * @property {string} backgroundDescription
+ * @property {string} style
+ * @property {string[]} avoid
+ */
 const UNSAFE_VISUAL_NEGATIVE_PROMPT = [
   'low quality',
   'blurry',
@@ -310,6 +368,18 @@ exports.generateStoryPreview = withGeminiSecret.https.onCall(
   },
 );
 
+exports.generateImageSpecs = withGeminiSecret.https.onCall(
+  async (data, context) => {
+    const caller = resolveGeneratorCaller(context, data);
+    const mode = resolveStoryMode(data.mode, DEFAULT_NEW_STORY_MODE_KEY);
+    const input = normalizeImageSpecRequest(data, mode);
+    return generateSafeImageSpecs({
+      callerId: caller.id,
+      ...input,
+    });
+  },
+);
+
 exports.getStoryCreationStatus = functions.https.onCall(
   async (_, context) => {
     const uid = requireParentAccount(context);
@@ -350,16 +420,17 @@ exports.generateImage = withGeminiImageSecret.https.onCall(
     const caller = resolveGeneratorCaller(context, data);
 
     try {
-      const prompt = readString(data.prompt, 'prompt');
+      const imagePrompt = resolveImageGenerationPrompt(data);
       const negativePrompt =
         typeof data.negativePrompt === 'string' ? data.negativePrompt : '';
       const seed = Number.isInteger(data.seed) ? data.seed : 0;
 
       return await generateSafeImage({
         callerId: caller.id,
-        prompt,
+        prompt: imagePrompt.prompt,
         negativePrompt,
         seed,
+        imageDebug: imagePrompt.debug,
       });
     } catch (error) {
       logImageGenerationFailure('generateImage', caller.id, error);
@@ -389,16 +460,17 @@ exports.generateImageHttp = withGeminiImageSecret.https.onRequest(
       const body = normalizeHttpBody(req.body);
       const caller = resolveGeneratorCaller({ rawRequest: req }, body);
       callerId = caller.id;
-      const prompt = readString(body.prompt, 'prompt');
+      const imagePrompt = resolveImageGenerationPrompt(body);
       const negativePrompt =
         typeof body.negativePrompt === 'string' ? body.negativePrompt : '';
       const seed = Number.isInteger(body.seed) ? body.seed : 0;
 
       const result = await generateSafeImage({
         callerId: caller.id,
-        prompt,
+        prompt: imagePrompt.prompt,
         negativePrompt,
         seed,
+        imageDebug: imagePrompt.debug,
       });
 
       res.status(200).json(result);
@@ -1766,8 +1838,674 @@ function createStoryQualityError(issues) {
   );
 }
 
-async function generateSafeImage({ callerId, prompt, negativePrompt, seed }) {
+function buildImageSpecResponseSchema(pageCount) {
+  const characterProperties = {
+    name: { type: 'string' },
+    appearance: { type: 'string' },
+    clothing: { type: 'string' },
+    colors: { type: 'string' },
+    expressionStyle: { type: 'string' },
+    personalityTone: { type: 'string' },
+    worldStyle: { type: 'string' },
+  };
+  const specProperties = {
+    page: { type: 'integer' },
+    sceneGoal: { type: 'string' },
+    mainCharacterDescription: { type: 'string' },
+    supportingCharacters: { type: 'string' },
+    sceneDescription: { type: 'string' },
+    composition: { type: 'string' },
+    emotion: { type: 'string' },
+    backgroundDescription: { type: 'string' },
+    style: { type: 'string' },
+    avoid: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+  };
+
+  return {
+    type: 'object',
+    properties: {
+      characterProfile: {
+        type: 'object',
+        properties: characterProperties,
+        required: Object.keys(characterProperties),
+      },
+      imagePageSpecs: {
+        type: 'array',
+        minItems: pageCount,
+        maxItems: pageCount,
+        items: {
+          type: 'object',
+          properties: specProperties,
+          required: IMAGE_SPEC_REQUIRED_FIELDS,
+        },
+      },
+    },
+    required: ['characterProfile', 'imagePageSpecs'],
+  };
+}
+
+function normalizeImageSpecRequest(data, mode) {
+  const rawPages = Array.isArray(data.pages) ? data.pages : [];
+  if (rawPages.length === 0) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Image spec generation requires pages.',
+    );
+  }
+
+  const pages = rawPages.map((page, index) => {
+    const normalized = page && typeof page === 'object' ? page : {};
+    const story = optionalText(normalized.story);
+    const visualFocus = optionalText(normalized.visualFocus);
+    return {
+      page: Number.isInteger(normalized.page) ? normalized.page : index + 1,
+      story,
+      pageSummary: firstNonEmptyText([
+        normalized.pageSummary,
+        visualFocus,
+        story,
+      ]),
+      visualFocus,
+      mood: optionalText(normalized.mood),
+      dialogue: optionalText(normalized.dialogue),
+      visibleCast: Array.isArray(normalized.visibleCast)
+        ? normalized.visibleCast
+            .filter((entry) => typeof entry === 'string')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        : [],
+    };
+  });
+
+  const title = optionalText(data.title);
+  const story = firstNonEmptyText([
+    data.story,
+    pages.map((page) => `${page.page}. ${page.story}`).join('\n'),
+  ]);
+  const characterSheet =
+    data.characterSheet && typeof data.characterSheet === 'object'
+      ? data.characterSheet
+      : {};
+
+  return {
+    title,
+    story,
+    pages,
+    characterSheet,
+    mode,
+    extraRequirements: optionalText(data.extraRequirements),
+  };
+}
+
+async function generateSafeImageSpecs({
+  callerId,
+  title,
+  story,
+  pages,
+  characterSheet,
+  mode,
+  extraRequirements,
+}) {
+  await enforceRateLimit(callerId, IMAGE_SPEC_RATE_LIMIT);
+
+  const blockedCategory = findUnsafeCategory(
+    [title, story, JSON.stringify(characterSheet), extraRequirements]
+      .filter(Boolean)
+      .join('\n\n'),
+  );
+  if (blockedCategory) {
+    await writeSafetyAuditLog({
+      uid: callerId,
+      feature: 'imageSpec',
+      stage: 'prompt',
+      allowed: false,
+      reason: blockedCategory,
+      prompt: title,
+      metadata: { pageCount: pages.length },
+    });
+    throw createChildSafeError();
+  }
+
+  const fallbackProfile = fallbackCharacterProfile({ title, characterSheet });
+  const fallbackSpecs = pages.map((page) =>
+    fallbackImagePageSpec({
+      page: page.page,
+      pageSummary: page.pageSummary,
+      story: page.story,
+      visualFocus: page.visualFocus,
+      mood: page.mood,
+      characterProfile: fallbackProfile,
+      supportingCharacters: page.visibleCast.includes('companion')
+        ? optionalText(characterSheet.companion)
+        : '',
+    }),
+  );
+  const prompt = buildImageSpecPrompt({
+    title,
+    story,
+    pages,
+    characterSheet,
+    characterProfile: fallbackProfile,
+    mode,
+    extraRequirements,
+  });
+
+  try {
+    const rawText = await callGeminiText({
+      prompt,
+      systemPrompt:
+        'Return only valid JSON for child-safe picture-book image specifications. Write all visual fields in concrete English.',
+      apiKey: readEnv('GEMINI_API_KEY'),
+      jsonOutput: true,
+      responseSchema: buildImageSpecResponseSchema(pages.length),
+      maxOutputTokens: maxImageSpecOutputTokens(pages.length),
+    });
+    const parsed = parseImageSpecJson(rawText, {
+      pageCount: pages.length,
+      fallbackProfile,
+      fallbackSpecs,
+    });
+    logImageSpecsPrepared({
+      callerId,
+      characterProfile: parsed.characterProfile,
+      imagePageSpecs: parsed.imagePageSpecs,
+      source: 'generated',
+    });
+    return { ...parsed, source: 'generated' };
+  } catch (error) {
+    functions.logger.warn('Image spec generation fell back to deterministic specs.', {
+      callerId,
+      pageCount: pages.length,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    logImageSpecsPrepared({
+      callerId,
+      characterProfile: fallbackProfile,
+      imagePageSpecs: fallbackSpecs,
+      source: 'fallback',
+    });
+    return {
+      characterProfile: fallbackProfile,
+      imagePageSpecs: fallbackSpecs,
+      source: 'fallback',
+    };
+  }
+}
+
+function buildImageSpecPrompt({
+  title,
+  story,
+  pages,
+  characterSheet,
+  characterProfile,
+  mode,
+  extraRequirements,
+}) {
+  const pageText = pages
+    .map(
+      (page) => [
+        `Page ${page.page}`,
+        `pageSummary: ${page.pageSummary}`,
+        `story: ${page.story}`,
+        page.visualFocus ? `visualFocus: ${page.visualFocus}` : '',
+        page.mood ? `mood: ${page.mood}` : '',
+        page.dialogue ? `dialogue: ${page.dialogue}` : '',
+        page.visibleCast.length
+          ? `visibleCast: ${page.visibleCast.join(', ')}`
+          : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
+    .join('\n\n');
+
+  return `
+Create structured image specifications for a children's picture book.
+
+Input:
+title:
+${title}
+
+story:
+${story}
+
+characterSheet:
+${JSON.stringify(characterSheet)}
+
+current characterProfile draft:
+${JSON.stringify(characterProfile)}
+
+storyMode:
+${mode.key}, ${mode.pageCount} pages
+
+pages:
+${pageText}
+
+extraRequirements:
+${extraRequirements || 'None.'}
+
+Output JSON only with this exact shape:
+{
+  "characterProfile": {
+    "name": "string",
+    "appearance": "string",
+    "clothing": "string",
+    "colors": "string",
+    "expressionStyle": "string",
+    "personalityTone": "string",
+    "worldStyle": "string"
+  },
+  "imagePageSpecs": [
+    {
+      "page": 1,
+      "sceneGoal": "string",
+      "mainCharacterDescription": "string",
+      "supportingCharacters": "string",
+      "sceneDescription": "string",
+      "composition": "string",
+      "emotion": "string",
+      "backgroundDescription": "string",
+      "style": "string",
+      "avoid": ["string"]
+    }
+  ]
+}
+
+Rules:
+- Write every output value in simple concrete English.
+- Do not copy the full Japanese story into image fields.
+- Make one ImagePageSpec for every input page.
+- Keep the same main character appearance, clothing, colors, and expression style on every page.
+- Make the scene easy to understand at a glance.
+- Use a simple background, clear focal action, readable composition, and warm friendly emotion.
+- Keep the style exactly: ${DEFAULT_IMAGE_STYLE}
+- Every avoid array must include: ${DEFAULT_AVOID_TERMS.join(', ')}.
+- No markdown and no prose outside JSON.
+`.trim();
+}
+
+function parseImageSpecJson(
+  rawText,
+  { pageCount = STORY_BODY_PAGE_COUNT, fallbackProfile = null, fallbackSpecs = [] } = {},
+) {
+  const parsed = parseJsonObjectText(rawText);
+  const characterProfile = normalizeCharacterProfile(
+    parsed.characterProfile,
+    fallbackProfile || fallbackCharacterProfile({}),
+  );
+  const rawSpecs = Array.isArray(parsed.imagePageSpecs)
+    ? parsed.imagePageSpecs
+    : Array.isArray(parsed.pages)
+        ? parsed.pages
+        : [];
+  const imagePageSpecs = [];
+  for (let index = 0; index < pageCount; index += 1) {
+    const page = index + 1;
+    const fallback =
+      fallbackSpecs[index] ||
+      fallbackImagePageSpec({ page, characterProfile });
+    const rawSpec =
+      rawSpecs.find((spec) => Number(spec?.page) === page) || rawSpecs[index];
+    imagePageSpecs.push(
+      normalizeImagePageSpec(rawSpec, {
+        page,
+        fallback,
+        characterProfile,
+      }),
+    );
+  }
+  return { characterProfile, imagePageSpecs };
+}
+
+function fallbackCharacterProfile({ title = '', characterSheet = {} } = {}) {
+  return normalizeCharacterProfile(
+    {
+      name: firstNonEmptyText([title, 'Main character']),
+      appearance: firstNonEmptyText([
+        characterSheet.protagonist,
+        'A cute, friendly main character with a rounded picture-book design.',
+      ]),
+      clothing: 'Simple child-friendly clothing or accessories that stay consistent on every page.',
+      colors: firstNonEmptyText([
+        characterSheet.artDirection,
+        'Warm pastel colors with clear, readable character colors.',
+      ]),
+      expressionStyle:
+        'Gentle, readable facial expressions with bright curious eyes.',
+      personalityTone:
+        'Kind, curious, brave in a gentle way, friendly for young children.',
+      worldStyle: firstNonEmptyText([
+        characterSheet.worldDetails,
+        'A safe, warm, simple children\'s picture-book world.',
+      ]),
+    },
+    {},
+  );
+}
+
+function normalizeCharacterProfile(source, fallback = {}) {
+  const profile = source && typeof source === 'object' ? source : {};
+  return {
+    name: firstNonEmptyText([profile.name, fallback.name, 'Main character']),
+    appearance: firstNonEmptyText([
+      profile.appearance,
+      fallback.appearance,
+      'A cute, friendly main character with rounded shapes.',
+    ]),
+    clothing: firstNonEmptyText([
+      profile.clothing,
+      fallback.clothing,
+      'Simple consistent picture-book clothing.',
+    ]),
+    colors: firstNonEmptyText([
+      profile.colors,
+      fallback.colors,
+      'Warm pastel colors.',
+    ]),
+    expressionStyle: firstNonEmptyText([
+      profile.expressionStyle,
+      fallback.expressionStyle,
+      'Gentle, readable expressions.',
+    ]),
+    personalityTone: firstNonEmptyText([
+      profile.personalityTone,
+      fallback.personalityTone,
+      'Kind, curious, and friendly.',
+    ]),
+    worldStyle: firstNonEmptyText([
+      profile.worldStyle,
+      fallback.worldStyle,
+      'Safe, warm children\'s picture-book world.',
+    ]),
+  };
+}
+
+function fallbackImagePageSpec({
+  page = 1,
+  pageSummary = '',
+  story = '',
+  visualFocus = '',
+  mood = '',
+  characterProfile = null,
+  supportingCharacters = '',
+} = {}) {
+  const profile =
+    characterProfile || fallbackCharacterProfile({ title: 'Main character' });
+  const sceneGoal = firstNonEmptyText([
+    pageSummary,
+    visualFocus,
+    story,
+    `Show page ${page} as a clear warm picture-book moment.`,
+  ]);
+  return normalizeImagePageSpec(
+    {
+      page,
+      sceneGoal,
+      mainCharacterDescription: [
+        profile.appearance,
+        profile.clothing,
+        profile.colors,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      supportingCharacters: firstNonEmptyText([
+        supportingCharacters,
+        'None.',
+      ]),
+      sceneDescription: sceneGoal,
+      composition:
+        'Vertical 9:16 composition with the main character large and clear in the foreground, one simple focal action, and enough open space to read the scene immediately.',
+      emotion: firstNonEmptyText([
+        mood,
+        'Warm, gentle, curious, safe, and friendly.',
+      ]),
+      backgroundDescription:
+        'Simple uncluttered background with soft shapes and only the details needed to understand the scene.',
+      style: DEFAULT_IMAGE_STYLE,
+      avoid: DEFAULT_AVOID_TERMS,
+    },
+    { page, characterProfile: profile },
+  );
+}
+
+function normalizeImagePageSpec(
+  source,
+  { page = 1, fallback = null, characterProfile = null } = {},
+) {
+  const spec = source && typeof source === 'object' ? source : {};
+  const base = fallback || {};
+  const profile = characterProfile || fallbackCharacterProfile({});
+  const normalizedPage = Number.isInteger(spec.page) && spec.page > 0
+    ? spec.page
+    : page;
+  const mainCharacterDescription = firstNonEmptyText([
+    spec.mainCharacterDescription,
+    base.mainCharacterDescription,
+    [profile.appearance, profile.clothing, profile.colors]
+      .filter(Boolean)
+      .join(' '),
+  ]);
+  const avoid = normalizeAvoidTerms(spec.avoid, base.avoid);
+  return {
+    page: normalizedPage,
+    sceneGoal: firstNonEmptyText([
+      spec.sceneGoal,
+      base.sceneGoal,
+      `Show page ${normalizedPage} as a clear storybook moment.`,
+    ]),
+    mainCharacterDescription,
+    supportingCharacters: firstNonEmptyText([
+      spec.supportingCharacters,
+      base.supportingCharacters,
+      'None.',
+    ]),
+    sceneDescription: firstNonEmptyText([
+      spec.sceneDescription,
+      base.sceneDescription,
+      spec.sceneGoal,
+      base.sceneGoal,
+      `A warm child-safe storybook scene for page ${normalizedPage}.`,
+    ]),
+    composition: firstNonEmptyText([
+      spec.composition,
+      base.composition,
+      'Vertical 9:16 composition, clear focal action, uncluttered layout.',
+    ]),
+    emotion: firstNonEmptyText([
+      spec.emotion,
+      base.emotion,
+      'Warm, friendly, gentle, and easy to read.',
+    ]),
+    backgroundDescription: firstNonEmptyText([
+      spec.backgroundDescription,
+      base.backgroundDescription,
+      'Simple soft background with minimal details.',
+    ]),
+    style: firstNonEmptyText([spec.style, base.style, DEFAULT_IMAGE_STYLE]),
+    avoid,
+  };
+}
+
+function normalizeAvoidTerms(value, fallback = null) {
+  const input = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const terms = Array.isArray(input)
+    ? input.filter((entry) => typeof entry === 'string').map((entry) => entry.trim())
+    : [];
+  return Array.from(new Set([...terms.filter(Boolean), ...DEFAULT_AVOID_TERMS]));
+}
+
+function buildImagenPrompt(spec) {
+  const normalized = normalizeImagePageSpec(spec);
+  return [
+    'Create a high-quality vertical 9:16 children\'s picture book illustration.',
+    '',
+    'Scene goal:',
+    normalized.sceneGoal,
+    '',
+    'Main character:',
+    normalized.mainCharacterDescription,
+    '',
+    'Supporting characters:',
+    normalized.supportingCharacters,
+    '',
+    'Scene description:',
+    normalized.sceneDescription,
+    '',
+    'Composition:',
+    normalized.composition,
+    '',
+    'Emotion and atmosphere:',
+    normalized.emotion,
+    '',
+    'Style:',
+    normalized.style || DEFAULT_IMAGE_STYLE,
+    '',
+    'Background:',
+    normalized.backgroundDescription,
+    '',
+    'Important visual requirements:',
+    '- Keep the main character visually clear and prominent.',
+    '- Make the scene easy to understand at a glance.',
+    '- Keep the layout simple and not cluttered.',
+    '- Maintain a cute, safe, warm, and friendly tone.',
+    '- Ensure character anatomy is clean and natural.',
+    '- The image should look like a professionally illustrated children\'s book page.',
+    '',
+    'Do not include:',
+    normalized.avoid.map((term) => `- ${term}`).join('\n'),
+    '',
+    'Output:',
+    'A single polished storybook illustration.',
+  ].join('\n');
+}
+
+function resolveImageGenerationPrompt(data) {
+  const rawSpec = data?.imagePageSpec;
+  if (rawSpec && typeof rawSpec === 'object' && !Array.isArray(rawSpec)) {
+    const characterProfile = normalizeCharacterProfile(
+      data.characterProfile,
+      fallbackCharacterProfile({}),
+    );
+    const page = Number.isInteger(rawSpec.page) ? rawSpec.page : 1;
+    const fallback = fallbackImagePageSpec({
+      page,
+      pageSummary: optionalText(data.pageSummary),
+      story: optionalText(data.prompt),
+      characterProfile,
+    });
+    const imagePageSpec = normalizeImagePageSpec(rawSpec, {
+      page,
+      fallback,
+      characterProfile,
+    });
+    const prompt = buildImagenPrompt(imagePageSpec);
+    return {
+      prompt,
+      debug: {
+        page: imagePageSpec.page,
+        pageSummary: optionalText(data.pageSummary),
+        characterProfile,
+        imagePageSpec,
+        finalEnglishPrompt: prompt,
+      },
+    };
+  }
+
+  return {
+    prompt: readString(data.prompt, 'prompt'),
+    debug: null,
+  };
+}
+
+function logImageSpecsPrepared({
+  callerId,
+  characterProfile,
+  imagePageSpecs,
+  source,
+}) {
+  functions.logger.info('Image specs prepared.', {
+    callerId,
+    source,
+    characterProfile: truncateLogObject(characterProfile),
+    pages: imagePageSpecs.map((spec) => ({
+      page: spec.page,
+      pageSummary: truncateText(spec.sceneGoal, 240),
+      imagePageSpec: truncateLogObject(spec),
+      finalEnglishPrompt: truncateText(buildImagenPrompt(spec), 1200),
+      model: IMAGEN_IMAGE_MODEL,
+    })),
+  });
+}
+
+function logImagePromptPrepared({ callerId, prompt, imageDebug }) {
+  if (!imageDebug) {
+    return;
+  }
+  functions.logger.info('Imagen prompt prepared from ImagePageSpec.', {
+    callerId,
+    model: IMAGEN_IMAGE_MODEL,
+    page: imageDebug.page,
+    pageSummary: truncateText(imageDebug.pageSummary, 240),
+    characterProfile: truncateLogObject(imageDebug.characterProfile),
+    imagePageSpec: truncateLogObject(imageDebug.imagePageSpec),
+    finalEnglishPrompt: truncateText(prompt, 1200),
+  });
+}
+
+function truncateLogObject(value, maxLength = 320) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => truncateLogObject(entry, maxLength));
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key,
+        truncateLogObject(entry, maxLength),
+      ]),
+    );
+  }
+  if (typeof value === 'string') {
+    return truncateText(value, maxLength);
+  }
+  return value;
+}
+
+function firstNonEmptyText(values) {
+  for (const value of values) {
+    const text = optionalText(value);
+    if (text) {
+      return text;
+    }
+  }
+  return '';
+}
+
+function optionalText(value) {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : '';
+}
+
+function maxImageSpecOutputTokens(pageCount) {
+  if (pageCount >= 12) {
+    return 8192;
+  }
+  if (pageCount >= 8) {
+    return 6144;
+  }
+  return 4096;
+}
+
+async function generateSafeImage({
+  callerId,
+  prompt,
+  negativePrompt,
+  seed,
+  imageDebug = null,
+}) {
   await enforceRateLimit(callerId, IMAGE_RATE_LIMIT);
+  logImagePromptPrepared({ callerId, prompt, imageDebug });
 
   const blockedCategory = findUnsafeCategory(
     [prompt, negativePrompt].filter(Boolean).join('\n\n'),
@@ -3107,10 +3845,15 @@ exports.__test__ = {
   IMAGEN_IMAGE_MODEL,
   IMAGEN_IMAGE_SAMPLE_COUNT,
   IMAGEN_PERSON_GENERATION,
+  DEFAULT_AVOID_TERMS,
+  DEFAULT_IMAGE_STYLE,
   SILVER_MONTHLY_STORY_CREDITS,
   STORY_MODES,
   buildFallbackStoryPreview,
+  buildImageSpecPrompt,
+  buildImageSpecResponseSchema,
   buildImagenImageRequest,
+  buildImagenPrompt,
   buildStoryPreviewPrompt,
   buildStoryPreviewRepairPrompt,
   buildStoryPreviewResponseSchema,
@@ -3122,6 +3865,8 @@ exports.__test__ = {
   apiErrorCodeForResponse,
   extractApiError,
   extractStoryPreviewSeeds,
+  fallbackCharacterProfile,
+  fallbackImagePageSpec,
   findUnsafeCategory,
   formatStoryOptionsForPrompt,
   hashGuestSessionId,
@@ -3129,7 +3874,10 @@ exports.__test__ = {
   isSilverSubscriptionActive,
   maxStoryOutputTokens,
   normalizeHttpBody,
+  normalizeCharacterProfile,
+  normalizeImagePageSpec,
   normalizeStoryOptions,
+  parseImageSpecJson,
   parseGeneratedStoryPreviewJson,
   parseGeneratedStoryJson,
   readHeaderValue,

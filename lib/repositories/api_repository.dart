@@ -55,6 +55,29 @@ class ApiRepository {
     }
   }
 
+  FutureResult<Map<String, dynamic>> generateImageSpecs({
+    required String title,
+    required String story,
+    required List<Map<String, dynamic>> pages,
+    required Map<String, dynamic> characterSheet,
+    required String mode,
+    String extraRequirements = '',
+  }) async {
+    try {
+      final result = await _apiService.generateImageSpecs(
+        title: title,
+        story: story,
+        pages: pages,
+        characterSheet: characterSheet,
+        mode: mode,
+        extraRequirements: extraRequirements,
+      );
+      return Result.success(result);
+    } catch (e) {
+      return Result.failure(e);
+    }
+  }
+
   FutureResult<Map<String, dynamic>> getStoryCreationStatus() async {
     try {
       final result = await _apiService.getStoryCreationStatus();
@@ -108,11 +131,22 @@ class ApiRepository {
   }
 
   FutureResult<Map<String, dynamic>> getStableDiffusionImage(
-      String prompt, String negativePrompt,
-      {int seed = 0}) async {
+    String prompt,
+    String negativePrompt, {
+    int seed = 0,
+    Map<String, dynamic>? imagePageSpec,
+    Map<String, dynamic>? characterProfile,
+    String? pageSummary,
+  }) async {
     try {
-      final result = await _apiService
-          .callStableDiffusion(prompt, negativePrompt, seed: seed);
+      final result = await _apiService.callStableDiffusion(
+        prompt,
+        negativePrompt,
+        seed: seed,
+        imagePageSpec: imagePageSpec,
+        characterProfile: characterProfile,
+        pageSummary: pageSummary,
+      );
       return Result.success(result);
     } catch (e) {
       return Result.failure(e);
@@ -123,6 +157,9 @@ class ApiRepository {
     String prompt,
     String negativePrompt, {
     int seed = 0,
+    Map<String, dynamic>? imagePageSpec,
+    Map<String, dynamic>? characterProfile,
+    String? pageSummary,
     int maxAttempts = 3,
     Duration initialDelay = const Duration(seconds: 2),
     bool Function(Map<String, dynamic> value)? isValid,
@@ -135,6 +172,9 @@ class ApiRepository {
         prompt,
         negativePrompt,
         seed: seed,
+        imagePageSpec: imagePageSpec,
+        characterProfile: characterProfile,
+        pageSummary: pageSummary,
       );
 
       var didSucceed = false;

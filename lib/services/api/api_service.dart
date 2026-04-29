@@ -65,6 +65,28 @@ class ApiService {
     );
   }
 
+  Future<SDMap> generateImageSpecs({
+    required String title,
+    required String story,
+    required List<SDMap> pages,
+    required SDMap characterSheet,
+    required String mode,
+    String extraRequirements = '',
+  }) async {
+    return _callFunction(
+      'generateImageSpecs',
+      {
+        'title': title,
+        'story': story,
+        'pages': pages,
+        'characterSheet': characterSheet,
+        'mode': mode,
+        if (extraRequirements.trim().isNotEmpty)
+          'extraRequirements': extraRequirements.trim(),
+      },
+    );
+  }
+
   Future<SDMap> getStoryCreationStatus() {
     return _callFunction('getStoryCreationStatus', const {});
   }
@@ -106,12 +128,22 @@ class ApiService {
     );
   }
 
-  Future<SDMap> callStableDiffusion(String prompt, String negativePrompt,
-      {int seed = 0}) async {
+  Future<SDMap> callStableDiffusion(
+    String prompt,
+    String negativePrompt, {
+    int seed = 0,
+    SDMap? imagePageSpec,
+    SDMap? characterProfile,
+    String? pageSummary,
+  }) async {
     final payload = {
-      'prompt': prompt,
+      if (prompt.trim().isNotEmpty) 'prompt': prompt,
       'negativePrompt': negativePrompt,
       'seed': seed,
+      if (imagePageSpec != null) 'imagePageSpec': imagePageSpec,
+      if (characterProfile != null) 'characterProfile': characterProfile,
+      if (pageSummary?.trim().isNotEmpty == true)
+        'pageSummary': pageSummary!.trim(),
     };
 
     try {

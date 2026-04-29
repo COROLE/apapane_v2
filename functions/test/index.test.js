@@ -144,6 +144,132 @@ test('image generation uses Imagen 4 with vertical output settings', () => {
   });
 });
 
+test('buildImagenPrompt includes required sections and safety terms', () => {
+  const prompt = __test__.buildImagenPrompt({
+    page: 1,
+    sceneGoal: 'A fox child finds a glowing strawberry lantern.',
+    mainCharacterDescription: 'small orange fox child, blue scarf',
+    supportingCharacters: 'gentle bear friend with red backpack',
+    sceneDescription: 'The fox and bear stand in a candy garden.',
+    composition: 'Vertical 9:16, fox large in the foreground.',
+    emotion: 'Warm surprise and friendly curiosity.',
+    backgroundDescription: 'Simple candy trees and soft pastel path.',
+    style: __test__.DEFAULT_IMAGE_STYLE,
+    avoid: ['text', 'letters'],
+  });
+
+  assert.match(
+    prompt,
+    /Create a high-quality vertical 9:16 children's picture book illustration\./,
+  );
+  for (const section of [
+    'Scene goal:',
+    'Main character:',
+    'Supporting characters:',
+    'Scene description:',
+    'Composition:',
+    'Emotion and atmosphere:',
+    'Style:',
+    'Background:',
+    'Important visual requirements:',
+    'Do not include:',
+    'Output:',
+  ]) {
+    assert.match(prompt, new RegExp(section));
+  }
+  assert.match(prompt, /small orange fox child/);
+  assert.match(prompt, /The fox and bear stand in a candy garden/);
+  assert.match(prompt, /Warm surprise/);
+  assert.match(prompt, /- text/);
+  assert.match(prompt, /- speech bubbles/);
+  assert.match(prompt, /A single polished storybook illustration/);
+});
+
+test('parseImageSpecJson strips extra fields and normalizes specs', () => {
+  const fallbackProfile = __test__.fallbackCharacterProfile({
+    title: 'きつねのぼうけん',
+    characterSheet: {
+      protagonist: 'small fox child, orange fur, blue scarf',
+      worldDetails: 'candy castle garden',
+    },
+  });
+  const fallbackSpecs = [
+    __test__.fallbackImagePageSpec({
+      page: 1,
+      pageSummary: 'fox finds lantern',
+      characterProfile: fallbackProfile,
+    }),
+  ];
+  const parsed = __test__.parseImageSpecJson(
+    JSON.stringify({
+      characterProfile: {
+        ...fallbackProfile,
+        name: 'Kitsune',
+        extra: 'drop me',
+      },
+      imagePageSpecs: [
+        {
+          page: 1,
+          sceneGoal: 'Fox finds the lantern.',
+          mainCharacterDescription: 'orange fox child with blue scarf',
+          supportingCharacters: '',
+          sceneDescription: 'A fox kneels near a glowing lantern.',
+          composition: 'Clear vertical 9:16 foreground character.',
+          emotion: 'Gentle wonder.',
+          backgroundDescription: 'Simple candy garden.',
+          style: '',
+          avoid: [],
+          extra: 'drop me',
+        },
+      ],
+    }),
+    {
+      pageCount: 1,
+      fallbackProfile,
+      fallbackSpecs,
+    },
+  );
+
+  assert.deepEqual(Object.keys(parsed.characterProfile), [
+    'name',
+    'appearance',
+    'clothing',
+    'colors',
+    'expressionStyle',
+    'personalityTone',
+    'worldStyle',
+  ]);
+  assert.deepEqual(Object.keys(parsed.imagePageSpecs[0]), [
+    'page',
+    'sceneGoal',
+    'mainCharacterDescription',
+    'supportingCharacters',
+    'sceneDescription',
+    'composition',
+    'emotion',
+    'backgroundDescription',
+    'style',
+    'avoid',
+  ]);
+  assert.equal(parsed.imagePageSpecs[0].supportingCharacters, 'None.');
+  assert.equal(parsed.imagePageSpecs[0].style, __test__.DEFAULT_IMAGE_STYLE);
+  assert.ok(parsed.imagePageSpecs[0].avoid.includes('distorted hands'));
+});
+
+test('fallbackImagePageSpec fills missing values', () => {
+  const spec = __test__.fallbackImagePageSpec({
+    page: 2,
+    pageSummary: 'A fox looks at a small door.',
+  });
+
+  assert.equal(spec.page, 2);
+  assert.equal(spec.sceneGoal, 'A fox looks at a small door.');
+  assert.equal(spec.supportingCharacters, 'None.');
+  assert.equal(spec.style, __test__.DEFAULT_IMAGE_STYLE);
+  assert.ok(spec.avoid.includes('text'));
+  assert.ok(spec.avoid.includes('extra fingers'));
+});
+
 test('sanitizeImagePrompt avoids provider safety trigger wording', () => {
   const prompt = __test__.sanitizeImagePrompt(
     'Children picture-book illustration for a young audience, different age, adult themes',

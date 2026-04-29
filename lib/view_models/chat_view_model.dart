@@ -8,6 +8,7 @@ import 'package:apapane/models/auth/local_session_user.dart';
 import 'package:apapane/models/purchase/purchase_entitlements.dart';
 import 'package:apapane/models/story/story_generation_config.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
+import 'package:apapane/models/story/story_image_spec.dart';
 import 'package:apapane/repositories/api_repository.dart';
 import 'package:apapane/repositories/purchase_repository.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
@@ -32,6 +33,8 @@ class _GeneratedStoryPackage {
     required this.storyPages,
     required this.draft,
     required this.storySeed,
+    required this.imageCharacterProfile,
+    required this.imagePageSpecs,
     required this.mode,
     required this.storyOptions,
     required this.preview,
@@ -43,6 +46,8 @@ class _GeneratedStoryPackage {
   final List<SDMap> storyPages;
   final StoryGenerationDraft draft;
   final int storySeed;
+  final StoryImageCharacterProfile imageCharacterProfile;
+  final List<StoryImagePageSpec> imagePageSpecs;
   final StoryMode mode;
   final StoryOptions storyOptions;
   final StoryPreview? preview;
@@ -567,6 +572,8 @@ class ChatViewModel extends ChangeNotifier {
         storyViewModel.setTransientNewStorySession(
           draft: storyPackage.draft,
           storySeed: storyPackage.storySeed,
+          imageCharacterProfile: storyPackage.imageCharacterProfile,
+          imagePageSpecs: storyPackage.imagePageSpecs,
         );
         storyViewModel.setTransientStoryMetadata(
           mode: storyPackage.mode,
@@ -908,6 +915,7 @@ class ChatViewModel extends ChangeNotifier {
     required String generationRequestId,
   }) async {
     final storySeed = _buildStructuredStorySeed(draft);
+    final fallbackImageSpecPackage = _buildFallbackImageSpecPackage(draft);
     if (fallbackStory.isEmpty) {
       return _GeneratedStoryPackage(
         title: draft.title,
@@ -915,6 +923,8 @@ class ChatViewModel extends ChangeNotifier {
         storyPages: fallbackStory,
         draft: draft,
         storySeed: storySeed,
+        imageCharacterProfile: fallbackImageSpecPackage.characterProfile,
+        imagePageSpecs: fallbackImageSpecPackage.imagePageSpecs,
         mode: mode,
         storyOptions: storyOptions,
         preview: preview,
@@ -928,10 +938,16 @@ class ChatViewModel extends ChangeNotifier {
       (index) => Map<String, dynamic>.from(fallbackStory[index]),
     );
 
+    final imageSpecPackage = await _generateStoryImageSpecPackage(
+      draft: draft,
+      mode: mode,
+      fallback: fallbackImageSpecPackage,
+    );
     final failedPageIndexes = await _generateDirectStoryPageImages(
       draft: draft,
       prefetchedStory: prefetchedStory,
       storySeed: storySeed,
+      imageSpecPackage: imageSpecPackage,
     );
     if (failedPageIndexes.isNotEmpty) {
       debugPrint(
@@ -963,6 +979,8 @@ class ChatViewModel extends ChangeNotifier {
       storyPages: prefetchedStory,
       draft: draft,
       storySeed: storySeed,
+      imageCharacterProfile: imageSpecPackage.characterProfile,
+      imagePageSpecs: imageSpecPackage.imagePageSpecs,
       mode: mode,
       storyOptions: storyOptions,
       preview: preview,
@@ -970,10 +988,101 @@ class ChatViewModel extends ChangeNotifier {
     );
   }
 
+  StoryImageSpecPackage _buildFallbackImageSpecPackage(
+    StoryGenerationDraft draft,
+  ) {
+    final characterProfile = StoryImageCharacterProfile.fallback(draft: draft);
+    final specs = <StoryImagePageSpec>[];
+    for (var index = 0; index < draft.pages.length; index += 1) {
+      final page = draft.pages[index];
+      specs.add(
+        StoryImagePageSpec.fallback(
+          page: index + 1,
+          pageSummary: page.visualFocus,
+          story: page.story,
+          visualFocus: page.visualFocus,
+          mood: page.mood,
+          supportingCharacters: page.visibleCast.contains('companion')
+              ? draft.characterSheet.companion
+              : 'None.',
+          characterProfile: characterProfile,
+        ),
+      );
+    }
+    return StoryImageSpecPackage(
+      characterProfile: characterProfile,
+      imagePageSpecs: specs,
+    );
+  }
+
+  Future<StoryImageSpecPackage> _generateStoryImageSpecPackage({
+    required StoryGenerationDraft draft,
+    required StoryMode mode,
+    required StoryImageSpecPackage fallback,
+  }) async {
+    final pages = <SDMap>[
+      for (var index = 0; index < draft.pages.length; index += 1)
+        {
+          'page': index + 1,
+          'story': draft.pages[index].story,
+          'pageSummary': _pageSummaryForImageSpec(draft.pages[index]),
+          'visualFocus': draft.pages[index].visualFocus,
+          'mood': draft.pages[index].mood,
+          'dialogue': draft.pages[index].dialogue,
+          'visibleCast': draft.pages[index].visibleCast,
+        },
+    ];
+    final result = await _apiRepository.generateImageSpecs(
+      title: draft.title,
+      story: [
+        for (var index = 0; index < draft.pages.length; index += 1)
+          '${index + 1}. ${draft.pages[index].story}',
+      ].join('\n'),
+      pages: pages,
+      characterSheet: {
+        'protagonist': draft.characterSheet.protagonist,
+        'companion': draft.characterSheet.companion,
+        'worldDetails': draft.characterSheet.worldDetails,
+        'artDirection': draft.characterSheet.artDirection,
+      },
+      mode: mode.key,
+      extraRequirements:
+          'Keep every page child-safe, simple, warm, readable, and free of text.',
+    );
+
+    return result.when(
+      success: (json) {
+        final package = StoryImageSpecPackage.fromJson(
+          json,
+          fallbackProfile: fallback.characterProfile,
+          fallbackSpecs: fallback.imagePageSpecs,
+        );
+        debugPrint(
+          'Generated image specs: ${package.imagePageSpecs.length} pages',
+        );
+        return package;
+      },
+      failure: (error) {
+        debugPrint(
+            'Image spec generation failed, using fallback specs: $error');
+        return fallback;
+      },
+    );
+  }
+
+  String _pageSummaryForImageSpec(StoryGenerationPage page) {
+    final visualFocus = page.visualFocus.trim();
+    if (visualFocus.isNotEmpty) {
+      return visualFocus;
+    }
+    return page.story.trim();
+  }
+
   Future<List<int>> _generateDirectStoryPageImages({
     required StoryGenerationDraft draft,
     required List<SDMap> prefetchedStory,
     required int storySeed,
+    required StoryImageSpecPackage imageSpecPackage,
   }) async {
     final failedPageIndexes = <int>{};
     Object? fatalError;
@@ -995,14 +1104,8 @@ class ChatViewModel extends ChangeNotifier {
         batch.add(() async {
           try {
             final imageSource = await _generateImageSource(
-              primaryPrompt: _buildStructuredStoryImagePrompt(
-                draft: draft,
-                pageIndex: pageIndex,
-              ),
-              secondaryPrompt: _buildStructuredRetryImagePrompt(
-                draft: draft,
-                pageIndex: pageIndex,
-              ),
+              imagePageSpec: imageSpecPackage.imagePageSpecs[pageIndex],
+              characterProfile: imageSpecPackage.characterProfile,
               seed: _buildStructuredPageSeed(storySeed, pageIndex),
               debugKey: 'page_$pageIndex',
             );
@@ -1166,21 +1269,28 @@ class ChatViewModel extends ChangeNotifier {
   }
 
   Future<String> _generateImageSource({
-    required String primaryPrompt,
-    required String secondaryPrompt,
+    StoryImagePageSpec? imagePageSpec,
+    StoryImageCharacterProfile? characterProfile,
+    String primaryPrompt = '',
+    String secondaryPrompt = '',
     required int seed,
     required String debugKey,
   }) async {
-    final prompts = [
-      primaryPrompt,
-      secondaryPrompt,
-    ];
+    final prompts = imagePageSpec == null
+        ? [
+            primaryPrompt,
+            secondaryPrompt,
+          ]
+        : const [''];
 
     for (var attempt = 0; attempt < prompts.length; attempt += 1) {
       final result = await _apiRepository.getStableDiffusionImageWithRetry(
         prompts[attempt],
         _directImageNegativePrompt,
         seed: seed,
+        imagePageSpec: imagePageSpec?.toJson(),
+        characterProfile: characterProfile?.toJson(),
+        pageSummary: imagePageSpec?.sceneGoal,
         isValid: (res) => _extractImageSource(res) != null,
         invalidResultError: (res) => StateError(
           'Image generation response was missing image data: $res',
@@ -1325,26 +1435,6 @@ class ChatViewModel extends ChangeNotifier {
     return normalized == 0 ? 1 : normalized;
   }
 
-  String _buildStructuredRetryImagePrompt({
-    required StoryGenerationDraft draft,
-    required int pageIndex,
-  }) {
-    return StoryGenerationComposer.buildRetryImagePrompt(
-      draft: draft,
-      pageIndex: pageIndex,
-    );
-  }
-
-  String _buildStructuredStoryImagePrompt({
-    required StoryGenerationDraft draft,
-    required int pageIndex,
-  }) {
-    return StoryGenerationComposer.buildPageImagePrompt(
-      draft: draft,
-      pageIndex: pageIndex,
-    );
-  }
-
   int _buildStructuredStorySeed(StoryGenerationDraft draft) {
     return StoryGenerationComposer.buildStorySeed(
       draft: draft,
@@ -1404,12 +1494,15 @@ class ChatViewModel extends ChangeNotifier {
       draft: draft,
       fallbackAnswers: _userAnswers(),
     );
+    final imageSpecPackage = _buildFallbackImageSpecPackage(draft);
     return _GeneratedStoryPackage(
       title: draft.title,
       titleImage: '',
       storyPages: StoryGenerationComposer.storyPagesFromDraft(draft),
       draft: draft,
       storySeed: storySeed,
+      imageCharacterProfile: imageSpecPackage.characterProfile,
+      imagePageSpecs: imageSpecPackage.imagePageSpecs,
       mode: mode,
       storyOptions: storyOptions,
       preview: preview,

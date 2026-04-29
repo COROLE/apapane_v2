@@ -13,6 +13,7 @@ import 'package:apapane/models/chat_log/chat_log.dart';
 import 'package:apapane/models/story/story.dart';
 import 'package:apapane/models/story/story_generation_config.dart';
 import 'package:apapane/models/story/story_generation_draft.dart';
+import 'package:apapane/models/story/story_image_spec.dart';
 import 'package:apapane/repositories/api_repository.dart';
 import 'package:apapane/repositories/firestore_repository.dart';
 import 'package:apapane/ui_core/ui_helper.dart';
@@ -53,6 +54,8 @@ class StoryViewModel extends ChangeNotifier {
   String _titleImage = '';
   StoryGenerationDraft? _transientNewStoryDraft;
   int? _transientNewStorySeed;
+  StoryImageCharacterProfile? _transientImageCharacterProfile;
+  List<StoryImagePageSpec> _transientImagePageSpecs = [];
   StoryMode? _transientStoryMode;
   StoryOptions? _transientStoryOptions;
   StoryPreview? _transientStoryPreview;
@@ -127,9 +130,15 @@ class StoryViewModel extends ChangeNotifier {
   void setTransientNewStorySession({
     required StoryGenerationDraft draft,
     required int storySeed,
+    required StoryImageCharacterProfile imageCharacterProfile,
+    required List<StoryImagePageSpec> imagePageSpecs,
   }) {
     _transientNewStoryDraft = draft;
     _transientNewStorySeed = storySeed;
+    _transientImageCharacterProfile = imageCharacterProfile;
+    _transientImagePageSpecs = List<StoryImagePageSpec>.unmodifiable(
+      imagePageSpecs,
+    );
   }
 
   void setTransientStoryMetadata({
@@ -147,6 +156,8 @@ class StoryViewModel extends ChangeNotifier {
   void clearTransientNewStorySession() {
     _transientNewStoryDraft = null;
     _transientNewStorySeed = null;
+    _transientImageCharacterProfile = null;
+    _transientImagePageSpecs = [];
     _transientStoryMode = null;
     _transientStoryOptions = null;
     _transientStoryPreview = null;
@@ -683,12 +694,19 @@ class StoryViewModel extends ChangeNotifier {
     required int pageIndex,
     required bool isNew,
   }) async {
-    final prompt = _buildRecoveryPrompt(
-      titleText: _titleText,
+    final imagePageSpec = _recoveryImagePageSpec(
       sentence: sentence,
       pageIndex: pageIndex,
-      newStoryDraft: isNew ? _transientNewStoryDraft : null,
+      isNew: isNew,
     );
+    final prompt = imagePageSpec == null
+        ? _buildRecoveryPrompt(
+            titleText: _titleText,
+            sentence: sentence,
+            pageIndex: pageIndex,
+            newStoryDraft: isNew ? _transientNewStoryDraft : null,
+          )
+        : '';
     final result = await _apiRepository.getStableDiffusionImageWithRetry(
       prompt,
       _storyImageNegativePrompt,
@@ -696,6 +714,9 @@ class StoryViewModel extends ChangeNotifier {
         pageIndex: pageIndex,
         isNew: isNew,
       ),
+      imagePageSpec: imagePageSpec?.toJson(),
+      characterProfile: _transientImageCharacterProfile?.toJson(),
+      pageSummary: imagePageSpec?.sceneGoal,
     );
 
     return result.when(
@@ -750,6 +771,46 @@ class StoryViewModel extends ChangeNotifier {
         );
         return fallbackImage;
       },
+    );
+  }
+
+  StoryImagePageSpec? _recoveryImagePageSpec({
+    required String sentence,
+    required int pageIndex,
+    required bool isNew,
+  }) {
+    if (!isNew) {
+      return null;
+    }
+    if (pageIndex >= 0 && pageIndex < _transientImagePageSpecs.length) {
+      return _transientImagePageSpecs[pageIndex];
+    }
+
+    final draft = _transientNewStoryDraft;
+    if (draft == null || pageIndex < 0 || pageIndex >= draft.pages.length) {
+      final profile = _transientImageCharacterProfile ??
+          StoryImageCharacterProfile.fallback();
+      return StoryImagePageSpec.fallback(
+        page: pageIndex + 1,
+        pageSummary: sentence,
+        story: sentence,
+        characterProfile: profile,
+      );
+    }
+
+    final page = draft.pages[pageIndex];
+    final profile = _transientImageCharacterProfile ??
+        StoryImageCharacterProfile.fallback(draft: draft);
+    return StoryImagePageSpec.fallback(
+      page: pageIndex + 1,
+      pageSummary: page.visualFocus,
+      story: page.story,
+      visualFocus: page.visualFocus,
+      mood: page.mood,
+      supportingCharacters: page.visibleCast.contains('companion')
+          ? draft.characterSheet.companion
+          : 'None.',
+      characterProfile: profile,
     );
   }
 
