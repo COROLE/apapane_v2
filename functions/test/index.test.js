@@ -214,6 +214,9 @@ test('buildStoryPrompt includes story quality requirements', () => {
   assert.match(prompt, /意外な気づき/);
   assert.match(prompt, /小さな笑えるオチ/);
   assert.match(prompt, /4ページ/);
+  assert.match(prompt, /Image prompt field language overrides/);
+  assert.match(prompt, /Write "coverScene".*simple concrete English/);
+  assert.match(prompt, /Do not write generic visual fields/);
 });
 
 test('story modes define server-owned page counts and costs', () => {

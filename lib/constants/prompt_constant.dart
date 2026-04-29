@@ -76,7 +76,11 @@ Return JSON only with this exact shape:
 }
 
 Requirements:
-- Output Japanese text values.
+- Output story text values in Japanese, with image prompt fields in English as specified below.
+- Keep `title`, every `pages[].story`, and every `pages[].dialogue` in Japanese.
+- Write `coverScene`, every `characterSheet` value, every `pages[].visualFocus`, and every `pages[].mood` in simple concrete English for Imagen.
+- Each English visual field must name the protagonist species/name/colors, companion when visible, exact location, action, key prop, expression, and vertical 9:16 composition.
+- Do not write generic visual fields such as "a magical scene", "a mysterious event spreads", or "the hero moves forward".
 - `pages` must contain the exact number of body pages requested by the server.
 - First internally create 3 Story Plans, evaluate them, and choose the best one. Do not output the plans or evaluation.
 - The chosen plan must include: the protagonist's small wish, a strange rule or invitation, a troublesome incident, a plan that fails, an unexpected realization or reversal, a solution, and a small final beat.

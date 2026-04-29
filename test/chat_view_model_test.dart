@@ -180,8 +180,7 @@ void main() {
     );
   });
 
-  test('image prompt carries cast locks, visibility rules, and no-text rules',
-      () {
+  test('image prompt front-loads the exact scene and no-text rules', () {
     final prompt = ChatViewModel.storyImagePromptForTesting(
       structuredStory,
       pageIndex: 0,
@@ -190,18 +189,16 @@ void main() {
 
     expect(prompt, contains('red scarf'));
     expect(prompt, contains('tiny bear friend'));
-    expect(prompt, contains('Draw the protagonist on-screen in this page.'));
+    expect(prompt, contains('MUST depict this exact scene:'));
     expect(
       prompt,
-      contains(
-        'The companion stays off-screen in this page. Do not replace the companion with another visible character.',
-      ),
+      contains('Visible characters for this image: protagonist.'),
     );
-    expect(prompt, contains('No readable text anywhere in the image.'));
+    expect(prompt, contains('No readable text'));
     expect(prompt, contains('speech bubbles'));
   });
 
-  test('single-character pages still lock the missing cast member', () {
+  test('single-character pages keep absent cast off-screen', () {
     final prompt = ChatViewModel.storyImagePromptForTesting(
       structuredStory,
       pageIndex: 2,
@@ -211,11 +208,11 @@ void main() {
     expect(
       prompt,
       contains(
-        'If a main character is off-screen for one page, keep them absent instead of inventing a stand-in.',
+        'If a recurring character is not listed, keep them off-screen instead of replacing them.',
       ),
     );
-    expect(prompt, contains('Companion design: tiny bear friend'));
-    expect(prompt, contains('Do not add a new recurring sidekick'));
+    expect(prompt, contains('Companion: tiny bear friend'));
+    expect(prompt, contains('Do not introduce unrelated main characters'));
   });
 
   test('story and page seeds are deterministic and page-specific', () {

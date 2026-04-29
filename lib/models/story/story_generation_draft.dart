@@ -219,59 +219,59 @@ class StoryGenerationComposer {
 
   static String buildStyleGuide({required StoryGenerationDraft draft}) {
     final parts = <String>[
-      'Series art bible: Japanese children picture-book illustration, hand-painted gouache watercolor texture, rounded shapes, soft pastel palette, cozy lighting, gentle expressions, vertical 9:16 layout.',
-      'Keep the same illustration genre, brush texture, face design, body proportions, costume details, and palette on every page of the same story.',
-      'Protagonist design: ${draft.characterSheet.protagonist}.',
+      'Picture-book style: hand-painted gouache and watercolor, rounded shapes, soft pastel palette, cozy lighting, gentle expressions, vertical 9:16 illustration.',
+      'Keep the same character designs, face shapes, body proportions, clothing, accessories, colors, and brush texture across every page.',
+      'Protagonist: ${_promptClip(draft.characterSheet.protagonist)}.',
       if (draft.characterSheet.companion.isNotEmpty)
-        'Companion design: ${draft.characterSheet.companion}.',
+        'Companion: ${_promptClip(draft.characterSheet.companion)}.',
       if (draft.characterSheet.worldDetails.isNotEmpty)
-        'World details: ${draft.characterSheet.worldDetails}.',
+        'World: ${_promptClip(draft.characterSheet.worldDetails)}.',
       if (draft.characterSheet.artDirection.isNotEmpty)
-        'Extra art direction: ${draft.characterSheet.artDirection}.',
-      if (draft.coverScene.isNotEmpty) 'Cover motif: ${draft.coverScene}.',
+        'Art direction: ${_promptClip(draft.characterSheet.artDirection)}.',
     ];
-    return parts.join(' ');
+    return parts.join('\n');
   }
 
   static String buildCharacterLock({required StoryGenerationDraft draft}) {
     return [
-      'Fixed cast bible: the recurring cast contains only the protagonist and the companion.',
-      'Keep the protagonist identical across the whole story: same species, face shape, body type, outfit, colors, accessories, and age impression.',
+      'Fixed cast: the protagonist and companion are the only recurring main characters.',
+      'Keep the protagonist identical: same species, face shape, body type, outfit, colors, accessories, and age impression.',
       if (draft.characterSheet.companion.isNotEmpty)
-        'Keep the companion identical across the whole story: same species, face shape, body type, outfit, colors, accessories, and age impression.',
-      'Never replace either main character with a new animal, new child, new helper, or a redesigned substitute.',
-      'If a main character is off-screen for one page, keep them absent instead of inventing a stand-in.',
-      'When a main character returns, restore the exact same design as earlier pages.',
-    ].join(' ');
+        'Keep the companion identical: same species, face shape, body type, outfit, colors, accessories, and age impression.',
+      'Do not introduce unrelated main characters, replacement animals, or redesigned substitutes.',
+    ].join('\n');
   }
 
   static String buildPageCastRules({required StoryGenerationPage page}) {
     final visibleCast = page.visibleCast.toSet();
+    final visibleCharacters = <String>[
+      if (visibleCast.isEmpty || visibleCast.contains(_protagonistCastRole))
+        'protagonist',
+      if (visibleCast.isEmpty || visibleCast.contains(_companionCastRole))
+        'companion',
+    ];
+    if (visibleCharacters.isEmpty) {
+      return 'Visible characters: focus on the setting and story props; do not invent a replacement main character.';
+    }
     return [
-      if (visibleCast.contains(_protagonistCastRole))
-        'Draw the protagonist on-screen in this page.'
-      else
-        'The protagonist stays off-screen in this page. Do not replace the protagonist with another visible character.',
-      if (visibleCast.contains(_companionCastRole))
-        'Draw the companion on-screen in this page.'
-      else
-        'The companion stays off-screen in this page. Do not replace the companion with another visible character.',
-      'Do not add a new recurring sidekick or extra hero to fill a missing cast role.',
-    ].join(' ');
+      'Visible characters for this image: ${visibleCharacters.join(', ')}.',
+      'If a recurring character is not listed, keep them off-screen instead of replacing them.',
+    ].join('\n');
   }
 
   static String buildCoverImagePrompt({
     required StoryGenerationDraft draft,
   }) {
     return [
+      'Create exactly one front cover illustration for the story title "${_promptClip(draft.title, maxLength: 120)}".',
+      if (draft.coverScene.isNotEmpty)
+        'MUST depict this cover scene: ${_promptClip(draft.coverScene, maxLength: 520)}.',
       buildStyleGuide(draft: draft),
       buildCharacterLock(draft: draft),
-      'Front cover illustration for the story title "${draft.title}".',
-      'Scene: ${draft.coverScene}.',
-      'Draw both the protagonist and the companion on-screen for the cover.',
-      'Single clear focal point, readable silhouette, warm child-safe composition.',
-      'No readable text anywhere in the image. No letters, subtitles, captions, speech bubbles, signs, logos, or watermarks.',
-    ].join(' ');
+      'Visible characters for this image: protagonist, companion.',
+      'Composition: one clear focal action, characters large and recognizable, background supports the exact story world.',
+      'No readable text, captions, speech bubbles, signs, logos, watermarks, letters, or numbers.',
+    ].join('\n');
   }
 
   static String buildPageImagePrompt({
@@ -279,19 +279,22 @@ class StoryGenerationComposer {
     required int pageIndex,
   }) {
     final page = draft.pages[pageIndex];
+    final exactScene = _firstNonEmpty(page.visualFocus, page.story);
     return [
+      'Create exactly one illustration for body page ${pageIndex + 1} of ${draft.pages.length}.',
+      'MUST depict this exact scene: ${_promptClip(exactScene, maxLength: 560)}.',
       buildStyleGuide(draft: draft),
       buildCharacterLock(draft: draft),
       buildPageCastRules(page: page),
-      'Illustrate body page ${pageIndex + 1} of ${draft.pages.length}.',
-      'Story beat: ${page.story}.',
-      if (page.visualFocus.isNotEmpty) 'Visual focus: ${page.visualFocus}.',
-      if (page.mood.isNotEmpty) 'Mood: ${page.mood}.',
+      if (page.story.isNotEmpty)
+        'Story context only: ${_promptClip(page.story, maxLength: 260)}.',
+      if (page.mood.isNotEmpty)
+        'Mood: ${_promptClip(page.mood, maxLength: 120)}.',
       if (page.dialogue.isNotEmpty)
-        'The feeling of the spoken line "${page.dialogue}" should be visible in expression and pose, but do not draw the words.',
-      'Single illustration, child-safe, simple background shapes when needed, one coherent moment.',
-      'No readable text anywhere in the image. No letters, subtitles, captions, speech bubbles, signs, logos, or watermarks.',
-    ].join(' ');
+        'Show the emotion of the spoken line without drawing any words.',
+      'Composition: one clear focal action, characters large and recognizable, background supports the exact scene.',
+      'No readable text, captions, speech bubbles, signs, logos, watermarks, letters, or numbers.',
+    ].join('\n');
   }
 
   static String buildRetryImagePrompt({
@@ -299,17 +302,19 @@ class StoryGenerationComposer {
     required int pageIndex,
   }) {
     final page = draft.pages[pageIndex];
+    final exactScene = _firstNonEmpty(page.visualFocus, page.story);
     return [
+      'Regenerate a story-matching image. Ignore any previous unrelated composition.',
+      'MUST match this exact scene: ${_promptClip(exactScene, maxLength: 560)}.',
       buildStyleGuide(draft: draft),
       buildCharacterLock(draft: draft),
       buildPageCastRules(page: page),
-      'Retry the same story illustration with extra consistency and clarity.',
-      'Story beat: ${page.story}.',
-      if (page.visualFocus.isNotEmpty) 'Visual focus: ${page.visualFocus}.',
+      if (page.story.isNotEmpty)
+        'Story context only: ${_promptClip(page.story, maxLength: 260)}.',
       'Use a clean picture-book composition with a strong silhouette and simple layered depth.',
       'Keep every visible character design identical to the rest of the story.',
       'Absolutely no readable text, letters, numbers, subtitles, captions, speech bubbles, street signs, logos, watermarks, or book pages with writing.',
-    ].join(' ');
+    ].join('\n');
   }
 
   static int buildStorySeed({
@@ -453,6 +458,14 @@ String _firstNonEmpty(String primary, String fallback) {
 
 String _normalizeText(Object? value) {
   return value is String ? value.replaceAll(RegExp(r'\s+'), ' ').trim() : '';
+}
+
+String _promptClip(String value, {int maxLength = 420}) {
+  final normalized = _normalizeText(value);
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+  return normalized.substring(0, maxLength);
 }
 
 List<String> _normalizeVisibleCast(Object? value) {

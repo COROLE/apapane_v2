@@ -1094,6 +1094,12 @@ ${previewText}
 既存アプリから渡された入力と出力スキーマ:
 ${prompt}
 
+Image prompt field language overrides:
+- Keep "title", every "pages[].story", and every "pages[].dialogue" in Japanese.
+- Write "coverScene", every "characterSheet" value, every "pages[].visualFocus", and every "pages[].mood" in simple concrete English for Imagen.
+- Each English visual field must name the protagonist species/name/colors, companion when visible, exact location, action, key prop, expression, and vertical 9:16 composition.
+- Do not write generic visual fields such as "a magical scene", "a mysterious event spreads", or "the hero moves forward".
+
 まず内部で3つの Story Plan を作ってください。
 Story Plan には次を含めてください。
 - 主人公の小さな願い

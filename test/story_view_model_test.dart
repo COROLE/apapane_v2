@@ -65,24 +65,26 @@ void main() {
 
     expect(
       recoveryPrompt,
-      contains('Retry the same story illustration with extra consistency and clarity.'),
+      contains(
+        'Regenerate a story-matching image. Ignore any previous unrelated composition.',
+      ),
     );
-    expect(recoveryPrompt, contains('Companion design: tiny bear friend'));
+    expect(recoveryPrompt, contains('Companion: tiny bear friend'));
     expect(
       recoveryPrompt,
       contains(
-        'The companion stays off-screen in this page. Do not replace the companion with another visible character.',
+        'If a recurring character is not listed, keep them off-screen instead of replacing them.',
       ),
     );
     expect(
       fallbackPrompt,
-      contains("Scene from a Japanese children's story: うさぎだけが みえる ばめん."),
+      contains('MUST depict this exact story scene: うさぎだけが みえる ばめん.'),
     );
     expect(
       fallbackPrompt,
       isNot(
         contains(
-          'The companion stays off-screen in this page. Do not replace the companion with another visible character.',
+          'If a recurring character is not listed, keep them off-screen instead of replacing them.',
         ),
       ),
     );

@@ -46,7 +46,7 @@ class StoryViewModel extends ChangeNotifier {
   final Map<String, Future<Uint8List>> _pendingGeneratedImages = {};
   final Map<int, String> _imageDiagnostics = {};
   static const Duration _imageFetchTimeout = Duration(seconds: 45);
-  static const Duration _imageRecoveryTimeout = Duration(seconds: 45);
+  static const Duration _imageRecoveryTimeout = Duration(seconds: 120);
   bool _isOpeningSavedStory = false;
   List<Map<String, dynamic>> _storyPages = [];
   String _titleText = '';
@@ -891,9 +891,9 @@ class StoryViewModel extends ChangeNotifier {
       _storyImageStylePrompt,
       if (normalizedTitle.isNotEmpty)
         'Story title motif: ${_truncatePromptTextStatic(normalizedTitle)}.',
-      'Scene from a Japanese children\'s story: ${_truncatePromptTextStatic(normalizedSentence)}.',
+      'MUST depict this exact story scene: ${_truncatePromptTextStatic(normalizedSentence, maxLength: 360)}.',
       'Keep the same picture-book genre, brush texture, color palette, face design, body proportions, and costume details as the other pages in this story.',
-      'One clear subject, simple background, soft pastel palette.',
+      'One clear focal action, characters large and recognizable, simple background, soft pastel palette.',
       'No readable text anywhere in the illustration. No letters, subtitles, captions, speech bubbles, signs, logos, or watermarks.',
     ];
 
