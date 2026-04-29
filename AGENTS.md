@@ -261,9 +261,12 @@ State as of 2026-04-28 JST:
   - Client image generation concurrency was reduced from 3 to 1 to avoid mobile
     network failures while receiving multiple large image responses.
   - Functions image normalization was reduced to 900x1600 JPEG quality 84 to
-    lower response payload size, but local Firebase CLI auth expired before
-    this Functions-only change could be deployed. Run
-    `npx firebase-tools@14 login --reauth` and then redeploy functions.
+    lower response payload size.
+  - Firebase Functions deploy after reauth: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`
+  - Production `generateImageHttp` smoke after lightweight deploy: success,
+    `model=imagen-4.0-fast-generate-001`, base64 returned, Storage URL returned,
+    elapsed about 7.6 seconds, base64 length about 173k characters.
   - TestFlight initially failed on run `25099125550` because App Store Connect
     now rejects iOS 18.5 SDK / Xcode 16.4 uploads.
   - Commit: `2682199 Use Xcode 26 runner for TestFlight`
