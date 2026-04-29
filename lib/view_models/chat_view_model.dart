@@ -62,7 +62,7 @@ class ChatViewModel extends ChangeNotifier {
   static const String _imageQuotaMessage =
       '\u753b\u50cf\u751f\u6210API\u306e\u5229\u7528\u4e0a\u9650\u306b\u9054\u3057\u3066\u3044\u307e\u3059\u3002'
       '\u7ba1\u7406\u8005\u5074\u3067\u753b\u50cf\u751f\u6210API\u306e\u4e0a\u9650\u8a2d\u5b9a\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002';
-  static const int _directImageConcurrency = 3;
+  static const int _directImageConcurrency = 1;
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
   static const String _directImageStylePrompt =

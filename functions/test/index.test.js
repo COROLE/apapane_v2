@@ -131,7 +131,9 @@ test('image generation uses Imagen 4 fast with vertical output settings', () => 
   assert.equal(__test__.IMAGEN_IMAGE_ASPECT_RATIO, '9:16');
   assert.equal(__test__.IMAGEN_IMAGE_SAMPLE_COUNT, 1);
   assert.equal(__test__.IMAGEN_PERSON_GENERATION, 'allow_all');
-  assert.ok(__test__.IMAGE_OUTPUT_JPEG_QUALITY >= 85);
+  assert.equal(__test__.IMAGE_OUTPUT_WIDTH, 900);
+  assert.equal(__test__.IMAGE_OUTPUT_HEIGHT, 1600);
+  assert.ok(__test__.IMAGE_OUTPUT_JPEG_QUALITY >= 80);
   assert.deepEqual(request, {
     instances: [{ prompt: 'draw a friendly scene' }],
     parameters: {

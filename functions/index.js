@@ -139,7 +139,9 @@ const IMAGEN_IMAGE_MODEL = 'imagen-4.0-fast-generate-001';
 const IMAGEN_IMAGE_ASPECT_RATIO = '9:16';
 const IMAGEN_IMAGE_SAMPLE_COUNT = 1;
 const IMAGEN_PERSON_GENERATION = 'allow_all';
-const IMAGE_OUTPUT_JPEG_QUALITY = 86;
+const IMAGE_OUTPUT_WIDTH = 900;
+const IMAGE_OUTPUT_HEIGHT = 1600;
+const IMAGE_OUTPUT_JPEG_QUALITY = 84;
 const BANNED_STORY_ENDINGS = [
   'みんなで楽しく過ごしました',
   'みんなでたのしくすごしました',
@@ -1999,8 +2001,8 @@ async function normalizeGeneratedImage(base64Data) {
   const outputBuffer = await sharp(inputBuffer)
     .rotate()
     .resize({
-      width: 1080,
-      height: 1920,
+      width: IMAGE_OUTPUT_WIDTH,
+      height: IMAGE_OUTPUT_HEIGHT,
       fit: 'cover',
       position: 'center',
       background: {
@@ -2020,6 +2022,8 @@ async function normalizeGeneratedImage(base64Data) {
   functions.logger.info('Normalized generated image.', {
     inputBytes: inputBuffer.length,
     outputBytes: outputBuffer.length,
+    width: IMAGE_OUTPUT_WIDTH,
+    height: IMAGE_OUTPUT_HEIGHT,
     jpegQuality: IMAGE_OUTPUT_JPEG_QUALITY,
   });
 
@@ -3090,7 +3094,9 @@ function readRequestId(value) {
 
 exports.__test__ = {
   CHILD_SAFE_REWRITE_MESSAGE,
+  IMAGE_OUTPUT_HEIGHT,
   IMAGE_OUTPUT_JPEG_QUALITY,
+  IMAGE_OUTPUT_WIDTH,
   IMAGEN_IMAGE_ASPECT_RATIO,
   IMAGEN_IMAGE_MODEL,
   IMAGEN_IMAGE_SAMPLE_COUNT,
