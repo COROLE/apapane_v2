@@ -1047,7 +1047,7 @@ class ChatViewModel extends ChangeNotifier {
       },
       mode: mode.key,
       extraRequirements:
-          'Keep every page child-safe, simple, warm, readable, fully backgrounded, and completely wordless. Avoid signs, labels, logos, books with writing, screens, maps, blackboards, posters, banners, packages, and title cards.',
+          'Keep every scene child-safe, simple, warm, fully environmental, and completely wordless. Use safe plain story objects such as small glowing charms, flowers, feathers, gems, acorns, leaves, pebbles, paths, plants, and soft light.',
     );
 
     return result.when(

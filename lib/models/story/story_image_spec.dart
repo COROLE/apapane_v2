@@ -2,10 +2,9 @@ import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
 
 const String defaultStoryImageStyle =
-    "Soft children's story app illustration, warm pastel color palette, "
-    'gentle lighting, clean composition, simple readable shapes, visually '
-    'appealing for young children, cute and friendly characters, polished and '
-    'cohesive, high-quality mobile story app artwork.';
+    "Soft children's illustration, warm pastel color palette, gentle lighting, "
+    'clean composition, simple clear shapes, cute and friendly characters, '
+    'polished and cohesive, high-quality mobile artwork.';
 
 const List<String> defaultStoryImageForbiddenTextSurfaces = [
   'text',
@@ -121,13 +120,13 @@ class StoryImageCharacterProfile {
       clothing: _firstText([
         map['clothing'],
         base.clothing,
-        'Simple consistent picture-book clothing.',
+        'Simple consistent clothing.',
       ]),
       colors: _firstText([map['colors'], base.colors, 'Warm pastel colors.']),
       expressionStyle: _firstText([
         map['expressionStyle'],
         base.expressionStyle,
-        'Gentle, readable expressions.',
+        'Gentle, clear expressions.',
       ]),
       personalityTone: _firstText([
         map['personalityTone'],
@@ -137,7 +136,7 @@ class StoryImageCharacterProfile {
       worldStyle: _firstText([
         map['worldStyle'],
         base.worldStyle,
-        "A safe, warm children's picture-book world.",
+        "A safe, warm children's colorful world.",
       ]),
     );
   }
@@ -149,21 +148,21 @@ class StoryImageCharacterProfile {
       name: _firstText([draft?.title, 'Main character']),
       appearance: _firstText([
         draft?.characterSheet.protagonist,
-        'A cute, friendly main character with a rounded picture-book design.',
+        'A cute, friendly main character with a rounded soft design.',
       ]),
       clothing:
           'Simple child-friendly clothing or accessories that stay consistent on every page.',
       colors: _firstText([
         draft?.characterSheet.artDirection,
-        'Warm pastel colors with clear, readable character colors.',
+        'Warm pastel colors with clear character colors.',
       ]),
       expressionStyle:
-          'Gentle, readable facial expressions with bright curious eyes.',
+          'Gentle, clear facial expressions with bright curious eyes.',
       personalityTone:
           'Kind, curious, brave in a gentle way, friendly for young children.',
       worldStyle: _firstText([
         draft?.characterSheet.worldDetails,
-        "A safe, warm, simple children's picture-book world.",
+        "A safe, warm, simple children's colorful world.",
       ]),
     );
   }
@@ -242,7 +241,7 @@ class StoryImagePageSpec {
       sceneGoal: _firstText([
         map['sceneGoal'],
         base.sceneGoal,
-        'Show page $page as a clear storybook moment.',
+        'Show a clear warm story moment.',
       ]),
       mainCharacterDescription: _firstText([
         map['mainCharacterDescription'],
@@ -263,7 +262,7 @@ class StoryImagePageSpec {
       composition: _firstText([
         map['composition'],
         base.composition,
-        'Vertical 9:16 composition, clear focal action, uncluttered layout.',
+        'Full-frame composition, clear focal action, simple open scenery.',
       ]),
       emotion: _firstText([
         map['emotion'],
@@ -275,7 +274,7 @@ class StoryImagePageSpec {
         base.backgroundDescription,
         map['environmentDescription'],
         base.environmentDescription,
-        'Complete edge-to-edge storybook background with gentle setting details.',
+        'Complete edge-to-edge colorful environment with gentle setting details.',
       ]),
       environmentDescription: _firstText([
         map['environmentDescription'],
@@ -283,7 +282,7 @@ class StoryImagePageSpec {
         map['backgroundDescription'],
         base.backgroundDescription,
         profile.worldStyle,
-        'A complete wordless storybook environment filling the full canvas.',
+        'A complete wordless colorful environment filling the whole canvas.',
       ]),
       foregroundElements: _stringList(
         map['foregroundElements'],
@@ -298,7 +297,7 @@ class StoryImagePageSpec {
         fallback: base.midgroundElements,
         defaults: const [
           'simple story path or floor plane',
-          'plain props without writing',
+          'plain decorative objects',
         ],
       ),
       backgroundElements: _stringList(
@@ -342,7 +341,7 @@ class StoryImagePageSpec {
       pageSummary,
       visualFocus,
       story,
-      'Show page $page as a clear warm picture-book moment.',
+      'Show a clear warm story moment.',
     ]);
     return StoryImagePageSpec(
       page: page,
@@ -352,13 +351,13 @@ class StoryImagePageSpec {
       supportingCharacters: _firstText([supportingCharacters, 'None.']),
       sceneDescription: sceneGoal,
       composition:
-          'Vertical 9:16 composition with the main character large and clear in the foreground, one simple focal action, and enough open space to read the scene immediately.',
+          'Full-frame composition with the main character large and clear in the central area, one simple focal action, and calm open scenery.',
       emotion: _firstText([mood, 'Warm, gentle, curious, safe, and friendly.']),
       backgroundDescription:
-          'A complete edge-to-edge storybook setting with soft shapes, gentle details, and no blank or white empty areas.',
+          'A complete edge-to-edge colorful setting with soft shapes and gentle details.',
       environmentDescription: [
         profile.worldStyle,
-        'Complete edge-to-edge picture-book environment filling the whole vertical canvas.',
+        'Complete colorful environment filling the whole vertical canvas.',
       ].where((entry) => entry.trim().isNotEmpty).join(' '),
       foregroundElements: [
         'main character clearly visible',
@@ -366,7 +365,7 @@ class StoryImagePageSpec {
       ],
       midgroundElements: const [
         'simple path or floor shape',
-        'story-relevant plain props without writing',
+        'story-relevant plain decorative objects',
       ],
       backgroundElements: const [
         'soft trees, clouds, hills, stars, furniture, or other wordless setting details',

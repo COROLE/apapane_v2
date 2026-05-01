@@ -143,7 +143,7 @@ const IMAGE_OUTPUT_WIDTH = 900;
 const IMAGE_OUTPUT_HEIGHT = 1600;
 const IMAGE_OUTPUT_JPEG_QUALITY = 84;
 const DEFAULT_IMAGE_STYLE =
-  'Soft children\'s story app illustration, warm pastel color palette, gentle lighting, clean composition, simple readable shapes, cute and friendly characters, polished and cohesive, high-quality mobile story app artwork.';
+  'Soft children\'s illustration, warm pastel color palette, gentle lighting, clean composition, simple clear shapes, cute and friendly characters, polished and cohesive, high-quality mobile artwork.';
 const DEFAULT_FORBIDDEN_TEXT_SURFACES = Object.freeze([
   'text',
   'letters',
@@ -288,6 +288,11 @@ Create a wholesome family picture-book illustration.
 - Prefer bright colors, friendly expressions, soft lighting, and cozy, non-threatening scenes.
 - Do not include readable text, captions, logos, or watermarks in the image.
 `.trim();
+const CHILD_SAFE_STRUCTURED_IMAGE_PREFIX = `
+Create a wholesome family-friendly illustration.
+Keep every character gentle, friendly, fully family-safe, and non-romantic.
+Use bright colors, friendly expressions, soft lighting, and cozy calm scenery.
+`.trim();
 /**
  * @typedef {Object} CharacterProfile
  * @property {string} name
@@ -330,6 +335,35 @@ const UNSAFE_VISUAL_NEGATIVE_PROMPT = [
   'scary close-up',
   'unfriendly theme',
 ].join(', ');
+const SAFE_STORY_OBJECTS = Object.freeze([
+  'small glowing star charm',
+  'small glowing gem',
+  'tiny flower',
+  'soft feather',
+  'golden acorn',
+  'plain wooden key charm',
+  'glowing firefly light',
+  'sparkling leaf',
+  'round pebble',
+  'small lantern with a plain surface',
+]);
+const UNSAFE_STORY_OBJECTS = Object.freeze([
+  'book',
+  'paper',
+  'card',
+  'note',
+  'letter',
+  'map',
+  'sign',
+  'label',
+  'scroll',
+  'poster',
+  'screen',
+  'blackboard',
+  'speech bubble',
+  'thought bubble',
+  'question mark',
+]);
 const UNSAFE_RULES = [
   {
     category: 'sexual_content',
@@ -2223,17 +2257,19 @@ Rules:
 - Never use a blank, plain, white, transparent, studio, gradient, or empty background.
 - Think separately about foreground, midground, and background, then fill those arrays with concrete visual objects.
 - The full 9:16 canvas must be filled edge-to-edge by the illustrated story setting.
-- Avoid objects that usually contain writing: signs, books with covers, posters, labels, blackboards, maps, screens, logos, packages, name tags, banners, notes, letters, cards, scrolls, speech bubbles, thought bubbles, and title cards.
-- Prefer wordless objects: trees, flowers, clouds, hills, stars, rivers, stones, toys, furniture, curtains, cushions, lamps, plants, paths, rocks, shells, candy shapes, or other plain decorative objects.
-- If the story mentions a clue, secret, answer, message, map, or letter, make it a wordless visual object instead:
-  clue or secret clue -> glowing star-shaped charm
-  written clue -> glowing charm with no markings
-  secret -> soft glowing light
-  answer -> gentle discovery moment
-  message -> visual gesture or glowing object
-  map -> winding path or landscape
-  letter -> flower, feather, gem, or charm
-- Never create paper, letters, notes, cards, books, maps, signs, speech bubbles, thought bubbles, blackboards, or screens as story objects.
+- Use plain natural or decorative story objects only: ${SAFE_STORY_OBJECTS.join(', ')}.
+- Also use trees, flowers, clouds, hills, stars, rivers, stones, toys, furniture, curtains, cushions, lamps, plants, paths, rocks, shells, candy shapes, or other plain decorative objects.
+- If the story mentions a clue, secret, answer, message, problem, question, wondering, map, or letter, convert it into a safe visible object or expression:
+  clue or secret clue -> small glowing star charm
+  written clue -> small glowing charm
+  secret -> soft magical glow
+  answer -> warm discovery moment
+  message -> friendly gesture
+  problem -> small obstacle on the path
+  question or wondering -> curious facial expression
+  map -> winding path
+  letter -> tiny flower, soft feather, small glowing gem, or plain charm
+- Do not make unsafe story objects. Use the safe object conversions above instead.
 - Set backgroundMustFillCanvas to true and wordlessMode to true on every page.
 - Every forbiddenTextSurfaces array must include: ${DEFAULT_FORBIDDEN_TEXT_SURFACES.join(', ')}.
 - Keep the style exactly: ${DEFAULT_IMAGE_STYLE}
@@ -2571,89 +2607,88 @@ function buildImagenPrompt(spec) {
   const environment = sanitizeVisualPromptForImagen(
     normalized.environmentDescription,
   );
+  const foreground = formatSafePromptList(normalized.foregroundElements);
+  const midground = formatSafePromptList(normalized.midgroundElements);
+  const backgroundElements = formatSafePromptList(normalized.backgroundElements);
+  const mainStoryObject = resolveSafeStoryObject(normalized);
   return [
-    'Create a high-quality vertical 9:16 full-bleed illustration for a mobile children\'s story app.',
+    'Create a vertical full-frame children\'s illustration.',
+    'Create only a wordless visual scene.',
+    'A continuous colorful environment fills the whole canvas from edge to edge.',
     '',
-    'This is a wordless background illustration, not a book page, not a book cover, not a poster, not a comic panel, and not a layout with text.',
-    'Create a completely wordless full-bleed background artwork.',
-    'The app will overlay Japanese narration separately.',
-    '',
-    'Illustrate only this visual scene:',
+    'Scene:',
     sceneDescription,
     '',
-    'Main character:',
+    'Characters:',
     sanitizeVisualPromptForImagen(normalized.mainCharacterDescription),
-    '',
-    'Supporting characters:',
     sanitizeVisualPromptForImagen(normalized.supportingCharacters),
     '',
-    'Composition:',
-    sanitizeVisualPromptForImagen(normalized.composition),
-    'Fill the entire 9:16 canvas with a complete illustrated environment from edge to edge.',
-    'Do not leave a blank, plain, white, empty, studio, or title-like area.',
-    'Keep the main characters\' faces, hands, and important story objects clearly visible in the middle area of the image.',
-    'Keep the bottom 28% of the image visually simple because the app will overlay Japanese narration there.',
-    'Do not place important faces, hands, or story objects in the bottom 28%.',
-    'Use the top area for natural scenery such as sky, clouds, stars, trees, hills, leaves, or soft light, never for text.',
+    'Setting:',
+    [environment, background, foreground, midground, backgroundElements]
+      .filter(Boolean)
+      .join(' '),
     '',
-    'Emotion and atmosphere:',
-    sanitizeVisualPromptForImagen(normalized.emotion),
+    'Composition:',
+    'Place the main characters in the central area of the scene.',
+    'Keep faces and important objects clearly visible.',
+    'Fill the upper area with natural scenery such as sky, clouds, tree leaves, hills, stars, or soft light.',
+    'Fill the lower foreground with simple grass, flowers, a path, stones, or soft plants.',
+    'Use a complete illustrated environment with colorful scenery across every edge.',
+    sanitizeVisualPromptForImagen(normalized.composition),
+    '',
+    'Main story object:',
+    mainStoryObject,
     '',
     'Style:',
+    sanitizeVisualPromptForImagen(normalized.emotion),
     sanitizeVisualPromptForImagen(normalized.style || DEFAULT_IMAGE_STYLE),
+    'Soft children\'s illustration, warm pastel colors, gentle lighting, clean shapes, cute friendly characters, cozy atmosphere, polished high-quality artwork.',
     '',
-    'Environment and background:',
-    'Show a clear foreground, midground, and background.',
-    'The background must be visible, story-relevant, and gently detailed.',
-    'Do not use a blank, plain, white, transparent, studio, gradient, or empty background.',
-    `Use a simple but complete story app setting: ${environment || background}`,
-    `Background: ${background || environment}`,
-    '',
-    'Foreground elements:',
-    formatPromptList(normalized.foregroundElements),
-    '',
-    'Midground elements:',
-    formatPromptList(normalized.midgroundElements),
-    '',
-    'Background elements:',
-    formatPromptList(normalized.backgroundElements),
-    '',
-    'Strict wordless requirements:',
-    'The image must contain absolutely no text anywhere.',
-    'Do not render any words from this prompt.',
-    'Do not render a title, subtitle, caption, dialogue, narration, labels, signs, logos, letters, numbers, symbols, handwriting, fake text, unreadable text, pseudo-English, pseudo-Chinese, or decorative typography.',
-    'Do not include speech bubbles, thought bubbles, text boxes, scrolls, notes, cards with writing, books with writing, maps, posters, banners, screens, blackboards, newspapers, product packages, name tags, or signboards.',
-    'Any glowing charm, object, toy, path, flower, feather, or gem must have no writing, no marks, no symbols, and no letters.',
-    'Avoid background objects that usually contain writing. Use natural or plain decorative objects instead.',
-    '',
-    'Safety and quality:',
-    'Keep the scene cute, safe, warm, and friendly.',
-    'Keep the main character visually clear and prominent.',
-    'Make the scene easy to understand at a glance.',
-    'Keep the layout simple and not cluttered.',
-    'Ensure character anatomy is clean and natural.',
-    'Use soft children\'s story app artwork, not a printed page design.',
-    'Fill every edge of the image with the story environment.',
-    '',
-    'Do not include:',
-    normalized.avoid
-      .map((term) => sanitizePromptLayoutText(term))
-      .filter(Boolean)
-      .map((term) => `- ${term}`)
-      .join('\n'),
+    'Surface rule:',
+    'All objects are plain decorative shapes with clean surfaces.',
     '',
     'Output:',
-    'A single polished wordless full-scene illustration with no text, no letters, no symbols, and no speech bubbles.',
+    'A single full-scene wordless illustration.',
   ].join('\n');
 }
 
-function formatPromptList(values) {
-  const entries = normalizeStringList(values, null, [])
+function formatSafePromptList(values) {
+  return normalizeStringList(values, null, [])
     .map((entry) => sanitizeVisualPromptForImagen(entry))
-    .filter(Boolean);
-  return entries.length > 0
-    ? entries.map((entry) => `- ${entry}`).join('\n')
-    : '- simple wordless story app details';
+    .filter(Boolean)
+    .join(', ');
+}
+
+function resolveSafeStoryObject(spec) {
+  const normalizedPage = Number.isInteger(spec.page) && spec.page > 0
+    ? spec.page
+    : 1;
+  const source = [
+    spec.sceneGoal,
+    spec.sceneDescription,
+    spec.backgroundDescription,
+    spec.environmentDescription,
+    ...(Array.isArray(spec.foregroundElements) ? spec.foregroundElements : []),
+    ...(Array.isArray(spec.midgroundElements) ? spec.midgroundElements : []),
+  ].join(' ');
+  const safeSource = sanitizeVisualPromptForImagen(source).toLowerCase();
+  for (const object of SAFE_STORY_OBJECTS) {
+    if (safeSource.includes(object.toLowerCase())) {
+      return object;
+    }
+  }
+  if (containsUnsafeStoryObject(safeSource)) {
+    return SAFE_STORY_OBJECTS[(normalizedPage - 1) % SAFE_STORY_OBJECTS.length];
+  }
+  return SAFE_STORY_OBJECTS[(normalizedPage - 1) % SAFE_STORY_OBJECTS.length];
+}
+
+function containsUnsafeStoryObject(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return false;
+  }
+  const lower = value.toLowerCase();
+  return UNSAFE_STORY_OBJECTS.some((term) => lower.includes(term));
 }
 
 function sanitizeVisualPromptForImagen(value) {
@@ -2661,49 +2696,81 @@ function sanitizeVisualPromptForImagen(value) {
     return '';
   }
   return value
-    .replace(/\bwritten clue\b/gi, 'glowing charm with no markings')
-    .replace(/\bsecret clue\b/gi, 'glowing star-shaped charm')
-    .replace(/\bclue\b/gi, 'glowing charm')
-    .replace(/\banswer\b/gi, 'gentle discovery')
-    .replace(/\bmessage\b/gi, 'soft glowing light')
-    .replace(/\bletter\b/gi, 'small flower')
-    .replace(/\bnote\b/gi, 'small gem')
-    .replace(/\bmap\b/gi, 'winding path')
-    .replace(/\bbook\b/gi, 'plain toy object without markings')
-    .replace(/\bsign\b/gi, 'tree stump')
-    .replace(/\blabel\b/gi, 'plain decoration')
-    .replace(/\bspeech bubble\b/gi, 'open sky with no text-like shapes')
-    .replace(/\bthought bubble\b/gi, 'natural soft cloud shape with no text-like shapes')
-    .replace(/\bpicture book page\b/gi, 'mobile story app artwork')
-    .replace(/\bstorybook page\b/gi, 'mobile story app artwork')
-    .replace(/\bbook page\b/gi, 'mobile story app artwork')
-    .replace(/\bcover illustration\b/gi, 'full-bleed app illustration')
-    .replace(/\bbook cover layout\b/gi, 'full-scene app artwork')
-    .replace(/\bbook cover\b/gi, 'full-scene app artwork')
-    .replace(/\bposter\b/gi, 'full-scene app artwork')
+    .replace(/\bwritten clues?\b/gi, 'small glowing charm')
+    .replace(/\bsecret clues?\b/gi, 'small glowing star charm')
+    .replace(/\bclues?\b/gi, 'small glowing charm')
+    .replace(/\bsecrets?\b/gi, 'soft magical glow')
+    .replace(/\banswers?\b/gi, 'warm discovery moment')
+    .replace(/\bmessages?\b/gi, 'friendly gesture')
+    .replace(/\bproblems?\b/gi, 'small obstacle on the path')
+    .replace(/\bquestion marks?\b/gi, 'curious facial expression')
+    .replace(/\bquestions?\b/gi, 'curious facial expression')
+    .replace(/\bwondering\b/gi, 'curious facial expression')
+    .replace(/\bletters?\b/gi, 'tiny flower')
+    .replace(/\bnotes?\b/gi, 'small gem')
+    .replace(/\bpapers?\b/gi, 'small glowing charm')
+    .replace(/\bcards?\b/gi, 'small glowing charm')
+    .replace(/\bbooks?\b/gi, 'tiny flower')
+    .replace(/\bmaps?\b/gi, 'winding path')
+    .replace(/\bsigns?\b/gi, 'tree stump')
+    .replace(/\blabels?\b/gi, 'plain decoration')
+    .replace(/\bspeech bubbles?\b/gi, 'open sky')
+    .replace(/\bthought bubbles?\b/gi, 'soft cloud in the sky')
+    .replace(/\bblackboards?\b/gi, 'plain wooden wall')
+    .replace(/\bscreens?\b/gi, 'soft window light')
+    .replace(/\bnewspapers?\b/gi, 'soft fabric')
+    .replace(/\bposters?\b/gi, 'flower patch')
+    .replace(/\bscrolls?\b/gi, 'curled leaf')
+    .replace(/\blogos?\b/gi, 'round pebble')
+    .replace(/\bwatermarks?\b/gi, 'soft light')
+    .replace(/\btext boxes?\b/gi, 'soft plant shape')
+    .replace(/\bcaptions?\b/gi, 'lower foreground')
+    .replace(/\btitles?\b/gi, 'main motif')
+    .replace(/\bsubtitles?\b/gi, 'small motif')
+    .replace(/\bdialogue\b/gi, 'friendly gesture')
+    .replace(/\bnarration\b/gi, 'warm scene mood')
+    .replace(/\bblank title areas?\b/gi, 'filled sky area')
+    .replace(/\btitle areas?\b/gi, 'sky area')
+    .replace(/\bcaption areas?\b/gi, 'lower foreground')
+    .replace(/\btypography\b/gi, 'decorative pattern')
+    .replace(/\bfake text\b/gi, 'soft surface pattern')
+    .replace(/\bpseudo-english\b/gi, 'soft surface pattern')
+    .replace(/\bpseudo-chinese\b/gi, 'soft surface pattern')
+    .replace(/\bhandwriting\b/gi, 'gentle line pattern')
+    .replace(/\bwriting\b/gi, 'plain surface detail')
+    .replace(/\breadable words?\b/gi, 'soft surface pattern')
+    .replace(/\breadable\b/gi, 'clear')
+    .replace(/\bwords?\b/gi, 'soft surface pattern')
+    .replace(/\btext\b/gi, 'surface pattern')
+    .replace(/\bnumbers?\b/gi, 'small shapes')
+    .replace(/\bsymbols?\b/gi, 'small shapes')
+    .replace(/\bpicture book pages?\b/gi, 'full-frame illustration')
+    .replace(/\bstorybook pages?\b/gi, 'full-frame illustration')
+    .replace(/\bbook pages?\b/gi, 'full-frame illustration')
+    .replace(/\bpages?\b/gi, 'scene')
+    .replace(/\bcover illustrations?\b/gi, 'full-frame illustration')
+    .replace(/\bbook covers?\b/gi, 'full-scene artwork')
+    .replace(/\bcovers?\b/gi, 'full-scene artwork')
+    .replace(/\bcomic panels?\b/gi, 'single full-scene moment')
+    .replace(/\bcomics?\b/gi, 'single full-scene moment')
+    .replace(/\blayouts?\b/gi, 'composition')
     .replace(/\bpicture-book\b/gi, 'story app')
     .replace(/\bstorybook\b/gi, 'story app')
-    .replace(/\bleave a clean area near the top for title placement\b/gi, 'fill the top area with illustrated background details')
-    .replace(/\btitle placement\b/gi, 'background detail')
-    .replace(/\bspace for text\b/gi, 'illustrated detail')
-    .replace(/\bblank area for title\b/gi, 'filled illustrated background area')
-    .replace(/\bcaption area\b/gi, 'illustrated foreground detail')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function sanitizePromptLayoutText(value) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value
-    .replace(/\bcover illustration\b/gi, 'cover-style image')
-    .replace(/\bbook cover layout\b/gi, 'cover-style layout')
-    .replace(/\bleave a clean area near the top for title placement\b/gi, 'title-like empty area')
-    .replace(/\btitle placement\b/gi, 'title-like placement')
-    .replace(/\bspace for text\b/gi, 'text-like empty space')
-    .replace(/\bblank area for title\b/gi, 'title-like blank area')
-    .replace(/\bcaption area\b/gi, 'caption-like area')
+    .replace(/\bvertical\s*9:16\b/gi, 'vertical full-frame')
+    .replace(/\b9:16\b/gi, 'vertical full-frame')
+    .replace(/\bbottom\s*28\s*%/gi, 'lower foreground')
+    .replace(/\b28\s*%/gi, 'lower foreground')
+    .replace(/\b\d+(?:\.\d+)?\s*%/g, 'lower foreground')
+    .replace(/%/g, '')
+    .replace(/\b\d+\b/g, '')
+    .replace(/\bbottom\b/gi, 'lower')
+    .replace(/\bblank\b/gi, 'filled')
+    .replace(/\bempty\b/gi, 'open')
+    .replace(/\bwithout\b/gi, 'with')
+    .replace(/\bdo not\b/gi, '')
+    .replace(/\bnever\b/gi, '')
+    .replace(/\bavoid\b/gi, 'use')
+    .replace(/\bnone\b\.?/gi, 'only the main character')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -2828,11 +2895,10 @@ function buildCorrectedImagenPrompt(prompt) {
     prompt,
     '',
     'Correction emphasis:',
-    'The previous image failed because it contained generated text, fake typography, a speech bubble, a thought bubble, or a title-like area.',
-    'Create a completely wordless full-bleed illustration.',
-    'No text, no letters, no numbers, no symbols, no fake text, no speech bubbles, no thought bubbles, no signs, no notes, no cards, no books, no maps.',
-    'Fill the top area with natural scenery only.',
-    'Keep important subjects away from the bottom caption area.',
+    'Create a cleaner wordless version.',
+    'Use only characters, natural scenery, plain decorative objects, and soft light.',
+    'Fill the whole canvas with one continuous illustrated environment.',
+    'Keep the lower foreground simple and keep important objects in the central area.',
   ].join('\n');
 }
 
@@ -2865,13 +2931,14 @@ async function assessGeneratedImageQualitySafely({
       message: error instanceof Error ? error.message : String(error),
     });
     return {
-      hasVisibleGeneratedText: false,
-      hasFakeText: false,
-      hasSpeechBubble: false,
-      hasThoughtBubble: false,
-      hasTextBearingObject: false,
-      hasFullBackground: true,
-      importantSubjectOverlapsCaptionArea: false,
+      hasVisibleWriting: false,
+      hasFakeWriting: false,
+      hasQuestionMark: false,
+      hasBubbleShapeForDialogue: false,
+      hasPaperLikeObjectWithMarks: false,
+      hasBlankPageLayout: false,
+      hasCompleteBackground: true,
+      importantSubjectTooLow: false,
       isAcceptable: true,
       reason: 'Quality assessment failed; accepting image to avoid blocking generation.',
     };
@@ -2916,24 +2983,26 @@ async function assessGeneratedImageQuality({
           responseSchema: {
             type: 'object',
             properties: {
-              hasVisibleGeneratedText: { type: 'boolean' },
-              hasFakeText: { type: 'boolean' },
-              hasSpeechBubble: { type: 'boolean' },
-              hasThoughtBubble: { type: 'boolean' },
-              hasTextBearingObject: { type: 'boolean' },
-              hasFullBackground: { type: 'boolean' },
-              importantSubjectOverlapsCaptionArea: { type: 'boolean' },
+              hasVisibleWriting: { type: 'boolean' },
+              hasFakeWriting: { type: 'boolean' },
+              hasQuestionMark: { type: 'boolean' },
+              hasBubbleShapeForDialogue: { type: 'boolean' },
+              hasPaperLikeObjectWithMarks: { type: 'boolean' },
+              hasBlankPageLayout: { type: 'boolean' },
+              hasCompleteBackground: { type: 'boolean' },
+              importantSubjectTooLow: { type: 'boolean' },
               isAcceptable: { type: 'boolean' },
               reason: { type: 'string' },
             },
             required: [
-              'hasVisibleGeneratedText',
-              'hasFakeText',
-              'hasSpeechBubble',
-              'hasThoughtBubble',
-              'hasTextBearingObject',
-              'hasFullBackground',
-              'importantSubjectOverlapsCaptionArea',
+              'hasVisibleWriting',
+              'hasFakeWriting',
+              'hasQuestionMark',
+              'hasBubbleShapeForDialogue',
+              'hasPaperLikeObjectWithMarks',
+              'hasBlankPageLayout',
+              'hasCompleteBackground',
+              'importantSubjectTooLow',
               'isAcceptable',
               'reason',
             ],
@@ -2963,59 +3032,74 @@ Expected page:
 
 Return JSON only:
 {
-  "hasVisibleGeneratedText": false,
-  "hasFakeText": false,
-  "hasSpeechBubble": false,
-  "hasThoughtBubble": false,
-  "hasTextBearingObject": false,
-  "hasFullBackground": true,
-  "importantSubjectOverlapsCaptionArea": false,
+  "hasVisibleWriting": false,
+  "hasFakeWriting": false,
+  "hasQuestionMark": false,
+  "hasBubbleShapeForDialogue": false,
+  "hasPaperLikeObjectWithMarks": false,
+  "hasBlankPageLayout": false,
+  "hasCompleteBackground": true,
+  "importantSubjectTooLow": false,
   "isAcceptable": true,
-  "reason": "The image is a full-scene wordless illustration with no generated text."
+  "reason": "The image is a full-scene wordless illustration."
 }
 
 Rules:
-- hasFullBackground is true only if the entire 9:16 canvas has a visible story-relevant illustrated environment, not a blank, plain, white, transparent, studio, gradient, or empty background.
-- hasVisibleGeneratedText is true if the image contains English-like text, Chinese-like characters, readable words, letters, numbers, symbols, title text, captions, labels, logos, narration text, or any generated writing.
-- hasFakeText is true if the image contains unreadable pseudo-letters, pseudo-English, pseudo-Chinese, decorative typography, watermark-like marks, or text-like scribbles.
-- hasSpeechBubble is true if there is any speech bubble, dialogue bubble, comic bubble, or rounded text balloon even when empty.
-- hasThoughtBubble is true if there is any thought bubble or cloud-like thinking bubble even when empty.
-- hasTextBearingObject is true if the image contains a title area, text box, caption box, signboard, card, paper note, letter, book with writing, map, poster, banner, blackboard, screen, newspaper, product package, name tag, label, or logo-like object.
-- importantSubjectOverlapsCaptionArea is true if important faces, hands, main characters, or key story objects are in the bottom 28% of the image where app narration will be overlaid.
-- isAcceptable is true only when hasFullBackground is true and all other boolean problem fields are false.
+- hasCompleteBackground is true only if the canvas has a visible story-relevant illustrated environment, not a blank or white empty design.
+- hasVisibleWriting is true if the image contains readable writing in any language.
+- hasFakeWriting is true if the image contains unreadable pseudo-writing or decorative writing-like marks.
+- hasQuestionMark is true if the image contains a visible question mark mark.
+- hasBubbleShapeForDialogue is true if the image contains a dialogue or thinking balloon shape, even when empty.
+- hasPaperLikeObjectWithMarks is true if the image contains a paper-like, board-like, object-like, or display-like surface with visible marks.
+- hasBlankPageLayout is true if the image looks like a mostly white printed story sheet or has a large empty top area reserved for words.
+- importantSubjectTooLow is true if important faces, hands, main characters, or key story objects sit in the lower foreground where the app reading panel appears.
+- isAcceptable is true only when hasCompleteBackground is true and all other boolean problem fields are false.
 `.trim();
 }
 
 function normalizeImageQualityAssessment(value) {
   const source = value && typeof value === 'object' ? value : {};
-  const hasVisibleGeneratedText = source.hasVisibleGeneratedText === true;
-  const hasFakeText = source.hasFakeText === true;
-  const hasSpeechBubble = source.hasSpeechBubble === true;
-  const hasThoughtBubble = source.hasThoughtBubble === true;
-  const hasTextBearingObject =
+  const hasVisibleWriting =
+    source.hasVisibleWriting === true ||
+    source.hasVisibleGeneratedText === true ||
+    source.hasVisibleTextOrSymbols === true;
+  const hasFakeWriting =
+    source.hasFakeWriting === true || source.hasFakeText === true;
+  const hasQuestionMark = source.hasQuestionMark === true;
+  const hasBubbleShapeForDialogue =
+    source.hasBubbleShapeForDialogue === true ||
+    source.hasSpeechBubble === true ||
+    source.hasThoughtBubble === true;
+  const hasPaperLikeObjectWithMarks =
+    source.hasPaperLikeObjectWithMarks === true ||
     source.hasTextBearingObject === true ||
     source.hasTextBearingObjects === true;
-  const hasFullBackground = source.hasFullBackground === true;
-  const importantSubjectOverlapsCaptionArea =
+  const hasBlankPageLayout = source.hasBlankPageLayout === true;
+  const hasCompleteBackground =
+    source.hasCompleteBackground === true || source.hasFullBackground === true;
+  const importantSubjectTooLow =
+    source.importantSubjectTooLow === true ||
     source.importantSubjectOverlapsCaptionArea === true;
   const modelAcceptable = source.isAcceptable === true;
   return {
-    hasVisibleGeneratedText,
-    hasFakeText,
-    hasSpeechBubble,
-    hasThoughtBubble,
-    hasTextBearingObject,
-    hasFullBackground,
-    importantSubjectOverlapsCaptionArea,
+    hasVisibleWriting,
+    hasFakeWriting,
+    hasQuestionMark,
+    hasBubbleShapeForDialogue,
+    hasPaperLikeObjectWithMarks,
+    hasBlankPageLayout,
+    hasCompleteBackground,
+    importantSubjectTooLow,
     isAcceptable:
       modelAcceptable &&
-      hasFullBackground &&
-      !hasVisibleGeneratedText &&
-      !hasFakeText &&
-      !hasSpeechBubble &&
-      !hasThoughtBubble &&
-      !hasTextBearingObject &&
-      !importantSubjectOverlapsCaptionArea,
+      hasCompleteBackground &&
+      !hasVisibleWriting &&
+      !hasFakeWriting &&
+      !hasQuestionMark &&
+      !hasBubbleShapeForDialogue &&
+      !hasPaperLikeObjectWithMarks &&
+      !hasBlankPageLayout &&
+      !importantSubjectTooLow,
     reason: firstNonEmptyText([
       source.reason,
       'No assessment reason was provided.',
@@ -3058,10 +3142,12 @@ async function generateSafeImage({
     throw createChildSafeError();
   }
 
-  const positivePrompt = [CHILD_SAFE_IMAGE_PREFIX, prompt].join('\n\n');
-  const negativePromptText = [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
-      .filter(Boolean)
-      .join(', ');
+  const { positivePrompt, negativePromptText } =
+    buildImageGenerationPromptsForImagen({
+      prompt,
+      negativePrompt,
+      imageDebug,
+    });
   let result = await callGeminiImagen({
     prompt: positivePrompt,
     negativePrompt: negativePromptText,
@@ -3135,6 +3221,25 @@ async function generateSafeImage({
   });
 
   return response;
+}
+
+function buildImageGenerationPromptsForImagen({
+  prompt,
+  negativePrompt = '',
+  imageDebug = null,
+}) {
+  const usesStructuredImageSpec = Boolean(imageDebug?.imagePageSpec);
+  const prefix = usesStructuredImageSpec
+    ? CHILD_SAFE_STRUCTURED_IMAGE_PREFIX
+    : CHILD_SAFE_IMAGE_PREFIX;
+  return {
+    positivePrompt: [prefix, prompt].filter(Boolean).join('\n\n'),
+    negativePromptText: usesStructuredImageSpec
+      ? ''
+      : [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
+          .filter(Boolean)
+          .join(', '),
+  };
 }
 
 function logImageGenerationFailure(functionName, callerId, error) {
@@ -3241,16 +3346,7 @@ async function callGeminiText({
 }
 
 async function callGeminiImagen({ prompt, negativePrompt, apiKey, seed }) {
-  const safePrompt = sanitizeImagePrompt(prompt);
-  const safeNegativePrompt = sanitizeImagePrompt(negativePrompt);
-  const mergedPrompt = [
-    safePrompt.trim(),
-    safeNegativePrompt.trim()
-      ? `Avoid the following elements: ${safeNegativePrompt.trim()}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join('\n\n');
+  const mergedPrompt = buildImagenMergedPrompt({ prompt, negativePrompt });
 
   const payload = await postJson(
     `https://generativelanguage.googleapis.com/v1beta/models/${IMAGEN_IMAGE_MODEL}:predict`,
@@ -3283,6 +3379,19 @@ async function callGeminiImagen({ prompt, negativePrompt, apiKey, seed }) {
     'internal',
     '画像生成の結果を取得できませんでした。',
   );
+}
+
+function buildImagenMergedPrompt({ prompt, negativePrompt = '' }) {
+  const safePrompt = sanitizeImagePrompt(prompt);
+  const safeNegativePrompt = sanitizeImagePrompt(negativePrompt);
+  return [
+    safePrompt.trim(),
+    safeNegativePrompt.trim()
+      ? `Avoid the following elements: ${safeNegativePrompt.trim()}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function sanitizeImagePrompt(value) {
@@ -4418,13 +4527,17 @@ exports.__test__ = {
   DEFAULT_AVOID_TERMS,
   DEFAULT_FORBIDDEN_TEXT_SURFACES,
   DEFAULT_IMAGE_STYLE,
+  SAFE_STORY_OBJECTS,
+  UNSAFE_STORY_OBJECTS,
   SILVER_MONTHLY_STORY_CREDITS,
   STORY_MODES,
   buildFallbackStoryPreview,
   buildImageSpecPrompt,
   buildImageSpecResponseSchema,
   buildImagenImageRequest,
+  buildImagenMergedPrompt,
   buildImagenPrompt,
+  buildImageGenerationPromptsForImagen,
   buildCorrectedImagenPrompt,
   buildImageQualityAssessmentPrompt,
   buildStoryPreviewPrompt,
@@ -4464,6 +4577,7 @@ exports.__test__ = {
   resolveGeneratorCaller,
   sanitizeImagePrompt,
   sanitizeVisualPromptForImagen,
+  resolveSafeStoryObject,
   shouldRegenerateFromImageAssessment,
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,

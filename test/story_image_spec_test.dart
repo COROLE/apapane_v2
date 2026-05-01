@@ -19,7 +19,7 @@ void main() {
         'mainCharacterDescription': 'small orange fox child, blue scarf',
         'supportingCharacters': 'gentle bear friend',
         'sceneDescription': 'The fox and bear stand in a candy garden.',
-        'composition': 'Vertical 9:16, fox large in the foreground.',
+        'composition': 'Full-frame, fox large in the central area.',
         'emotion': 'Warm surprise and friendly curiosity.',
         'backgroundDescription': 'Simple candy trees and soft pastel path.',
         'environmentDescription': 'A candy garden that fills the full canvas.',
@@ -39,7 +39,7 @@ void main() {
     expect(spec.page, 1);
     expect(spec.sceneGoal, contains('strawberry lantern'));
     expect(spec.mainCharacterDescription, contains('orange fox'));
-    expect(spec.composition, contains('Vertical 9:16'));
+    expect(spec.composition, contains('Full-frame'));
     expect(spec.emotion, contains('Warm surprise'));
     expect(spec.environmentDescription, contains('candy garden'));
     expect(spec.foregroundElements, contains('fox child'));
@@ -74,7 +74,7 @@ void main() {
     expect(spec.backgroundDescription, contains('edge-to-edge'));
     expect(spec.environmentDescription, isNotEmpty);
     expect(spec.foregroundElements, contains('main character clearly visible'));
-    expect(spec.midgroundElements, contains('plain props without writing'));
+    expect(spec.midgroundElements, contains('plain decorative objects'));
     expect(
       spec.backgroundElements.any((entry) => entry.contains('wordless')),
       isTrue,
