@@ -143,31 +143,64 @@ const IMAGE_OUTPUT_WIDTH = 900;
 const IMAGE_OUTPUT_HEIGHT = 1600;
 const IMAGE_OUTPUT_JPEG_QUALITY = 84;
 const DEFAULT_IMAGE_STYLE =
-  'Soft children\'s picture book illustration, warm pastel color palette, gentle lighting, clean composition, simple readable shapes, visually appealing for young children, polished and cohesive, high-quality storytelling illustration.';
+  'Soft children\'s story app illustration, warm pastel color palette, gentle lighting, clean composition, simple readable shapes, cute and friendly characters, polished and cohesive, high-quality mobile story app artwork.';
 const DEFAULT_FORBIDDEN_TEXT_SURFACES = Object.freeze([
+  'text',
   'letters',
   'numbers',
   'symbols',
+  'typography',
+  'fake text',
+  'pseudo-English',
+  'pseudo-Chinese',
+  'handwriting',
+  'title',
+  'subtitle',
+  'caption',
   'captions',
+  'dialogue',
+  'narration',
+  'speech bubble',
   'speech bubbles',
+  'thought bubble',
+  'thought bubbles',
+  'text box',
+  'scroll',
+  'note',
+  'letter',
+  'card with writing',
+  'book with writing',
   'title text',
   'labels',
+  'label',
   'logos',
+  'logo',
   'signs',
+  'sign',
+  'signboard',
   'posters',
+  'poster',
   'banners',
+  'banner',
   'book covers with writing',
   'newspapers',
+  'newspaper',
   'maps',
+  'map',
   'blackboards',
+  'blackboard',
   'screens',
+  'screen',
   'product packages',
+  'product package',
   'name tags',
+  'name tag',
   'title cards',
+  'title card',
   'watermark-like marks',
+  'watermark',
 ]);
 const DEFAULT_AVOID_TERMS = Object.freeze([
-  'text',
   ...DEFAULT_FORBIDDEN_TEXT_SURFACES,
   'scary expression',
   'horror mood',
@@ -2122,7 +2155,7 @@ function buildImageSpecPrompt({
     .join('\n\n');
 
   return `
-Create structured image specifications for a children's picture book.
+Create structured visual specifications for a mobile children's story app.
 
 Input:
 title:
@@ -2190,8 +2223,17 @@ Rules:
 - Never use a blank, plain, white, transparent, studio, gradient, or empty background.
 - Think separately about foreground, midground, and background, then fill those arrays with concrete visual objects.
 - The full 9:16 canvas must be filled edge-to-edge by the illustrated story setting.
-- Avoid objects that usually contain writing: signs, books with covers, posters, labels, blackboards, maps, screens, logos, packages, name tags, banners, and title cards.
+- Avoid objects that usually contain writing: signs, books with covers, posters, labels, blackboards, maps, screens, logos, packages, name tags, banners, notes, letters, cards, scrolls, speech bubbles, thought bubbles, and title cards.
 - Prefer wordless objects: trees, flowers, clouds, hills, stars, rivers, stones, toys, furniture, curtains, cushions, lamps, plants, paths, rocks, shells, candy shapes, or other plain decorative objects.
+- If the story mentions a clue, secret, answer, message, map, or letter, make it a wordless visual object instead:
+  clue or secret clue -> glowing star-shaped charm
+  written clue -> glowing charm with no markings
+  secret -> soft glowing light
+  answer -> gentle discovery moment
+  message -> visual gesture or glowing object
+  map -> winding path or landscape
+  letter -> flower, feather, gem, or charm
+- Never create paper, letters, notes, cards, books, maps, signs, speech bubbles, thought bubbles, blackboards, or screens as story objects.
 - Set backgroundMustFillCanvas to true and wordlessMode to true on every page.
 - Every forbiddenTextSurfaces array must include: ${DEFAULT_FORBIDDEN_TEXT_SURFACES.join(', ')}.
 - Keep the style exactly: ${DEFAULT_IMAGE_STYLE}
@@ -2517,45 +2559,54 @@ function normalizeAvoidTerms(value, fallback = null) {
 
 function buildImagenPrompt(spec) {
   const normalized = normalizeImagePageSpec(spec);
-  const background = sanitizeImagePromptSectionText(
+  const sceneDescription = sanitizeVisualPromptForImagen([
+    normalized.sceneDescription,
+    normalized.sceneGoal,
+  ]
+    .filter(Boolean)
+    .join(' '));
+  const background = sanitizeVisualPromptForImagen(
     normalized.backgroundDescription,
   );
-  const environment = sanitizeImagePromptSectionText(
+  const environment = sanitizeVisualPromptForImagen(
     normalized.environmentDescription,
   );
   return [
-    'Create a high-quality vertical 9:16 children\'s picture book illustration.',
-    'Create a full illustrated story scene, not a cover-style layout.',
-    'Do not reserve any title area. Do not create any text area.',
-    'The whole image should be a complete wordless illustration.',
+    'Create a high-quality vertical 9:16 full-bleed illustration for a mobile children\'s story app.',
     '',
-    'Scene goal:',
-    sanitizeImagePromptSectionText(normalized.sceneGoal),
+    'This is a wordless background illustration, not a book page, not a book cover, not a poster, not a comic panel, and not a layout with text.',
+    'Create a completely wordless full-bleed background artwork.',
+    'The app will overlay Japanese narration separately.',
+    '',
+    'Illustrate only this visual scene:',
+    sceneDescription,
     '',
     'Main character:',
-    sanitizeImagePromptSectionText(normalized.mainCharacterDescription),
+    sanitizeVisualPromptForImagen(normalized.mainCharacterDescription),
     '',
     'Supporting characters:',
-    sanitizeImagePromptSectionText(normalized.supportingCharacters),
-    '',
-    'Scene description:',
-    sanitizeImagePromptSectionText(normalized.sceneDescription),
+    sanitizeVisualPromptForImagen(normalized.supportingCharacters),
     '',
     'Composition:',
-    sanitizeImagePromptSectionText(normalized.composition),
+    sanitizeVisualPromptForImagen(normalized.composition),
+    'Fill the entire 9:16 canvas with a complete illustrated environment from edge to edge.',
+    'Do not leave a blank, plain, white, empty, studio, or title-like area.',
+    'Keep the main characters\' faces, hands, and important story objects clearly visible in the middle area of the image.',
+    'Keep the bottom 28% of the image visually simple because the app will overlay Japanese narration there.',
+    'Do not place important faces, hands, or story objects in the bottom 28%.',
+    'Use the top area for natural scenery such as sky, clouds, stars, trees, hills, leaves, or soft light, never for text.',
     '',
     'Emotion and atmosphere:',
-    sanitizeImagePromptSectionText(normalized.emotion),
+    sanitizeVisualPromptForImagen(normalized.emotion),
     '',
     'Style:',
-    sanitizeImagePromptSectionText(normalized.style || DEFAULT_IMAGE_STYLE),
+    sanitizeVisualPromptForImagen(normalized.style || DEFAULT_IMAGE_STYLE),
     '',
     'Environment and background:',
-    'The entire 9:16 canvas must be filled with a complete illustrated environment from edge to edge.',
     'Show a clear foreground, midground, and background.',
     'The background must be visible, story-relevant, and gently detailed.',
     'Do not use a blank, plain, white, transparent, studio, gradient, or empty background.',
-    `Use a simple but complete storybook setting: ${environment || background}`,
+    `Use a simple but complete story app setting: ${environment || background}`,
     `Background: ${background || environment}`,
     '',
     'Foreground elements:',
@@ -2567,54 +2618,92 @@ function buildImagenPrompt(spec) {
     'Background elements:',
     formatPromptList(normalized.backgroundElements),
     '',
-    'Wordless image requirements:',
-    'The image must be completely wordless.',
-    'Do not include any letters, numbers, symbols, captions, speech bubbles, title text, labels, logos, signs, posters, banners, book covers with writing, newspapers, maps, blackboards, screens, product packages, name tags, title cards, or watermark-like marks.',
-    'Avoid background objects that usually contain writing.',
-    'Use natural or plain decorative objects instead.',
+    'Strict wordless requirements:',
+    'The image must contain absolutely no text anywhere.',
+    'Do not render any words from this prompt.',
+    'Do not render a title, subtitle, caption, dialogue, narration, labels, signs, logos, letters, numbers, symbols, handwriting, fake text, unreadable text, pseudo-English, pseudo-Chinese, or decorative typography.',
+    'Do not include speech bubbles, thought bubbles, text boxes, scrolls, notes, cards with writing, books with writing, maps, posters, banners, screens, blackboards, newspapers, product packages, name tags, or signboards.',
+    'Any glowing charm, object, toy, path, flower, feather, or gem must have no writing, no marks, no symbols, and no letters.',
+    'Avoid background objects that usually contain writing. Use natural or plain decorative objects instead.',
     '',
-    'Important visual requirements:',
-    '- Keep the main character visually clear and prominent.',
-    '- Make the scene easy to understand at a glance.',
-    '- Keep the layout simple and not cluttered.',
-    '- Maintain a cute, safe, warm, and friendly tone.',
-    '- Ensure character anatomy is clean and natural.',
-    '- The image should look like a professionally illustrated children\'s book page.',
-    '- Fill every edge of the image with the story environment.',
+    'Safety and quality:',
+    'Keep the scene cute, safe, warm, and friendly.',
+    'Keep the main character visually clear and prominent.',
+    'Make the scene easy to understand at a glance.',
+    'Keep the layout simple and not cluttered.',
+    'Ensure character anatomy is clean and natural.',
+    'Use soft children\'s story app artwork, not a printed page design.',
+    'Fill every edge of the image with the story environment.',
     '',
     'Do not include:',
     normalized.avoid
-      .map((term) => sanitizeImagePromptSectionText(term))
+      .map((term) => sanitizePromptLayoutText(term))
       .filter(Boolean)
       .map((term) => `- ${term}`)
       .join('\n'),
     '',
     'Output:',
-    'A single polished storybook illustration.',
+    'A single polished wordless full-scene illustration with no text, no letters, no symbols, and no speech bubbles.',
   ].join('\n');
 }
 
 function formatPromptList(values) {
   const entries = normalizeStringList(values, null, [])
-    .map((entry) => sanitizeImagePromptSectionText(entry))
+    .map((entry) => sanitizeVisualPromptForImagen(entry))
     .filter(Boolean);
   return entries.length > 0
     ? entries.map((entry) => `- ${entry}`).join('\n')
-    : '- simple wordless storybook details';
+    : '- simple wordless story app details';
 }
 
-function sanitizeImagePromptSectionText(value) {
+function sanitizeVisualPromptForImagen(value) {
   if (typeof value !== 'string') {
     return '';
   }
   return value
-    .replace(/cover illustration/gi, 'full illustrated story scene')
-    .replace(/book cover layout/gi, 'full scene layout')
-    .replace(/leave a clean area near the top for title placement/gi, 'fill the top area with illustrated background details')
-    .replace(/title placement/gi, 'background detail')
-    .replace(/space for text/gi, 'illustrated detail')
-    .replace(/blank area for title/gi, 'filled illustrated background area')
-    .replace(/caption area/gi, 'illustrated foreground detail')
+    .replace(/\bwritten clue\b/gi, 'glowing charm with no markings')
+    .replace(/\bsecret clue\b/gi, 'glowing star-shaped charm')
+    .replace(/\bclue\b/gi, 'glowing charm')
+    .replace(/\banswer\b/gi, 'gentle discovery')
+    .replace(/\bmessage\b/gi, 'soft glowing light')
+    .replace(/\bletter\b/gi, 'small flower')
+    .replace(/\bnote\b/gi, 'small gem')
+    .replace(/\bmap\b/gi, 'winding path')
+    .replace(/\bbook\b/gi, 'plain toy object without markings')
+    .replace(/\bsign\b/gi, 'tree stump')
+    .replace(/\blabel\b/gi, 'plain decoration')
+    .replace(/\bspeech bubble\b/gi, 'open sky with no text-like shapes')
+    .replace(/\bthought bubble\b/gi, 'natural soft cloud shape with no text-like shapes')
+    .replace(/\bpicture book page\b/gi, 'mobile story app artwork')
+    .replace(/\bstorybook page\b/gi, 'mobile story app artwork')
+    .replace(/\bbook page\b/gi, 'mobile story app artwork')
+    .replace(/\bcover illustration\b/gi, 'full-bleed app illustration')
+    .replace(/\bbook cover layout\b/gi, 'full-scene app artwork')
+    .replace(/\bbook cover\b/gi, 'full-scene app artwork')
+    .replace(/\bposter\b/gi, 'full-scene app artwork')
+    .replace(/\bpicture-book\b/gi, 'story app')
+    .replace(/\bstorybook\b/gi, 'story app')
+    .replace(/\bleave a clean area near the top for title placement\b/gi, 'fill the top area with illustrated background details')
+    .replace(/\btitle placement\b/gi, 'background detail')
+    .replace(/\bspace for text\b/gi, 'illustrated detail')
+    .replace(/\bblank area for title\b/gi, 'filled illustrated background area')
+    .replace(/\bcaption area\b/gi, 'illustrated foreground detail')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sanitizePromptLayoutText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/\bcover illustration\b/gi, 'cover-style image')
+    .replace(/\bbook cover layout\b/gi, 'cover-style layout')
+    .replace(/\bleave a clean area near the top for title placement\b/gi, 'title-like empty area')
+    .replace(/\btitle placement\b/gi, 'title-like placement')
+    .replace(/\bspace for text\b/gi, 'text-like empty space')
+    .replace(/\bblank area for title\b/gi, 'title-like blank area')
+    .replace(/\bcaption area\b/gi, 'caption-like area')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -2739,8 +2828,11 @@ function buildCorrectedImagenPrompt(prompt) {
     prompt,
     '',
     'Correction emphasis:',
-    'The previous attempt failed because the background was missing or contained text-like elements.',
-    'Create a complete full-background illustration with no text, no signs, no labels, no symbols, and no blank areas.',
+    'The previous image failed because it contained generated text, fake typography, a speech bubble, a thought bubble, or a title-like area.',
+    'Create a completely wordless full-bleed illustration.',
+    'No text, no letters, no numbers, no symbols, no fake text, no speech bubbles, no thought bubbles, no signs, no notes, no cards, no books, no maps.',
+    'Fill the top area with natural scenery only.',
+    'Keep important subjects away from the bottom caption area.',
   ].join('\n');
 }
 
@@ -2773,9 +2865,13 @@ async function assessGeneratedImageQualitySafely({
       message: error instanceof Error ? error.message : String(error),
     });
     return {
+      hasVisibleGeneratedText: false,
+      hasFakeText: false,
+      hasSpeechBubble: false,
+      hasThoughtBubble: false,
+      hasTextBearingObject: false,
       hasFullBackground: true,
-      hasVisibleTextOrSymbols: false,
-      hasTextBearingObjects: false,
+      importantSubjectOverlapsCaptionArea: false,
       isAcceptable: true,
       reason: 'Quality assessment failed; accepting image to avoid blocking generation.',
     };
@@ -2820,16 +2916,24 @@ async function assessGeneratedImageQuality({
           responseSchema: {
             type: 'object',
             properties: {
+              hasVisibleGeneratedText: { type: 'boolean' },
+              hasFakeText: { type: 'boolean' },
+              hasSpeechBubble: { type: 'boolean' },
+              hasThoughtBubble: { type: 'boolean' },
+              hasTextBearingObject: { type: 'boolean' },
               hasFullBackground: { type: 'boolean' },
-              hasVisibleTextOrSymbols: { type: 'boolean' },
-              hasTextBearingObjects: { type: 'boolean' },
+              importantSubjectOverlapsCaptionArea: { type: 'boolean' },
               isAcceptable: { type: 'boolean' },
               reason: { type: 'string' },
             },
             required: [
+              'hasVisibleGeneratedText',
+              'hasFakeText',
+              'hasSpeechBubble',
+              'hasThoughtBubble',
+              'hasTextBearingObject',
               'hasFullBackground',
-              'hasVisibleTextOrSymbols',
-              'hasTextBearingObjects',
+              'importantSubjectOverlapsCaptionArea',
               'isAcceptable',
               'reason',
             ],
@@ -2850,7 +2954,7 @@ async function assessGeneratedImageQuality({
 
 function buildImageQualityAssessmentPrompt({ imageDebug, prompt }) {
   return `
-Inspect this generated storybook illustration for a children's picture book.
+Inspect this raw generated image before the app overlays Japanese narration.
 
 Expected page:
 - Page: ${imageDebug.page}
@@ -2859,36 +2963,59 @@ Expected page:
 
 Return JSON only:
 {
+  "hasVisibleGeneratedText": false,
+  "hasFakeText": false,
+  "hasSpeechBubble": false,
+  "hasThoughtBubble": false,
+  "hasTextBearingObject": false,
   "hasFullBackground": true,
-  "hasVisibleTextOrSymbols": false,
-  "hasTextBearingObjects": false,
+  "importantSubjectOverlapsCaptionArea": false,
   "isAcceptable": true,
-  "reason": "short English explanation"
+  "reason": "The image is a full-scene wordless illustration with no generated text."
 }
 
 Rules:
 - hasFullBackground is true only if the entire 9:16 canvas has a visible story-relevant illustrated environment, not a blank, plain, white, transparent, studio, gradient, or empty background.
-- hasVisibleTextOrSymbols is true if there are visible letters, numbers, symbols, captions, speech bubbles, title text, labels, logos, signs, posters, banners, maps, blackboards, screens, package text, name tags, title cards, or watermark-like marks.
-- hasTextBearingObjects is true if the image contains objects that usually carry writing, even if the writing is not readable, such as signs, posters, blackboards, screens, maps, newspapers, book covers, packages, labels, banners, name tags, or title cards.
-- isAcceptable is true only when hasFullBackground is true and both text-related fields are false.
+- hasVisibleGeneratedText is true if the image contains English-like text, Chinese-like characters, readable words, letters, numbers, symbols, title text, captions, labels, logos, narration text, or any generated writing.
+- hasFakeText is true if the image contains unreadable pseudo-letters, pseudo-English, pseudo-Chinese, decorative typography, watermark-like marks, or text-like scribbles.
+- hasSpeechBubble is true if there is any speech bubble, dialogue bubble, comic bubble, or rounded text balloon even when empty.
+- hasThoughtBubble is true if there is any thought bubble or cloud-like thinking bubble even when empty.
+- hasTextBearingObject is true if the image contains a title area, text box, caption box, signboard, card, paper note, letter, book with writing, map, poster, banner, blackboard, screen, newspaper, product package, name tag, label, or logo-like object.
+- importantSubjectOverlapsCaptionArea is true if important faces, hands, main characters, or key story objects are in the bottom 28% of the image where app narration will be overlaid.
+- isAcceptable is true only when hasFullBackground is true and all other boolean problem fields are false.
 `.trim();
 }
 
 function normalizeImageQualityAssessment(value) {
   const source = value && typeof value === 'object' ? value : {};
+  const hasVisibleGeneratedText = source.hasVisibleGeneratedText === true;
+  const hasFakeText = source.hasFakeText === true;
+  const hasSpeechBubble = source.hasSpeechBubble === true;
+  const hasThoughtBubble = source.hasThoughtBubble === true;
+  const hasTextBearingObject =
+    source.hasTextBearingObject === true ||
+    source.hasTextBearingObjects === true;
   const hasFullBackground = source.hasFullBackground === true;
-  const hasVisibleTextOrSymbols = source.hasVisibleTextOrSymbols === true;
-  const hasTextBearingObjects = source.hasTextBearingObjects === true;
+  const importantSubjectOverlapsCaptionArea =
+    source.importantSubjectOverlapsCaptionArea === true;
   const modelAcceptable = source.isAcceptable === true;
   return {
+    hasVisibleGeneratedText,
+    hasFakeText,
+    hasSpeechBubble,
+    hasThoughtBubble,
+    hasTextBearingObject,
     hasFullBackground,
-    hasVisibleTextOrSymbols,
-    hasTextBearingObjects,
+    importantSubjectOverlapsCaptionArea,
     isAcceptable:
       modelAcceptable &&
       hasFullBackground &&
-      !hasVisibleTextOrSymbols &&
-      !hasTextBearingObjects,
+      !hasVisibleGeneratedText &&
+      !hasFakeText &&
+      !hasSpeechBubble &&
+      !hasThoughtBubble &&
+      !hasTextBearingObject &&
+      !importantSubjectOverlapsCaptionArea,
     reason: firstNonEmptyText([
       source.reason,
       'No assessment reason was provided.',
@@ -4336,6 +4463,7 @@ exports.__test__ = {
   resolveStoryMode,
   resolveGeneratorCaller,
   sanitizeImagePrompt,
+  sanitizeVisualPromptForImagen,
   shouldRegenerateFromImageAssessment,
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,

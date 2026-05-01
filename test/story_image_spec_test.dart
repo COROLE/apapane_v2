@@ -49,6 +49,10 @@ void main() {
     expect(spec.wordlessMode, isTrue);
     expect(spec.forbiddenTextSurfaces, contains('signs'));
     expect(spec.forbiddenTextSurfaces, contains('blackboards'));
+    expect(spec.forbiddenTextSurfaces, contains('fake text'));
+    expect(spec.forbiddenTextSurfaces, contains('pseudo-English'));
+    expect(spec.forbiddenTextSurfaces, contains('pseudo-Chinese'));
+    expect(spec.forbiddenTextSurfaces, contains('thought bubble'));
     expect(spec.avoid, contains('text'));
     expect(spec.avoid, contains('speech bubbles'));
     expect(spec.avoid, contains('signs'));
@@ -78,7 +82,10 @@ void main() {
     expect(spec.backgroundMustFillCanvas, isTrue);
     expect(spec.wordlessMode, isTrue);
     expect(spec.forbiddenTextSurfaces, contains('book covers with writing'));
+    expect(spec.forbiddenTextSurfaces, contains('book with writing'));
     expect(spec.forbiddenTextSurfaces, contains('screens'));
+    expect(spec.forbiddenTextSurfaces, contains('text box'));
+    expect(spec.forbiddenTextSurfaces, contains('watermark'));
     expect(spec.avoid, contains('distorted hands'));
     expect(spec.avoid, contains('extra fingers'));
     expect(spec.avoid, contains('labels'));

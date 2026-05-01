@@ -2,36 +2,69 @@ import 'package:apapane/models/story/story_generation_draft.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
 
 const String defaultStoryImageStyle =
-    "Soft children's picture book illustration, warm pastel color palette, "
+    "Soft children's story app illustration, warm pastel color palette, "
     'gentle lighting, clean composition, simple readable shapes, visually '
-    'appealing for young children, polished and cohesive, high-quality '
-    'storytelling illustration.';
+    'appealing for young children, cute and friendly characters, polished and '
+    'cohesive, high-quality mobile story app artwork.';
 
 const List<String> defaultStoryImageForbiddenTextSurfaces = [
+  'text',
   'letters',
   'numbers',
   'symbols',
+  'typography',
+  'fake text',
+  'pseudo-English',
+  'pseudo-Chinese',
+  'handwriting',
+  'title',
+  'subtitle',
+  'caption',
   'captions',
+  'dialogue',
+  'narration',
+  'speech bubble',
   'speech bubbles',
+  'thought bubble',
+  'thought bubbles',
+  'text box',
+  'scroll',
+  'note',
+  'letter',
+  'card with writing',
+  'book with writing',
   'title text',
   'labels',
+  'label',
   'logos',
+  'logo',
   'signs',
+  'sign',
+  'signboard',
   'posters',
+  'poster',
   'banners',
+  'banner',
   'book covers with writing',
   'newspapers',
+  'newspaper',
   'maps',
+  'map',
   'blackboards',
+  'blackboard',
   'screens',
+  'screen',
   'product packages',
+  'product package',
   'name tags',
+  'name tag',
   'title cards',
+  'title card',
   'watermark-like marks',
+  'watermark',
 ];
 
 const List<String> defaultStoryImageAvoidTerms = [
-  'text',
   ...defaultStoryImageForbiddenTextSurfaces,
   'scary expression',
   'horror mood',

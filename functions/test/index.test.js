@@ -167,13 +167,12 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
 
   assert.match(
     prompt,
-    /Create a high-quality vertical 9:16 children's picture book illustration\./,
+    /Create a high-quality vertical 9:16 full-bleed illustration for a mobile children's story app\./,
   );
   for (const section of [
-    'Scene goal:',
+    'Illustrate only this visual scene:',
     'Main character:',
     'Supporting characters:',
-    'Scene description:',
     'Composition:',
     'Emotion and atmosphere:',
     'Style:',
@@ -181,8 +180,8 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
     'Foreground elements:',
     'Midground elements:',
     'Background elements:',
-    'Wordless image requirements:',
-    'Important visual requirements:',
+    'Strict wordless requirements:',
+    'Safety and quality:',
     'Do not include:',
     'Output:',
   ]) {
@@ -191,9 +190,21 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
   assert.match(prompt, /small orange fox child/);
   assert.match(prompt, /The fox and bear stand in a candy garden/);
   assert.match(prompt, /Warm surprise/);
-  assert.match(prompt, /entire 9:16 canvas must be filled/);
+  assert.match(prompt, /wordless background illustration/);
+  assert.match(prompt, /not a book page/);
+  assert.match(prompt, /not a book cover/);
+  assert.match(prompt, /not a poster/);
+  assert.match(prompt, /no text anywhere/);
+  assert.match(prompt, /Do not render any words from this prompt/);
+  assert.match(prompt, /bottom 28%/);
+  assert.match(prompt, /entire 9:16 canvas/);
   assert.match(prompt, /completely wordless/);
   for (const forbiddenSurface of [
+    'speech bubble',
+    'thought bubble',
+    'fake text',
+    'pseudo-English',
+    'pseudo-Chinese',
     'signs',
     'labels',
     'logos',
@@ -204,6 +215,7 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
     assert.match(prompt, new RegExp(forbiddenSurface));
   }
   for (const removedPhrase of [
+    'Scene goal:',
     'title placement',
     'space for text',
     'cover illustration',
@@ -214,7 +226,7 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
   }
   assert.match(prompt, /- text/);
   assert.match(prompt, /- speech bubbles/);
-  assert.match(prompt, /A single polished storybook illustration/);
+  assert.match(prompt, /A single polished wordless full-scene illustration/);
 });
 
 test('parseImageSpecJson strips extra fields and normalizes specs', () => {
@@ -350,8 +362,50 @@ test('image quality retry helpers regenerate at most once', () => {
 
   const corrected = __test__.buildCorrectedImagenPrompt('base prompt');
   assert.match(corrected, /Correction emphasis:/);
-  assert.match(corrected, /background was missing or contained text-like elements/);
-  assert.match(corrected, /no text, no signs, no labels, no symbols/);
+  assert.match(corrected, /generated text, fake typography/);
+  assert.match(corrected, /No text, no letters, no numbers, no symbols/);
+  assert.match(corrected, /bottom caption area/);
+});
+
+test('sanitizeVisualPromptForImagen removes text-trigger story objects', () => {
+  const prompt = __test__.sanitizeVisualPromptForImagen(
+    'A rabbit finds a secret clue, written clue, answer, message, letter, note, map, book, sign, label, speech bubble, and thought bubble.',
+  );
+
+  assert.match(prompt, /glowing star-shaped charm/);
+  assert.match(prompt, /glowing charm with no markings/);
+  assert.match(prompt, /gentle discovery/);
+  assert.match(prompt, /soft glowing light/);
+  assert.match(prompt, /small flower/);
+  assert.match(prompt, /small gem/);
+  assert.match(prompt, /winding path/);
+  assert.match(prompt, /plain toy object without markings/);
+  assert.match(prompt, /tree stump/);
+  assert.match(prompt, /plain decoration/);
+  assert.doesNotMatch(prompt, /secret clue/i);
+  assert.doesNotMatch(prompt, /\bnote\b/i);
+  assert.doesNotMatch(prompt, /\bmap\b/i);
+  assert.doesNotMatch(prompt, /\bsign\b/i);
+});
+
+test('normalizeImageQualityAssessment rejects generated text and caption overlap', () => {
+  const assessment = __test__.normalizeImageQualityAssessment({
+    hasVisibleGeneratedText: true,
+    hasFakeText: true,
+    hasSpeechBubble: false,
+    hasThoughtBubble: false,
+    hasTextBearingObject: true,
+    hasFullBackground: true,
+    importantSubjectOverlapsCaptionArea: true,
+    isAcceptable: true,
+    reason: 'Text-like marks and bottom overlap.',
+  });
+
+  assert.equal(assessment.isAcceptable, false);
+  assert.equal(assessment.hasVisibleGeneratedText, true);
+  assert.equal(assessment.hasFakeText, true);
+  assert.equal(assessment.hasTextBearingObject, true);
+  assert.equal(assessment.importantSubjectOverlapsCaptionArea, true);
 });
 
 test('sanitizeImagePrompt avoids provider safety trigger wording', () => {
