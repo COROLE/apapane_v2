@@ -363,6 +363,41 @@ State as of 2026-04-29 JST:
   - Production `generateImageHttp` smoke with `imagePageSpec` after deploy:
     success, `model=imagen-4.0-generate-001`, base64 returned, Storage URL
     returned, elapsed about 18.7 seconds, base64 length about 258k characters.
+- Mobile full-bleed app background art hardening:
+  - Commit: `04de36a Make story images app background art`
+  - Imagen final prompts now target wordless 9:16 full-bleed background art for
+    the mobile app instead of book pages, covers, posters, comic panels, or
+    text layouts. `Scene goal:` is no longer sent as a prompt section; scene
+    intent is folded into the sanitized visual scene text so it is less likely
+    to be rendered as title-like text.
+  - Prompt sanitization now rewrites text-triggering concepts such as secret
+    clues, notes, maps, books, signs, and labels into wordless visual objects
+    like glowing charms, flowers, gems, winding paths, plain toys, stumps, and
+    plain decoration. Speech/thought bubbles and fake text terms are strongly
+    forbidden.
+  - Caption-safe composition is now explicit: important faces, hands, and story
+    objects should stay out of the bottom 28% because the app overlays Japanese
+    narration there, while the top area must be filled with natural scenery
+    rather than a title-like blank area.
+  - Vision quality checks for `imagePageSpec` generation now reject generated
+    text, fake text, speech/thought bubbles, text-bearing objects, missing full
+    backgrounds, and important subjects overlapping the caption area. Rejected
+    images regenerate once with correction emphasis.
+  - Verification passed:
+    `flutter analyze --no-fatal-warnings --no-fatal-infos`, `flutter test`,
+    `npm --prefix functions run lint`, and `npm --prefix functions test`.
+  - Firebase Functions deploy: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Production `generateImageSpecs` smoke after deploy: success, returned a
+    character profile and 4 page specs with `backgroundMustFillCanvas: true`,
+    `wordlessMode: true`, and forbidden surfaces including `fake text`,
+    `pseudo-English`, and `thought bubble`.
+  - Production `generateImageHttp` smoke with `imagePageSpec` after deploy:
+    success, `model=imagen-4.0-generate-001`, base64 returned, Storage URL
+    returned, elapsed about 21.2 seconds, base64 length about 271k characters.
+  - TestFlight run: `25202424421`, URL
+    `https://github.com/COROLE/apapane_v2/actions/runs/25202424421`, workflow
+    build number `53`, result success through `Upload to TestFlight`.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
