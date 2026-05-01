@@ -398,6 +398,43 @@ State as of 2026-04-29 JST:
   - TestFlight run: `25202424421`, URL
     `https://github.com/COROLE/apapane_v2/actions/runs/25202424421`, workflow
     build number `53`, result success through `Upload to TestFlight`.
+- Positive-only Imagen prompt hardening:
+  - Commit: `e51fda4 Make Imagen prompts positive-only`
+  - `imagePageSpec` generation now sends Imagen a short positive visual prompt
+    instead of a long forbidden-terms list. The final prompt keeps the
+    character/spec pipeline but removes `Scene goal:`, `Do not include:`,
+    `bottom 28%`, `Japanese narration`, and text-triggering object names such
+    as notes, cards, maps, signs, book/page terms, speech/thought bubbles, and
+    question marks.
+  - Structured image generation no longer merges the client negative prompt or
+    the shared visual negative prompt into Imagen's prompt body. The legacy
+    prompt API keeps the old negative-prompt behavior for compatibility.
+  - Prompt sanitization now rewrites trigger concepts into safe visual objects:
+    glowing star charms, glowing gems, tiny flowers, feathers, acorns, pebbles,
+    paths, plants, and soft light. Caption-safe composition is expressed without
+    numeric percentages.
+  - Vision quality checks now use the positive-only schema:
+    `hasVisibleWriting`, `hasFakeWriting`, `hasQuestionMark`,
+    `hasBubbleShapeForDialogue`, `hasPaperLikeObjectWithMarks`,
+    `hasBlankPageLayout`, `hasCompleteBackground`, and
+    `importantSubjectTooLow`. Rejected images regenerate once with a short
+    positive correction prompt.
+  - Verification passed:
+    `flutter analyze --no-fatal-warnings --no-fatal-infos`, `flutter test`,
+    `npm --prefix functions run lint`, and `npm --prefix functions test`.
+  - Firebase Functions deploy: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Production `generateImageSpecs` smoke after deploy: success, returned a
+    character profile and 4 page specs in about 28.9 seconds.
+  - Production `generateImageHttp` smoke with `imagePageSpec` after deploy:
+    success, `model=imagen-4.0-generate-001`, base64 returned, Storage URL
+    returned, elapsed about 22.7 seconds, base64 length about 277k characters.
+    The raw generated image was opened directly from the saved JPEG without app
+    UI and showed a full-scene meadow background with no visible writing,
+    bubbles, or page-like white layout.
+  - TestFlight run: `25205344842`, URL
+    `https://github.com/COROLE/apapane_v2/actions/runs/25205344842`, workflow
+    build number `55`, result success through `Upload to TestFlight`.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
