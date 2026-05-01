@@ -144,15 +144,41 @@ const IMAGE_OUTPUT_HEIGHT = 1600;
 const IMAGE_OUTPUT_JPEG_QUALITY = 84;
 const DEFAULT_IMAGE_STYLE =
   'Soft children\'s picture book illustration, warm pastel color palette, gentle lighting, clean composition, simple readable shapes, visually appealing for young children, polished and cohesive, high-quality storytelling illustration.';
-const DEFAULT_AVOID_TERMS = Object.freeze([
-  'text',
+const DEFAULT_FORBIDDEN_TEXT_SURFACES = Object.freeze([
   'letters',
+  'numbers',
+  'symbols',
   'captions',
   'speech bubbles',
+  'title text',
+  'labels',
+  'logos',
+  'signs',
+  'posters',
+  'banners',
+  'book covers with writing',
+  'newspapers',
+  'maps',
+  'blackboards',
+  'screens',
+  'product packages',
+  'name tags',
+  'title cards',
+  'watermark-like marks',
+]);
+const DEFAULT_AVOID_TERMS = Object.freeze([
+  'text',
+  ...DEFAULT_FORBIDDEN_TEXT_SURFACES,
   'scary expression',
   'horror mood',
   'dark atmosphere',
   'cluttered background',
+  'blank background',
+  'plain white background',
+  'empty background',
+  'transparent background',
+  'studio background',
+  'gradient background',
   'distorted hands',
   'distorted limbs',
   'extra fingers',
@@ -169,6 +195,13 @@ const IMAGE_SPEC_REQUIRED_FIELDS = Object.freeze([
   'composition',
   'emotion',
   'backgroundDescription',
+  'environmentDescription',
+  'foregroundElements',
+  'midgroundElements',
+  'backgroundElements',
+  'backgroundMustFillCanvas',
+  'wordlessMode',
+  'forbiddenTextSurfaces',
   'style',
   'avoid',
 ]);
@@ -242,6 +275,13 @@ Create a wholesome family picture-book illustration.
  * @property {string} composition
  * @property {string} emotion
  * @property {string} backgroundDescription
+ * @property {string} environmentDescription
+ * @property {string[]} foregroundElements
+ * @property {string[]} midgroundElements
+ * @property {string[]} backgroundElements
+ * @property {boolean} backgroundMustFillCanvas
+ * @property {boolean} wordlessMode
+ * @property {string[]} forbiddenTextSurfaces
  * @property {string} style
  * @property {string[]} avoid
  */
@@ -1857,6 +1897,25 @@ function buildImageSpecResponseSchema(pageCount) {
     composition: { type: 'string' },
     emotion: { type: 'string' },
     backgroundDescription: { type: 'string' },
+    environmentDescription: { type: 'string' },
+    foregroundElements: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    midgroundElements: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    backgroundElements: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    backgroundMustFillCanvas: { type: 'boolean' },
+    wordlessMode: { type: 'boolean' },
+    forbiddenTextSurfaces: {
+      type: 'array',
+      items: { type: 'string' },
+    },
     style: { type: 'string' },
     avoid: {
       type: 'array',
@@ -2108,6 +2167,13 @@ Output JSON only with this exact shape:
       "composition": "string",
       "emotion": "string",
       "backgroundDescription": "string",
+      "environmentDescription": "string",
+      "foregroundElements": ["string"],
+      "midgroundElements": ["string"],
+      "backgroundElements": ["string"],
+      "backgroundMustFillCanvas": true,
+      "wordlessMode": true,
+      "forbiddenTextSurfaces": ["string"],
       "style": "string",
       "avoid": ["string"]
     }
@@ -2120,7 +2186,14 @@ Rules:
 - Make one ImagePageSpec for every input page.
 - Keep the same main character appearance, clothing, colors, and expression style on every page.
 - Make the scene easy to understand at a glance.
-- Use a simple background, clear focal action, readable composition, and warm friendly emotion.
+- Give every page a specific, visible, story-relevant environment.
+- Never use a blank, plain, white, transparent, studio, gradient, or empty background.
+- Think separately about foreground, midground, and background, then fill those arrays with concrete visual objects.
+- The full 9:16 canvas must be filled edge-to-edge by the illustrated story setting.
+- Avoid objects that usually contain writing: signs, books with covers, posters, labels, blackboards, maps, screens, logos, packages, name tags, banners, and title cards.
+- Prefer wordless objects: trees, flowers, clouds, hills, stars, rivers, stones, toys, furniture, curtains, cushions, lamps, plants, paths, rocks, shells, candy shapes, or other plain decorative objects.
+- Set backgroundMustFillCanvas to true and wordlessMode to true on every page.
+- Every forbiddenTextSurfaces array must include: ${DEFAULT_FORBIDDEN_TEXT_SURFACES.join(', ')}.
 - Keep the style exactly: ${DEFAULT_IMAGE_STYLE}
 - Every avoid array must include: ${DEFAULT_AVOID_TERMS.join(', ')}.
 - No markdown and no prose outside JSON.
@@ -2263,7 +2336,28 @@ function fallbackImagePageSpec({
         'Warm, gentle, curious, safe, and friendly.',
       ]),
       backgroundDescription:
-        'Simple uncluttered background with soft shapes and only the details needed to understand the scene.',
+        'A complete edge-to-edge storybook setting with soft shapes, gentle details, and no blank or white empty areas.',
+      environmentDescription: [
+        profile.worldStyle,
+        'Complete edge-to-edge picture-book environment filling the whole vertical canvas.',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      foregroundElements: [
+        'main character clearly visible',
+        firstNonEmptyText([visualFocus, pageSummary, 'one simple story action']),
+      ],
+      midgroundElements: [
+        'simple path or floor shape',
+        'story-relevant plain props without writing',
+      ],
+      backgroundElements: [
+        'soft trees, clouds, hills, stars, furniture, or other wordless setting details',
+        'gentle color shapes filling the image edges',
+      ],
+      backgroundMustFillCanvas: true,
+      wordlessMode: true,
+      forbiddenTextSurfaces: DEFAULT_FORBIDDEN_TEXT_SURFACES,
       style: DEFAULT_IMAGE_STYLE,
       avoid: DEFAULT_AVOID_TERMS,
     },
@@ -2289,6 +2383,48 @@ function normalizeImagePageSpec(
       .join(' '),
   ]);
   const avoid = normalizeAvoidTerms(spec.avoid, base.avoid);
+  const backgroundDescription = firstNonEmptyText([
+    spec.backgroundDescription,
+    base.backgroundDescription,
+    spec.environmentDescription,
+    base.environmentDescription,
+    'Complete edge-to-edge storybook background with gentle setting details.',
+  ]);
+  const environmentDescription = firstNonEmptyText([
+    spec.environmentDescription,
+    base.environmentDescription,
+    backgroundDescription,
+    profile.worldStyle,
+    'A complete wordless storybook environment filling the full canvas.',
+  ]);
+  const foregroundElements = normalizeStringList(
+    spec.foregroundElements,
+    base.foregroundElements,
+    [
+      'main character clearly visible',
+      'one simple story-relevant action',
+    ],
+  );
+  const midgroundElements = normalizeStringList(
+    spec.midgroundElements,
+    base.midgroundElements,
+    [
+      'simple story path or floor plane',
+      'plain props without writing',
+    ],
+  );
+  const backgroundElements = normalizeStringList(
+    spec.backgroundElements,
+    base.backgroundElements,
+    [
+      'soft wordless environment details',
+      'gentle color shapes filling every edge',
+    ],
+  );
+  const forbiddenTextSurfaces = normalizeForbiddenTextSurfaces(
+    spec.forbiddenTextSurfaces,
+    base.forbiddenTextSurfaces,
+  );
   return {
     page: normalizedPage,
     sceneGoal: firstNonEmptyText([
@@ -2319,14 +2455,50 @@ function normalizeImagePageSpec(
       base.emotion,
       'Warm, friendly, gentle, and easy to read.',
     ]),
-    backgroundDescription: firstNonEmptyText([
-      spec.backgroundDescription,
-      base.backgroundDescription,
-      'Simple soft background with minimal details.',
-    ]),
+    backgroundDescription,
+    environmentDescription,
+    foregroundElements,
+    midgroundElements,
+    backgroundElements,
+    backgroundMustFillCanvas: normalizeBoolean(
+      spec.backgroundMustFillCanvas,
+      base.backgroundMustFillCanvas,
+      true,
+    ),
+    wordlessMode: normalizeBoolean(spec.wordlessMode, base.wordlessMode, true),
+    forbiddenTextSurfaces,
     style: firstNonEmptyText([spec.style, base.style, DEFAULT_IMAGE_STYLE]),
     avoid,
   };
+}
+
+function normalizeStringList(value, fallback = null, defaults = []) {
+  const input = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const raw = Array.isArray(input) && input.length > 0 ? input : defaults;
+  const values = raw
+    .filter((entry) => typeof entry === 'string')
+    .map((entry) => entry.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const merged = [...values, ...defaults];
+  return Array.from(new Set(merged.filter(Boolean)));
+}
+
+function normalizeBoolean(value, fallback, defaultValue) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof fallback === 'boolean') {
+    return fallback;
+  }
+  return defaultValue;
+}
+
+function normalizeForbiddenTextSurfaces(value, fallback = null) {
+  return normalizeStringList(
+    value,
+    fallback,
+    DEFAULT_FORBIDDEN_TEXT_SURFACES,
+  );
 }
 
 function normalizeAvoidTerms(value, fallback = null) {
@@ -2334,37 +2506,72 @@ function normalizeAvoidTerms(value, fallback = null) {
   const terms = Array.isArray(input)
     ? input.filter((entry) => typeof entry === 'string').map((entry) => entry.trim())
     : [];
-  return Array.from(new Set([...terms.filter(Boolean), ...DEFAULT_AVOID_TERMS]));
+  return Array.from(
+    new Set([
+      ...terms.filter(Boolean),
+      ...DEFAULT_FORBIDDEN_TEXT_SURFACES,
+      ...DEFAULT_AVOID_TERMS,
+    ]),
+  );
 }
 
 function buildImagenPrompt(spec) {
   const normalized = normalizeImagePageSpec(spec);
+  const background = sanitizeImagePromptSectionText(
+    normalized.backgroundDescription,
+  );
+  const environment = sanitizeImagePromptSectionText(
+    normalized.environmentDescription,
+  );
   return [
     'Create a high-quality vertical 9:16 children\'s picture book illustration.',
+    'Create a full illustrated story scene, not a cover-style layout.',
+    'Do not reserve any title area. Do not create any text area.',
+    'The whole image should be a complete wordless illustration.',
     '',
     'Scene goal:',
-    normalized.sceneGoal,
+    sanitizeImagePromptSectionText(normalized.sceneGoal),
     '',
     'Main character:',
-    normalized.mainCharacterDescription,
+    sanitizeImagePromptSectionText(normalized.mainCharacterDescription),
     '',
     'Supporting characters:',
-    normalized.supportingCharacters,
+    sanitizeImagePromptSectionText(normalized.supportingCharacters),
     '',
     'Scene description:',
-    normalized.sceneDescription,
+    sanitizeImagePromptSectionText(normalized.sceneDescription),
     '',
     'Composition:',
-    normalized.composition,
+    sanitizeImagePromptSectionText(normalized.composition),
     '',
     'Emotion and atmosphere:',
-    normalized.emotion,
+    sanitizeImagePromptSectionText(normalized.emotion),
     '',
     'Style:',
-    normalized.style || DEFAULT_IMAGE_STYLE,
+    sanitizeImagePromptSectionText(normalized.style || DEFAULT_IMAGE_STYLE),
     '',
-    'Background:',
-    normalized.backgroundDescription,
+    'Environment and background:',
+    'The entire 9:16 canvas must be filled with a complete illustrated environment from edge to edge.',
+    'Show a clear foreground, midground, and background.',
+    'The background must be visible, story-relevant, and gently detailed.',
+    'Do not use a blank, plain, white, transparent, studio, gradient, or empty background.',
+    `Use a simple but complete storybook setting: ${environment || background}`,
+    `Background: ${background || environment}`,
+    '',
+    'Foreground elements:',
+    formatPromptList(normalized.foregroundElements),
+    '',
+    'Midground elements:',
+    formatPromptList(normalized.midgroundElements),
+    '',
+    'Background elements:',
+    formatPromptList(normalized.backgroundElements),
+    '',
+    'Wordless image requirements:',
+    'The image must be completely wordless.',
+    'Do not include any letters, numbers, symbols, captions, speech bubbles, title text, labels, logos, signs, posters, banners, book covers with writing, newspapers, maps, blackboards, screens, product packages, name tags, title cards, or watermark-like marks.',
+    'Avoid background objects that usually contain writing.',
+    'Use natural or plain decorative objects instead.',
     '',
     'Important visual requirements:',
     '- Keep the main character visually clear and prominent.',
@@ -2373,13 +2580,43 @@ function buildImagenPrompt(spec) {
     '- Maintain a cute, safe, warm, and friendly tone.',
     '- Ensure character anatomy is clean and natural.',
     '- The image should look like a professionally illustrated children\'s book page.',
+    '- Fill every edge of the image with the story environment.',
     '',
     'Do not include:',
-    normalized.avoid.map((term) => `- ${term}`).join('\n'),
+    normalized.avoid
+      .map((term) => sanitizeImagePromptSectionText(term))
+      .filter(Boolean)
+      .map((term) => `- ${term}`)
+      .join('\n'),
     '',
     'Output:',
     'A single polished storybook illustration.',
   ].join('\n');
+}
+
+function formatPromptList(values) {
+  const entries = normalizeStringList(values, null, [])
+    .map((entry) => sanitizeImagePromptSectionText(entry))
+    .filter(Boolean);
+  return entries.length > 0
+    ? entries.map((entry) => `- ${entry}`).join('\n')
+    : '- simple wordless storybook details';
+}
+
+function sanitizeImagePromptSectionText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/cover illustration/gi, 'full illustrated story scene')
+    .replace(/book cover layout/gi, 'full scene layout')
+    .replace(/leave a clean area near the top for title placement/gi, 'fill the top area with illustrated background details')
+    .replace(/title placement/gi, 'background detail')
+    .replace(/space for text/gi, 'illustrated detail')
+    .replace(/blank area for title/gi, 'filled illustrated background area')
+    .replace(/caption area/gi, 'illustrated foreground detail')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function resolveImageGenerationPrompt(data) {
@@ -2489,12 +2726,183 @@ function optionalText(value) {
 
 function maxImageSpecOutputTokens(pageCount) {
   if (pageCount >= 12) {
-    return 8192;
+    return 12288;
   }
   if (pageCount >= 8) {
-    return 6144;
+    return 8192;
   }
-  return 4096;
+  return 6144;
+}
+
+function buildCorrectedImagenPrompt(prompt) {
+  return [
+    prompt,
+    '',
+    'Correction emphasis:',
+    'The previous attempt failed because the background was missing or contained text-like elements.',
+    'Create a complete full-background illustration with no text, no signs, no labels, no symbols, and no blank areas.',
+  ].join('\n');
+}
+
+async function assessGeneratedImageQualitySafely({
+  callerId,
+  imageBuffer,
+  imageDebug,
+  prompt,
+  attempt = 0,
+}) {
+  try {
+    const assessment = await assessGeneratedImageQuality({
+      imageBuffer,
+      imageDebug,
+      prompt,
+      apiKey: readEnv('GEMINI_API_KEY'),
+    });
+    functions.logger.info('Image quality assessment completed.', {
+      callerId,
+      page: imageDebug.page,
+      attempt,
+      assessment: truncateLogObject(assessment),
+    });
+    return assessment;
+  } catch (error) {
+    functions.logger.warn('Image quality assessment failed open.', {
+      callerId,
+      page: imageDebug.page,
+      attempt,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      hasFullBackground: true,
+      hasVisibleTextOrSymbols: false,
+      hasTextBearingObjects: false,
+      isAcceptable: true,
+      reason: 'Quality assessment failed; accepting image to avoid blocking generation.',
+    };
+  }
+}
+
+async function assessGeneratedImageQuality({
+  imageBuffer,
+  imageDebug,
+  prompt,
+  apiKey,
+}) {
+  const payload = await postJson(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+    {
+      headers: {
+        'x-goog-api-key': apiKey,
+      },
+      body: {
+        contents: [
+          {
+            parts: [
+              {
+                text: buildImageQualityAssessmentPrompt({
+                  imageDebug,
+                  prompt,
+                }),
+              },
+              {
+                inlineData: {
+                  mimeType: 'image/jpeg',
+                  data: imageBuffer.toString('base64'),
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 512,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'object',
+            properties: {
+              hasFullBackground: { type: 'boolean' },
+              hasVisibleTextOrSymbols: { type: 'boolean' },
+              hasTextBearingObjects: { type: 'boolean' },
+              isAcceptable: { type: 'boolean' },
+              reason: { type: 'string' },
+            },
+            required: [
+              'hasFullBackground',
+              'hasVisibleTextOrSymbols',
+              'hasTextBearingObjects',
+              'isAcceptable',
+              'reason',
+            ],
+          },
+        },
+      },
+    },
+  );
+  const parts = payload.candidates?.[0]?.content?.parts;
+  const text = Array.isArray(parts)
+    ? parts
+        .map((part) => (typeof part.text === 'string' ? part.text.trim() : ''))
+        .filter(Boolean)
+        .join('\n')
+    : '';
+  return normalizeImageQualityAssessment(parseJsonObjectText(text));
+}
+
+function buildImageQualityAssessmentPrompt({ imageDebug, prompt }) {
+  return `
+Inspect this generated storybook illustration for a children's picture book.
+
+Expected page:
+- Page: ${imageDebug.page}
+- Page summary: ${truncateText(imageDebug.pageSummary, 400)}
+- Prompt excerpt: ${truncateText(prompt, 1200)}
+
+Return JSON only:
+{
+  "hasFullBackground": true,
+  "hasVisibleTextOrSymbols": false,
+  "hasTextBearingObjects": false,
+  "isAcceptable": true,
+  "reason": "short English explanation"
+}
+
+Rules:
+- hasFullBackground is true only if the entire 9:16 canvas has a visible story-relevant illustrated environment, not a blank, plain, white, transparent, studio, gradient, or empty background.
+- hasVisibleTextOrSymbols is true if there are visible letters, numbers, symbols, captions, speech bubbles, title text, labels, logos, signs, posters, banners, maps, blackboards, screens, package text, name tags, title cards, or watermark-like marks.
+- hasTextBearingObjects is true if the image contains objects that usually carry writing, even if the writing is not readable, such as signs, posters, blackboards, screens, maps, newspapers, book covers, packages, labels, banners, name tags, or title cards.
+- isAcceptable is true only when hasFullBackground is true and both text-related fields are false.
+`.trim();
+}
+
+function normalizeImageQualityAssessment(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const hasFullBackground = source.hasFullBackground === true;
+  const hasVisibleTextOrSymbols = source.hasVisibleTextOrSymbols === true;
+  const hasTextBearingObjects = source.hasTextBearingObjects === true;
+  const modelAcceptable = source.isAcceptable === true;
+  return {
+    hasFullBackground,
+    hasVisibleTextOrSymbols,
+    hasTextBearingObjects,
+    isAcceptable:
+      modelAcceptable &&
+      hasFullBackground &&
+      !hasVisibleTextOrSymbols &&
+      !hasTextBearingObjects,
+    reason: firstNonEmptyText([
+      source.reason,
+      'No assessment reason was provided.',
+    ]),
+  };
+}
+
+function shouldRegenerateFromImageAssessment(assessment, attempt = 0) {
+  return (
+    attempt < 1 &&
+    assessment &&
+    typeof assessment === 'object' &&
+    assessment.isAcceptable === false
+  );
 }
 
 async function generateSafeImage({
@@ -2523,14 +2931,49 @@ async function generateSafeImage({
     throw createChildSafeError();
   }
 
-  const result = await callGeminiImagen({
-    prompt: [CHILD_SAFE_IMAGE_PREFIX, prompt].join('\n\n'),
-    negativePrompt: [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
+  const positivePrompt = [CHILD_SAFE_IMAGE_PREFIX, prompt].join('\n\n');
+  const negativePromptText = [negativePrompt, UNSAFE_VISUAL_NEGATIVE_PROMPT]
       .filter(Boolean)
-      .join(', '),
+      .join(', ');
+  let result = await callGeminiImagen({
+    prompt: positivePrompt,
+    negativePrompt: negativePromptText,
     apiKey: readEnv('GEMINI_API_KEY'),
     seed,
   });
+  if (imageDebug?.imagePageSpec) {
+    const assessment = await assessGeneratedImageQualitySafely({
+      callerId,
+      imageBuffer: result.imageBuffer,
+      imageDebug,
+      prompt,
+    });
+    if (shouldRegenerateFromImageAssessment(assessment, 0)) {
+      functions.logger.warn('Regenerating image after quality check failure.', {
+        callerId,
+        page: imageDebug.page,
+        assessment: truncateLogObject(assessment),
+      });
+      result = await callGeminiImagen({
+        prompt: buildCorrectedImagenPrompt(positivePrompt),
+        negativePrompt: negativePromptText,
+        apiKey: readEnv('GEMINI_API_KEY'),
+        seed,
+      });
+      const retryAssessment = await assessGeneratedImageQualitySafely({
+        callerId,
+        imageBuffer: result.imageBuffer,
+        imageDebug,
+        prompt: buildCorrectedImagenPrompt(prompt),
+        attempt: 1,
+      });
+      functions.logger.info('Image quality retry assessment completed.', {
+        callerId,
+        page: imageDebug.page,
+        assessment: truncateLogObject(retryAssessment),
+      });
+    }
+  }
 
   const response = {
     base64: result.imageBuffer.toString('base64'),
@@ -3846,6 +4289,7 @@ exports.__test__ = {
   IMAGEN_IMAGE_SAMPLE_COUNT,
   IMAGEN_PERSON_GENERATION,
   DEFAULT_AVOID_TERMS,
+  DEFAULT_FORBIDDEN_TEXT_SURFACES,
   DEFAULT_IMAGE_STYLE,
   SILVER_MONTHLY_STORY_CREDITS,
   STORY_MODES,
@@ -3854,6 +4298,8 @@ exports.__test__ = {
   buildImageSpecResponseSchema,
   buildImagenImageRequest,
   buildImagenPrompt,
+  buildCorrectedImagenPrompt,
+  buildImageQualityAssessmentPrompt,
   buildStoryPreviewPrompt,
   buildStoryPreviewRepairPrompt,
   buildStoryPreviewResponseSchema,
@@ -3876,6 +4322,7 @@ exports.__test__ = {
   normalizeHttpBody,
   normalizeCharacterProfile,
   normalizeImagePageSpec,
+  normalizeImageQualityAssessment,
   normalizeStoryOptions,
   parseImageSpecJson,
   parseGeneratedStoryPreviewJson,
@@ -3889,6 +4336,7 @@ exports.__test__ = {
   resolveStoryMode,
   resolveGeneratorCaller,
   sanitizeImagePrompt,
+  shouldRegenerateFromImageAssessment,
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,
   validateGeneratedStoryQuality,

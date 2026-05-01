@@ -7,15 +7,42 @@ const String defaultStoryImageStyle =
     'appealing for young children, polished and cohesive, high-quality '
     'storytelling illustration.';
 
-const List<String> defaultStoryImageAvoidTerms = [
-  'text',
+const List<String> defaultStoryImageForbiddenTextSurfaces = [
   'letters',
+  'numbers',
+  'symbols',
   'captions',
   'speech bubbles',
+  'title text',
+  'labels',
+  'logos',
+  'signs',
+  'posters',
+  'banners',
+  'book covers with writing',
+  'newspapers',
+  'maps',
+  'blackboards',
+  'screens',
+  'product packages',
+  'name tags',
+  'title cards',
+  'watermark-like marks',
+];
+
+const List<String> defaultStoryImageAvoidTerms = [
+  'text',
+  ...defaultStoryImageForbiddenTextSurfaces,
   'scary expression',
   'horror mood',
   'dark atmosphere',
   'cluttered background',
+  'blank background',
+  'plain white background',
+  'empty background',
+  'transparent background',
+  'studio background',
+  'gradient background',
   'distorted hands',
   'distorted limbs',
   'extra fingers',
@@ -129,6 +156,13 @@ class StoryImagePageSpec {
     required this.composition,
     required this.emotion,
     required this.backgroundDescription,
+    required this.environmentDescription,
+    required this.foregroundElements,
+    required this.midgroundElements,
+    required this.backgroundElements,
+    required this.backgroundMustFillCanvas,
+    required this.wordlessMode,
+    required this.forbiddenTextSurfaces,
     required this.style,
     required this.avoid,
   });
@@ -141,6 +175,13 @@ class StoryImagePageSpec {
   final String composition;
   final String emotion;
   final String backgroundDescription;
+  final String environmentDescription;
+  final List<String> foregroundElements;
+  final List<String> midgroundElements;
+  final List<String> backgroundElements;
+  final bool backgroundMustFillCanvas;
+  final bool wordlessMode;
+  final List<String> forbiddenTextSurfaces;
   final String style;
   final List<String> avoid;
 
@@ -199,8 +240,56 @@ class StoryImagePageSpec {
       backgroundDescription: _firstText([
         map['backgroundDescription'],
         base.backgroundDescription,
-        'Simple soft background with minimal details.',
+        map['environmentDescription'],
+        base.environmentDescription,
+        'Complete edge-to-edge storybook background with gentle setting details.',
       ]),
+      environmentDescription: _firstText([
+        map['environmentDescription'],
+        base.environmentDescription,
+        map['backgroundDescription'],
+        base.backgroundDescription,
+        profile.worldStyle,
+        'A complete wordless storybook environment filling the full canvas.',
+      ]),
+      foregroundElements: _stringList(
+        map['foregroundElements'],
+        fallback: base.foregroundElements,
+        defaults: const [
+          'main character clearly visible',
+          'one simple story-relevant action',
+        ],
+      ),
+      midgroundElements: _stringList(
+        map['midgroundElements'],
+        fallback: base.midgroundElements,
+        defaults: const [
+          'simple story path or floor plane',
+          'plain props without writing',
+        ],
+      ),
+      backgroundElements: _stringList(
+        map['backgroundElements'],
+        fallback: base.backgroundElements,
+        defaults: const [
+          'soft wordless environment details',
+          'gentle color shapes filling every edge',
+        ],
+      ),
+      backgroundMustFillCanvas: _boolValue(
+        map['backgroundMustFillCanvas'],
+        fallback: base.backgroundMustFillCanvas,
+        defaultValue: true,
+      ),
+      wordlessMode: _boolValue(
+        map['wordlessMode'],
+        fallback: base.wordlessMode,
+        defaultValue: true,
+      ),
+      forbiddenTextSurfaces: _forbiddenTextSurfaces(
+        map['forbiddenTextSurfaces'],
+        fallback: base.forbiddenTextSurfaces,
+      ),
       style: _firstText([map['style'], base.style, defaultStoryImageStyle]),
       avoid: normalizedAvoid,
     );
@@ -233,7 +322,26 @@ class StoryImagePageSpec {
           'Vertical 9:16 composition with the main character large and clear in the foreground, one simple focal action, and enough open space to read the scene immediately.',
       emotion: _firstText([mood, 'Warm, gentle, curious, safe, and friendly.']),
       backgroundDescription:
-          'Simple uncluttered background with soft shapes and only the details needed to understand the scene.',
+          'A complete edge-to-edge storybook setting with soft shapes, gentle details, and no blank or white empty areas.',
+      environmentDescription: [
+        profile.worldStyle,
+        'Complete edge-to-edge picture-book environment filling the whole vertical canvas.',
+      ].where((entry) => entry.trim().isNotEmpty).join(' '),
+      foregroundElements: [
+        'main character clearly visible',
+        _firstText([visualFocus, pageSummary, 'one simple story action']),
+      ],
+      midgroundElements: const [
+        'simple path or floor shape',
+        'story-relevant plain props without writing',
+      ],
+      backgroundElements: const [
+        'soft trees, clouds, hills, stars, furniture, or other wordless setting details',
+        'gentle color shapes filling the image edges',
+      ],
+      backgroundMustFillCanvas: true,
+      wordlessMode: true,
+      forbiddenTextSurfaces: defaultStoryImageForbiddenTextSurfaces,
       style: defaultStoryImageStyle,
       avoid: defaultStoryImageAvoidTerms,
     );
@@ -248,6 +356,13 @@ class StoryImagePageSpec {
         'composition': composition,
         'emotion': emotion,
         'backgroundDescription': backgroundDescription,
+        'environmentDescription': environmentDescription,
+        'foregroundElements': foregroundElements,
+        'midgroundElements': midgroundElements,
+        'backgroundElements': backgroundElements,
+        'backgroundMustFillCanvas': backgroundMustFillCanvas,
+        'wordlessMode': wordlessMode,
+        'forbiddenTextSurfaces': forbiddenTextSurfaces,
         'style': style,
         'avoid': avoid,
       };
@@ -327,10 +442,62 @@ List<String> _avoidTerms(Object? value, {List<String> fallback = const []}) {
       terms.add(text);
     }
   }
+  for (final term in defaultStoryImageForbiddenTextSurfaces) {
+    if (!terms.contains(term)) {
+      terms.add(term);
+    }
+  }
   for (final term in defaultStoryImageAvoidTerms) {
     if (!terms.contains(term)) {
       terms.add(term);
     }
   }
   return List<String>.unmodifiable(terms);
+}
+
+List<String> _stringList(
+  Object? value, {
+  List<String> fallback = const [],
+  List<String> defaults = const [],
+}) {
+  final rawTerms = value is List
+      ? value
+      : fallback.isNotEmpty
+          ? fallback
+          : defaults;
+  final terms = <String>[];
+  for (final term in rawTerms) {
+    final text = _text(term);
+    if (text.isNotEmpty && !terms.contains(text)) {
+      terms.add(text);
+    }
+  }
+  for (final term in defaults) {
+    if (!terms.contains(term)) {
+      terms.add(term);
+    }
+  }
+  return List<String>.unmodifiable(terms);
+}
+
+bool _boolValue(
+  Object? value, {
+  required bool fallback,
+  required bool defaultValue,
+}) {
+  if (value is bool) {
+    return value;
+  }
+  return fallback == defaultValue ? defaultValue : fallback;
+}
+
+List<String> _forbiddenTextSurfaces(
+  Object? value, {
+  List<String> fallback = const [],
+}) {
+  return _stringList(
+    value,
+    fallback: fallback,
+    defaults: defaultStoryImageForbiddenTextSurfaces,
+  );
 }

@@ -22,6 +22,13 @@ void main() {
         'composition': 'Vertical 9:16, fox large in the foreground.',
         'emotion': 'Warm surprise and friendly curiosity.',
         'backgroundDescription': 'Simple candy trees and soft pastel path.',
+        'environmentDescription': 'A candy garden that fills the full canvas.',
+        'foregroundElements': ['fox child', 'strawberry lantern'],
+        'midgroundElements': ['soft candy path'],
+        'backgroundElements': ['candy trees', 'pastel hills'],
+        'backgroundMustFillCanvas': true,
+        'wordlessMode': true,
+        'forbiddenTextSurfaces': ['signs', 'labels', 'logos'],
         'style': defaultStoryImageStyle,
         'avoid': ['text', 'letters'],
       },
@@ -34,8 +41,17 @@ void main() {
     expect(spec.mainCharacterDescription, contains('orange fox'));
     expect(spec.composition, contains('Vertical 9:16'));
     expect(spec.emotion, contains('Warm surprise'));
+    expect(spec.environmentDescription, contains('candy garden'));
+    expect(spec.foregroundElements, contains('fox child'));
+    expect(spec.midgroundElements, contains('soft candy path'));
+    expect(spec.backgroundElements, contains('candy trees'));
+    expect(spec.backgroundMustFillCanvas, isTrue);
+    expect(spec.wordlessMode, isTrue);
+    expect(spec.forbiddenTextSurfaces, contains('signs'));
+    expect(spec.forbiddenTextSurfaces, contains('blackboards'));
     expect(spec.avoid, contains('text'));
     expect(spec.avoid, contains('speech bubbles'));
+    expect(spec.avoid, contains('signs'));
   });
 
   test('StoryImagePageSpec fallback fills missing values', () {
@@ -51,8 +67,21 @@ void main() {
     expect(spec.sceneGoal, 'A fox looks at a small candy door.');
     expect(spec.supportingCharacters, 'None.');
     expect(spec.style, defaultStoryImageStyle);
+    expect(spec.backgroundDescription, contains('edge-to-edge'));
+    expect(spec.environmentDescription, isNotEmpty);
+    expect(spec.foregroundElements, contains('main character clearly visible'));
+    expect(spec.midgroundElements, contains('plain props without writing'));
+    expect(
+      spec.backgroundElements.any((entry) => entry.contains('wordless')),
+      isTrue,
+    );
+    expect(spec.backgroundMustFillCanvas, isTrue);
+    expect(spec.wordlessMode, isTrue);
+    expect(spec.forbiddenTextSurfaces, contains('book covers with writing'));
+    expect(spec.forbiddenTextSurfaces, contains('screens'));
     expect(spec.avoid, contains('distorted hands'));
     expect(spec.avoid, contains('extra fingers'));
+    expect(spec.avoid, contains('labels'));
   });
 
   test('StoryImageSpecPackage normalizes page specs by page number', () {
@@ -90,5 +119,12 @@ void main() {
     expect(package.imagePageSpecs, hasLength(2));
     expect(package.imagePageSpecs[0].sceneGoal, 'first generated');
     expect(package.imagePageSpecs[1].sceneGoal, 'second generated');
+    expect(package.imagePageSpecs[0].toJson(), contains('wordlessMode'));
+    expect(
+      package.imagePageSpecs[0].toJson(),
+      contains('backgroundMustFillCanvas'),
+    );
+    expect(
+        package.imagePageSpecs[0].toJson(), contains('forbiddenTextSurfaces'));
   });
 }

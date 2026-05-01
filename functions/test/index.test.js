@@ -154,6 +154,13 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
     composition: 'Vertical 9:16, fox large in the foreground.',
     emotion: 'Warm surprise and friendly curiosity.',
     backgroundDescription: 'Simple candy trees and soft pastel path.',
+    environmentDescription: 'A candy garden that fills the whole canvas.',
+    foregroundElements: ['fox child', 'strawberry lantern'],
+    midgroundElements: ['soft candy path'],
+    backgroundElements: ['candy trees', 'pastel hills'],
+    backgroundMustFillCanvas: true,
+    wordlessMode: true,
+    forbiddenTextSurfaces: ['signs', 'labels', 'logos'],
     style: __test__.DEFAULT_IMAGE_STYLE,
     avoid: ['text', 'letters'],
   });
@@ -170,7 +177,11 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
     'Composition:',
     'Emotion and atmosphere:',
     'Style:',
-    'Background:',
+    'Environment and background:',
+    'Foreground elements:',
+    'Midground elements:',
+    'Background elements:',
+    'Wordless image requirements:',
     'Important visual requirements:',
     'Do not include:',
     'Output:',
@@ -180,6 +191,27 @@ test('buildImagenPrompt includes required sections and safety terms', () => {
   assert.match(prompt, /small orange fox child/);
   assert.match(prompt, /The fox and bear stand in a candy garden/);
   assert.match(prompt, /Warm surprise/);
+  assert.match(prompt, /entire 9:16 canvas must be filled/);
+  assert.match(prompt, /completely wordless/);
+  for (const forbiddenSurface of [
+    'signs',
+    'labels',
+    'logos',
+    'book covers with writing',
+    'blackboards',
+    'screens',
+  ]) {
+    assert.match(prompt, new RegExp(forbiddenSurface));
+  }
+  for (const removedPhrase of [
+    'title placement',
+    'space for text',
+    'cover illustration',
+    'book cover layout',
+    'caption area',
+  ]) {
+    assert.doesNotMatch(prompt, new RegExp(removedPhrase, 'i'));
+  }
   assert.match(prompt, /- text/);
   assert.match(prompt, /- speech bubbles/);
   assert.match(prompt, /A single polished storybook illustration/);
@@ -217,6 +249,13 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
           composition: 'Clear vertical 9:16 foreground character.',
           emotion: 'Gentle wonder.',
           backgroundDescription: 'Simple candy garden.',
+          environmentDescription: '',
+          foregroundElements: [],
+          midgroundElements: [],
+          backgroundElements: [],
+          backgroundMustFillCanvas: true,
+          wordlessMode: true,
+          forbiddenTextSurfaces: [],
           style: '',
           avoid: [],
           extra: 'drop me',
@@ -248,11 +287,23 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
     'composition',
     'emotion',
     'backgroundDescription',
+    'environmentDescription',
+    'foregroundElements',
+    'midgroundElements',
+    'backgroundElements',
+    'backgroundMustFillCanvas',
+    'wordlessMode',
+    'forbiddenTextSurfaces',
     'style',
     'avoid',
   ]);
   assert.equal(parsed.imagePageSpecs[0].supportingCharacters, 'None.');
   assert.equal(parsed.imagePageSpecs[0].style, __test__.DEFAULT_IMAGE_STYLE);
+  assert.equal(parsed.imagePageSpecs[0].backgroundMustFillCanvas, true);
+  assert.equal(parsed.imagePageSpecs[0].wordlessMode, true);
+  assert.ok(parsed.imagePageSpecs[0].foregroundElements.length > 0);
+  assert.ok(parsed.imagePageSpecs[0].backgroundElements.length > 0);
+  assert.ok(parsed.imagePageSpecs[0].forbiddenTextSurfaces.includes('signs'));
   assert.ok(parsed.imagePageSpecs[0].avoid.includes('distorted hands'));
 });
 
@@ -266,8 +317,41 @@ test('fallbackImagePageSpec fills missing values', () => {
   assert.equal(spec.sceneGoal, 'A fox looks at a small door.');
   assert.equal(spec.supportingCharacters, 'None.');
   assert.equal(spec.style, __test__.DEFAULT_IMAGE_STYLE);
+  assert.equal(spec.backgroundMustFillCanvas, true);
+  assert.equal(spec.wordlessMode, true);
+  assert.ok(spec.environmentDescription.includes('environment'));
+  assert.ok(spec.foregroundElements.includes('main character clearly visible'));
+  assert.ok(spec.midgroundElements.includes('plain props without writing'));
+  assert.ok(spec.backgroundElements.some((entry) => entry.includes('wordless')));
+  assert.ok(spec.forbiddenTextSurfaces.includes('blackboards'));
   assert.ok(spec.avoid.includes('text'));
+  assert.ok(spec.avoid.includes('signs'));
   assert.ok(spec.avoid.includes('extra fingers'));
+});
+
+test('image quality retry helpers regenerate at most once', () => {
+  const failedAssessment = __test__.normalizeImageQualityAssessment({
+    hasFullBackground: false,
+    hasVisibleTextOrSymbols: false,
+    hasTextBearingObjects: false,
+    isAcceptable: true,
+    reason: 'Blank background.',
+  });
+
+  assert.equal(failedAssessment.isAcceptable, false);
+  assert.equal(
+    __test__.shouldRegenerateFromImageAssessment(failedAssessment, 0),
+    true,
+  );
+  assert.equal(
+    __test__.shouldRegenerateFromImageAssessment(failedAssessment, 1),
+    false,
+  );
+
+  const corrected = __test__.buildCorrectedImagenPrompt('base prompt');
+  assert.match(corrected, /Correction emphasis:/);
+  assert.match(corrected, /background was missing or contained text-like elements/);
+  assert.match(corrected, /no text, no signs, no labels, no symbols/);
 });
 
 test('sanitizeImagePrompt avoids provider safety trigger wording', () => {
