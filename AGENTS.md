@@ -334,6 +334,35 @@ State as of 2026-04-29 JST:
   - TestFlight run: `25117014464`, URL
     `https://github.com/COROLE/apapane_v2/actions/runs/25117014464`, workflow
     build number `51`, result success through `Upload to TestFlight`.
+- Background and wordless image hardening:
+  - Commit: `38a7ab3 Strengthen story image backgrounds`
+  - `ImagePageSpec` now includes environment, foreground/midground/background
+    elements, full-canvas background, wordless mode, and forbidden text surface
+    fields. Imagen prompts now require an edge-to-edge story environment and
+    explicitly avoid text-bearing objects such as signs, labels, screens,
+    blackboards, maps, posters, packages, title cards, and book covers with
+    writing.
+  - `imagePageSpec` image generation now runs a Gemini vision quality check for
+    full background and text-like artifacts. If the check rejects the image, the
+    function regenerates once with a correction emphasis. Legacy `prompt` image
+    requests remain compatible and do not use this check.
+  - Verification passed:
+    `flutter analyze --no-fatal-warnings --no-fatal-infos`, `flutter test`,
+    `npm --prefix functions run lint`, and `npm --prefix functions test`.
+  - TestFlight run: `25196897805`, URL
+    `https://github.com/COROLE/apapane_v2/actions/runs/25196897805`, workflow
+    build number `52`, result success through `Upload to TestFlight`.
+  - Initial local Firebase Functions deploy failed because Firebase CLI
+    credentials had expired and required `firebase login --reauth`.
+  - Firebase Functions deploy after reauth: success with
+    `npx firebase-tools@14 deploy --project apapane-94356 --only functions --non-interactive`.
+  - Production `generateImageSpecs` smoke after deploy: success, returned a
+    character profile and 4 page specs with `environmentDescription`,
+    foreground/midground/background elements, `backgroundMustFillCanvas: true`,
+    `wordlessMode: true`, and forbidden text surfaces.
+  - Production `generateImageHttp` smoke with `imagePageSpec` after deploy:
+    success, `model=imagen-4.0-generate-001`, base64 returned, Storage URL
+    returned, elapsed about 18.7 seconds, base64 length about 258k characters.
 - Temporary backend deploy branch exists: `codex/backend-deploy-d9ac92f`
 - Unrelated untracked local files were left untouched:
   - `scripts/manual/generate-app-store-ipad-screenshots.ps1`
