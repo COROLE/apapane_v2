@@ -64,6 +64,8 @@ class ChatViewModel extends ChangeNotifier {
   static const String _imageQuotaMessage =
       '\u753b\u50cf\u751f\u6210API\u306e\u5229\u7528\u4e0a\u9650\u306b\u9054\u3057\u3066\u3044\u307e\u3059\u3002'
       '\u7ba1\u7406\u8005\u5074\u3067\u753b\u50cf\u751f\u6210API\u306e\u4e0a\u9650\u8a2d\u5b9a\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002';
+  static const String _storyGenerationFailedMessage =
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。';
   static const int _directImageConcurrency = 1;
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
@@ -606,10 +608,14 @@ class ChatViewModel extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error fetching story: $e');
       if (reservation != null) {
-        await _apiRepository.cancelStoryGeneration(
-          requestId: generationRequestId,
-          reason: e.toString(),
-        );
+        try {
+          await _apiRepository.cancelStoryGeneration(
+            requestId: generationRequestId,
+            reason: e.toString(),
+          );
+        } catch (cancelError) {
+          debugPrint('Failed to cancel story generation: $cancelError');
+        }
       }
       if (context.mounted) {
         await UIHelper.showFlutterToast(_errorMessage(e));
@@ -2022,7 +2028,12 @@ class ChatViewModel extends ChangeNotifier {
 */
   }
 
-  String _errorMessage(Object? error) {
+  @visibleForTesting
+  static String errorMessageForTesting(Object? error) {
+    return _errorMessage(error);
+  }
+
+  static String _errorMessage(Object? error) {
     final message = error?.toString().trim() ?? '';
     if (message.isEmpty) {
       return 'おはなし作りに失敗しました。設定を確認して、もう一度お試しください。';
@@ -2030,6 +2041,18 @@ class ChatViewModel extends ChangeNotifier {
     if (_isImageQuotaError(error)) {
       return _imageQuotaMessage;
     }
-    return message.replaceFirst('Bad state: ', '');
+    final normalized =
+        message.replaceFirst('Exception: ', '').replaceFirst('Bad state: ', '');
+    if (_isStoryGenerationFailure(normalized)) {
+      return _storyGenerationFailedMessage;
+    }
+    return normalized;
+  }
+
+  static bool _isStoryGenerationFailure(String message) {
+    return message.contains('読み込み回数') ||
+        message.contains('Generated story did not pass quality checks') ||
+        message.contains('invalid_story_json') ||
+        message.contains('story_quality');
   }
 }

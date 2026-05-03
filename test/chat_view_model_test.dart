@@ -285,6 +285,22 @@ void main() {
     expect(normalizedPages.first['story'], '1ページめ');
   });
 
+  test('story generation retry errors use app-facing copy', () {
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        Exception('読み込み回数の上限をこえました。'),
+      ),
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        StateError(
+            'Generated story did not pass quality checks: story_quality'),
+      ),
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
+  });
+
   test('story creation requires parent login for guests', () {
     final state = ChatViewModel.storyCreationAccessForTesting(
       currentUser: const LocalSessionUser(
