@@ -1046,6 +1046,7 @@ class ChatViewModel extends ChangeNotifier {
         'artDirection': draft.characterSheet.artDirection,
       },
       mode: mode.key,
+      storyCanon: draft.storyCanon?.toJson(),
       extraRequirements:
           'Keep every scene child-safe, simple, warm, fully environmental, and completely wordless. Use safe plain story objects such as small glowing charms, flowers, feathers, gems, acorns, leaves, pebbles, paths, plants, and soft light.',
     );

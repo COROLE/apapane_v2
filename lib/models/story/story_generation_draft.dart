@@ -82,6 +82,207 @@ class StoryGenerationPage {
   }
 }
 
+class StoryCanon {
+  const StoryCanon({
+    required this.title,
+    required this.visualStyle,
+    required this.worldRules,
+    required this.cast,
+    required this.setting,
+    required this.pagePlans,
+  });
+
+  final String title;
+  final String visualStyle;
+  final SDMap worldRules;
+  final List<StoryCanonCastMember> cast;
+  final StoryCanonSetting setting;
+  final List<StoryCanonPagePlan> pagePlans;
+
+  static StoryCanon? fromJson(Object? json) {
+    if (json is! Map) {
+      return null;
+    }
+    final map = Map<String, dynamic>.from(json);
+    final plans = map['pagePlans'] is List
+        ? (map['pagePlans'] as List<dynamic>)
+            .map(StoryCanonPagePlan.fromJson)
+            .toList(growable: false)
+        : const <StoryCanonPagePlan>[];
+    if (plans.isEmpty) {
+      return null;
+    }
+    final cast = map['cast'] is List
+        ? (map['cast'] as List<dynamic>)
+            .map(StoryCanonCastMember.fromJson)
+            .where((member) => member.id.isNotEmpty)
+            .toList(growable: false)
+        : const <StoryCanonCastMember>[];
+    return StoryCanon(
+      title: _normalizeText(map['title']),
+      visualStyle: _normalizeText(map['visualStyle']),
+      worldRules: _normalizeMap(map['worldRules']),
+      cast: List<StoryCanonCastMember>.unmodifiable(cast),
+      setting: StoryCanonSetting.fromJson(map['setting']),
+      pagePlans: List<StoryCanonPagePlan>.unmodifiable(plans),
+    );
+  }
+
+  SDMap toJson() => {
+        'title': title,
+        'visualStyle': visualStyle,
+        'worldRules': worldRules,
+        'cast': cast.map((member) => member.toJson()).toList(growable: false),
+        'setting': setting.toJson(),
+        'pagePlans': pagePlans.map((plan) => plan.toJson()).toList(
+              growable: false,
+            ),
+      };
+}
+
+class StoryCanonCastMember {
+  const StoryCanonCastMember({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.appearance,
+    required this.outfit,
+    required this.colors,
+    required this.personalityVisualCues,
+  });
+
+  final String id;
+  final String name;
+  final String role;
+  final String appearance;
+  final String outfit;
+  final List<String> colors;
+  final String personalityVisualCues;
+
+  factory StoryCanonCastMember.fromJson(Object? json) {
+    final map = json is Map
+        ? Map<String, dynamic>.from(json)
+        : const <String, dynamic>{};
+    return StoryCanonCastMember(
+      id: _normalizeText(map['id']).toLowerCase(),
+      name: _normalizeText(map['name']),
+      role: _normalizeText(map['role']).toLowerCase(),
+      appearance: _normalizeText(map['appearance']),
+      outfit: _normalizeText(map['outfit']),
+      colors: _normalizeStringList(map['colors']),
+      personalityVisualCues: _normalizeText(map['personalityVisualCues']),
+    );
+  }
+
+  SDMap toJson() => {
+        'id': id,
+        'name': name,
+        'role': role,
+        'appearance': appearance,
+        'outfit': outfit,
+        'colors': colors,
+        'personalityVisualCues': personalityVisualCues,
+      };
+}
+
+class StoryCanonSetting {
+  const StoryCanonSetting({
+    required this.mainLocation,
+    required this.timeOfDay,
+    required this.season,
+    required this.recurringVisualMotifs,
+  });
+
+  final String mainLocation;
+  final String timeOfDay;
+  final String season;
+  final List<String> recurringVisualMotifs;
+
+  factory StoryCanonSetting.fromJson(Object? json) {
+    final map = json is Map
+        ? Map<String, dynamic>.from(json)
+        : const <String, dynamic>{};
+    return StoryCanonSetting(
+      mainLocation: _normalizeText(map['mainLocation']),
+      timeOfDay: _normalizeText(map['timeOfDay']),
+      season: _normalizeText(map['season']),
+      recurringVisualMotifs: _normalizeStringList(
+        map['recurringVisualMotifs'],
+      ),
+    );
+  }
+
+  SDMap toJson() => {
+        'mainLocation': mainLocation,
+        'timeOfDay': timeOfDay,
+        'season': season,
+        'recurringVisualMotifs': recurringVisualMotifs,
+      };
+}
+
+class StoryCanonPagePlan {
+  const StoryCanonPagePlan({
+    required this.page,
+    required this.storyBeat,
+    required this.userTextIntent,
+    required this.visualBeat,
+    required this.visibleCast,
+    required this.characterPositions,
+    required this.camera,
+    required this.lighting,
+    required this.emotion,
+    required this.allowedObjects,
+    required this.forbiddenObjects,
+  });
+
+  final int page;
+  final String storyBeat;
+  final String userTextIntent;
+  final String visualBeat;
+  final List<String> visibleCast;
+  final String characterPositions;
+  final String camera;
+  final String lighting;
+  final String emotion;
+  final List<String> allowedObjects;
+  final List<String> forbiddenObjects;
+
+  factory StoryCanonPagePlan.fromJson(Object? json) {
+    final map = json is Map
+        ? Map<String, dynamic>.from(json)
+        : const <String, dynamic>{};
+    return StoryCanonPagePlan(
+      page: map['page'] is int && (map['page'] as int) > 0
+          ? map['page'] as int
+          : 1,
+      storyBeat: _normalizeText(map['storyBeat']),
+      userTextIntent: _normalizeText(map['userTextIntent']),
+      visualBeat: _normalizeText(map['visualBeat']),
+      visibleCast: _normalizeStringList(map['visibleCast']),
+      characterPositions: _normalizeText(map['characterPositions']),
+      camera: _normalizeText(map['camera']),
+      lighting: _normalizeText(map['lighting']),
+      emotion: _normalizeText(map['emotion']),
+      allowedObjects: _normalizeStringList(map['allowedObjects']),
+      forbiddenObjects: _normalizeStringList(map['forbiddenObjects']),
+    );
+  }
+
+  SDMap toJson() => {
+        'page': page,
+        'storyBeat': storyBeat,
+        'userTextIntent': userTextIntent,
+        'visualBeat': visualBeat,
+        'visibleCast': visibleCast,
+        'characterPositions': characterPositions,
+        'camera': camera,
+        'lighting': lighting,
+        'emotion': emotion,
+        'allowedObjects': allowedObjects,
+        'forbiddenObjects': forbiddenObjects,
+      };
+}
+
 class StoryGenerationDraft {
   static const int legacyBodyPageCount = 4;
 
@@ -90,12 +291,14 @@ class StoryGenerationDraft {
     required this.coverScene,
     required this.characterSheet,
     required this.pages,
+    this.storyCanon,
   });
 
   final String title;
   final String coverScene;
   final StoryGenerationCharacterSheet characterSheet;
   final List<StoryGenerationPage> pages;
+  final StoryCanon? storyCanon;
 
   factory StoryGenerationDraft.fromResponse(
     SDMap response, {
@@ -150,6 +353,7 @@ class StoryGenerationDraft {
           StoryGenerationCharacterSheet.fromJson(response['characterSheet'])
               .merge(fallbackDraft.characterSheet),
       pages: pages,
+      storyCanon: StoryCanon.fromJson(response['storyCanon']),
     );
   }
 }
@@ -203,6 +407,7 @@ class StoryGenerationComposer {
         ),
         growable: false,
       ),
+      storyCanon: null,
     );
   }
 
@@ -458,6 +663,27 @@ String _firstNonEmpty(String primary, String fallback) {
 
 String _normalizeText(Object? value) {
   return value is String ? value.replaceAll(RegExp(r'\s+'), ' ').trim() : '';
+}
+
+SDMap _normalizeMap(Object? value) {
+  if (value is! Map) {
+    return const <String, dynamic>{};
+  }
+  return Map<String, dynamic>.unmodifiable(value);
+}
+
+List<String> _normalizeStringList(Object? value) {
+  if (value is! List) {
+    return const <String>[];
+  }
+  final normalized = <String>[];
+  for (final entry in value) {
+    final text = _normalizeText(entry);
+    if (text.isNotEmpty && !normalized.contains(text)) {
+      normalized.add(text);
+    }
+  }
+  return List<String>.unmodifiable(normalized);
 }
 
 String _promptClip(String value, {int maxLength = 420}) {

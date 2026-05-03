@@ -61,6 +61,7 @@ class ApiRepository {
     required List<Map<String, dynamic>> pages,
     required Map<String, dynamic> characterSheet,
     required String mode,
+    Map<String, dynamic>? storyCanon,
     String extraRequirements = '',
   }) async {
     try {
@@ -70,6 +71,7 @@ class ApiRepository {
         pages: pages,
         characterSheet: characterSheet,
         mode: mode,
+        storyCanon: storyCanon,
         extraRequirements: extraRequirements,
       );
       return Result.success(result);

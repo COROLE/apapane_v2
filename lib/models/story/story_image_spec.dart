@@ -197,6 +197,7 @@ class StoryImagePageSpec {
     required this.forbiddenTextSurfaces,
     required this.style,
     required this.avoid,
+    required this.scene,
   });
 
   final int page;
@@ -216,6 +217,7 @@ class StoryImagePageSpec {
   final List<String> forbiddenTextSurfaces;
   final String style;
   final List<String> avoid;
+  final SDMap scene;
 
   factory StoryImagePageSpec.fromJson(
     Object? json, {
@@ -324,6 +326,19 @@ class StoryImagePageSpec {
       ),
       style: _firstText([map['style'], base.style, defaultStoryImageStyle]),
       avoid: normalizedAvoid,
+      scene: _sceneMap(
+        map['scene'],
+        fallback: {
+          ...base.scene,
+          if (_text(map['environmentDescription']).isNotEmpty)
+            'location': _text(map['environmentDescription']),
+          if (_text(map['sceneGoal']).isNotEmpty)
+            'action': _text(map['sceneGoal']),
+          if (_text(map['composition']).isNotEmpty)
+            'composition': _text(map['composition']),
+          if (_text(map['mood']).isNotEmpty) 'lighting': _text(map['mood']),
+        },
+      ),
     );
   }
 
@@ -376,6 +391,24 @@ class StoryImagePageSpec {
       forbiddenTextSurfaces: defaultStoryImageForbiddenTextSurfaces,
       style: defaultStoryImageStyle,
       avoid: defaultStoryImageAvoidTerms,
+      scene: {
+        'location': profile.worldStyle,
+        'time': 'soft daytime',
+        'action': sceneGoal,
+        'composition':
+            'central characters with clear faces and simple foreground',
+        'camera': 'medium shot',
+        'lighting': 'warm soft light',
+        'characterDetails': [
+          '${profile.appearance} ${profile.clothing} ${profile.colors}',
+        ],
+        'allowedObjects': [
+          'small glowing star charm',
+          'tiny flower',
+          'winding path',
+        ],
+        'forbiddenObjects': defaultStoryImageForbiddenTextSurfaces,
+      },
     );
   }
 
@@ -397,6 +430,7 @@ class StoryImagePageSpec {
         'forbiddenTextSurfaces': forbiddenTextSurfaces,
         'style': style,
         'avoid': avoid,
+        'scene': scene,
       };
 }
 
@@ -532,4 +566,40 @@ List<String> _forbiddenTextSurfaces(
     fallback: fallback,
     defaults: defaultStoryImageForbiddenTextSurfaces,
   );
+}
+
+SDMap _sceneMap(Object? value, {SDMap fallback = const <String, dynamic>{}}) {
+  final source = value is Map
+      ? Map<String, dynamic>.from(value)
+      : Map<String, dynamic>.from(fallback);
+  return {
+    'location': _firstText([source['location'], fallback['location']]),
+    'time': _firstText([source['time'], fallback['time']]),
+    'action': _firstText([source['action'], fallback['action']]),
+    'composition': _firstText([
+      source['composition'],
+      fallback['composition'],
+    ]),
+    'camera': _firstText([source['camera'], fallback['camera']]),
+    'lighting': _firstText([source['lighting'], fallback['lighting']]),
+    'characterDetails': _stringList(
+      source['characterDetails'],
+      fallback: fallback['characterDetails'] is List
+          ? List<String>.from(fallback['characterDetails'] as List)
+          : const [],
+    ),
+    'allowedObjects': _stringList(
+      source['allowedObjects'],
+      fallback: fallback['allowedObjects'] is List
+          ? List<String>.from(fallback['allowedObjects'] as List)
+          : const [],
+    ),
+    'forbiddenObjects': _stringList(
+      source['forbiddenObjects'],
+      fallback: fallback['forbiddenObjects'] is List
+          ? List<String>.from(fallback['forbiddenObjects'] as List)
+          : defaultStoryImageForbiddenTextSurfaces,
+      defaults: defaultStoryImageForbiddenTextSurfaces,
+    ),
+  };
 }

@@ -18,6 +18,27 @@ class ApiService {
   static const Duration _functionCallTimeout = Duration(seconds: 90);
   static const Duration _imageFunctionCallTimeout = Duration(seconds: 420);
 
+  static SDMap buildGenerateImageSpecsPayload({
+    required String title,
+    required String story,
+    required List<SDMap> pages,
+    required SDMap characterSheet,
+    required String mode,
+    SDMap? storyCanon,
+    String extraRequirements = '',
+  }) {
+    return {
+      'title': title,
+      'story': story,
+      'pages': pages,
+      'characterSheet': characterSheet,
+      'mode': mode,
+      if (storyCanon != null) 'storyCanon': storyCanon,
+      if (extraRequirements.trim().isNotEmpty)
+        'extraRequirements': extraRequirements.trim(),
+    };
+  }
+
   Future<String> callClaude(
     String prompt,
     String systemPrompt,
@@ -71,19 +92,20 @@ class ApiService {
     required List<SDMap> pages,
     required SDMap characterSheet,
     required String mode,
+    SDMap? storyCanon,
     String extraRequirements = '',
   }) async {
     return _callFunction(
       'generateImageSpecs',
-      {
-        'title': title,
-        'story': story,
-        'pages': pages,
-        'characterSheet': characterSheet,
-        'mode': mode,
-        if (extraRequirements.trim().isNotEmpty)
-          'extraRequirements': extraRequirements.trim(),
-      },
+      buildGenerateImageSpecsPayload(
+        title: title,
+        story: story,
+        pages: pages,
+        characterSheet: characterSheet,
+        mode: mode,
+        storyCanon: storyCanon,
+        extraRequirements: extraRequirements,
+      ),
     );
   }
 

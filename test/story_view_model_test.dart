@@ -16,6 +16,51 @@ void main() {
       'artDirection':
           'gentle gouache picture book, warm pastel palette, soft paper texture',
     },
+    'storyCanon': {
+      'title': 'Moon Lantern',
+      'visualStyle': 'soft mobile story artwork',
+      'worldRules': {
+        'noReadableText': true,
+        'noLetters': true,
+        'noSigns': true,
+        'noBooks': true,
+        'noMaps': true,
+        'noPaper': true,
+        'magicIsShownAs': 'glowing petals and lantern light',
+      },
+      'cast': [
+        {
+          'id': 'protagonist',
+          'name': 'Miko',
+          'role': 'protagonist',
+          'appearance': 'small rabbit child',
+          'outfit': 'red scarf',
+          'colors': ['cream', 'red'],
+          'personalityVisualCues': 'curious eyes',
+        },
+      ],
+      'setting': {
+        'mainLocation': 'moonlit forest',
+        'timeOfDay': 'night',
+        'season': 'spring',
+        'recurringVisualMotifs': ['glowing petals', 'soft mist'],
+      },
+      'pagePlans': [
+        {
+          'page': 1,
+          'storyBeat': 'finds glow',
+          'userTextIntent': 'short Japanese text',
+          'visualBeat': 'rabbit follows glowing petals',
+          'visibleCast': ['protagonist'],
+          'characterPositions': 'rabbit in central area',
+          'camera': 'medium shot',
+          'lighting': 'soft moon light',
+          'emotion': 'curious',
+          'allowedObjects': ['glowing petals'],
+          'forbiddenObjects': ['readable text'],
+        },
+      ],
+    },
     'pages': [
       {
         'story': 'うさぎの ミオは にじのもりで 月のランタンを さがしに でかけた。',
@@ -88,5 +133,19 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('StoryGenerationDraft parses optional StoryCanon metadata', () {
+    final draft = StoryGenerationDraft.fromResponse(structuredStory);
+    final legacyDraft = StoryGenerationDraft.fromResponse({
+      ...structuredStory,
+      'storyCanon': null,
+    });
+
+    expect(draft.storyCanon, isNotNull);
+    expect(draft.storyCanon!.pagePlans, hasLength(1));
+    expect(draft.storyCanon!.pagePlans.first.visualBeat, contains('petals'));
+    expect(draft.storyCanon!.toJson(), contains('pagePlans'));
+    expect(legacyDraft.storyCanon, isNull);
   });
 }

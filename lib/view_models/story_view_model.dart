@@ -423,6 +423,8 @@ class StoryViewModel extends ChangeNotifier {
           'previewSummary': transientPreview.summary,
           'pagePlan': transientPreview.pagePlan,
         },
+        if (_transientNewStoryDraft?.storyCanon != null)
+          'storyCanon': _transientNewStoryDraft!.storyCanon!.toJson(),
         if (_transientGenerationRequestId?.isNotEmpty == true)
           'generationRequestId': _transientGenerationRequestId,
       });

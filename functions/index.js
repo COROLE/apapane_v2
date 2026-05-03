@@ -322,6 +322,33 @@ Use bright colors, friendly expressions, soft lighting, and cozy calm scenery.
  * @property {string[]} forbiddenTextSurfaces
  * @property {string} style
  * @property {string[]} avoid
+ * @property {string=} visualFocus
+ * @property {string=} mood
+ * @property {string[]=} visibleCast
+ * @property {Object=} scene
+ */
+/**
+ * @typedef {Object} StoryCanonPagePlan
+ * @property {number} page
+ * @property {string} storyBeat
+ * @property {string} userTextIntent
+ * @property {string} visualBeat
+ * @property {string[]} visibleCast
+ * @property {string} characterPositions
+ * @property {string} camera
+ * @property {string} lighting
+ * @property {string} emotion
+ * @property {string[]} allowedObjects
+ * @property {string[]} forbiddenObjects
+ */
+/**
+ * @typedef {Object} StoryCanon
+ * @property {string} title
+ * @property {string} visualStyle
+ * @property {Object} worldRules
+ * @property {Object[]} cast
+ * @property {Object} setting
+ * @property {StoryCanonPagePlan[]} pagePlans
  */
 const UNSAFE_VISUAL_NEGATIVE_PROMPT = [
   'low quality',
@@ -364,6 +391,49 @@ const UNSAFE_STORY_OBJECTS = Object.freeze([
   'thought bubble',
   'question mark',
 ]);
+const DEFAULT_CANON_FORBIDDEN_OBJECTS = Object.freeze([
+  'readable text',
+  'letters',
+  'alphabet letters',
+  'Japanese characters',
+  'numbers',
+  'signs',
+  'labels',
+  'captions',
+  'speech bubbles',
+  'books',
+  'maps',
+  'paper',
+  'scrolls',
+  'documents',
+  'posters',
+  'screens',
+  'logos',
+  'symbols',
+]);
+const DEFAULT_CANON_ALLOWED_OBJECTS = Object.freeze([
+  ...SAFE_STORY_OBJECTS,
+  'soft glowing petals',
+  'tiny footprints',
+  'gentle light particles',
+  'winding path',
+  'river curve',
+  'flower trail',
+  'tree stump',
+  'rounded stones',
+  'soft clouds',
+  'leafy branches',
+]);
+const DEFAULT_STORY_CANON_WORLD_RULES = Object.freeze({
+  noReadableText: true,
+  noLetters: true,
+  noSigns: true,
+  noBooks: true,
+  noMaps: true,
+  noPaper: true,
+  magicIsShownAs:
+    'soft glowing petals, firefly light, star charms, paths, flowers, gems, and gentle gestures',
+});
 const UNSAFE_RULES = [
   {
     category: 'sexual_content',
@@ -1134,6 +1204,135 @@ function normalizeStoryPreviewInput(preview, mode) {
   return normalized;
 }
 
+function buildStoryCanonResponseSchema(mode) {
+  return {
+    type: 'object',
+    properties: {
+      title: { type: 'string' },
+      visualStyle: { type: 'string' },
+      worldRules: {
+        type: 'object',
+        properties: {
+          noReadableText: { type: 'boolean' },
+          noLetters: { type: 'boolean' },
+          noSigns: { type: 'boolean' },
+          noBooks: { type: 'boolean' },
+          noMaps: { type: 'boolean' },
+          noPaper: { type: 'boolean' },
+          magicIsShownAs: { type: 'string' },
+        },
+        required: [
+          'noReadableText',
+          'noLetters',
+          'noSigns',
+          'noBooks',
+          'noMaps',
+          'noPaper',
+          'magicIsShownAs',
+        ],
+      },
+      cast: {
+        type: 'array',
+        minItems: 1,
+        maxItems: 4,
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            role: { type: 'string' },
+            appearance: { type: 'string' },
+            outfit: { type: 'string' },
+            colors: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            personalityVisualCues: { type: 'string' },
+          },
+          required: [
+            'id',
+            'name',
+            'role',
+            'appearance',
+            'outfit',
+            'colors',
+            'personalityVisualCues',
+          ],
+        },
+      },
+      setting: {
+        type: 'object',
+        properties: {
+          mainLocation: { type: 'string' },
+          timeOfDay: { type: 'string' },
+          season: { type: 'string' },
+          recurringVisualMotifs: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+        },
+        required: [
+          'mainLocation',
+          'timeOfDay',
+          'season',
+          'recurringVisualMotifs',
+        ],
+      },
+      pagePlans: {
+        type: 'array',
+        minItems: mode.pageCount,
+        maxItems: mode.pageCount,
+        items: {
+          type: 'object',
+          properties: {
+            page: { type: 'integer' },
+            storyBeat: { type: 'string' },
+            userTextIntent: { type: 'string' },
+            visualBeat: { type: 'string' },
+            visibleCast: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            characterPositions: { type: 'string' },
+            camera: { type: 'string' },
+            lighting: { type: 'string' },
+            emotion: { type: 'string' },
+            allowedObjects: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            forbiddenObjects: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+          },
+          required: [
+            'page',
+            'storyBeat',
+            'userTextIntent',
+            'visualBeat',
+            'visibleCast',
+            'characterPositions',
+            'camera',
+            'lighting',
+            'emotion',
+            'allowedObjects',
+            'forbiddenObjects',
+          ],
+        },
+      },
+    },
+    required: [
+      'title',
+      'visualStyle',
+      'worldRules',
+      'cast',
+      'setting',
+      'pagePlans',
+    ],
+  };
+}
+
 function buildStoryResponseSchema(mode) {
   return {
     type: 'object',
@@ -1185,6 +1384,7 @@ function buildStoryResponseSchema(mode) {
           ],
         },
       },
+      storyCanon: buildStoryCanonResponseSchema(mode),
     },
     required: [
       'title',
@@ -1226,12 +1426,12 @@ function buildStoryPreviewResponseSchema(mode) {
 
 function maxStoryOutputTokens(pageCount) {
   if (pageCount >= 12) {
-    return 8192;
+    return 12288;
   }
   if (pageCount >= 8) {
-    return 6144;
+    return 8192;
   }
-  return 4096;
+  return 6144;
 }
 
 function buildStoryPrompt({
@@ -1278,6 +1478,23 @@ Image prompt field language overrides:
 - Write "coverScene", every "characterSheet" value, every "pages[].visualFocus", and every "pages[].mood" in simple concrete English for Imagen.
 - Each English visual field must name the protagonist species/name/colors, companion when visible, exact location, action, key prop, expression, and vertical 9:16 composition.
 - Do not write generic visual fields such as "a magical scene", "a mysterious event spreads", or "the hero moves forward".
+
+StoryCanon / VisualBible requirements:
+- Output optional "storyCanon" as the hidden parent plan for both the Japanese display story and the image-only scene specs.
+- storyCanon.pagePlans must contain exactly ${mode.pageCount} items.
+- Keep pages[].story short, natural Japanese for children. It may use natural story words.
+- Do not make image planning depend on pages[].story text. storyCanon.pagePlans[].visualBeat is the parent source for images.
+- In storyCanon, describe only visible wordless moments: characters, positions, action, setting, light, emotion, and plain decorative objects.
+- In storyCanon.worldRules, set noReadableText, noLetters, noSigns, noBooks, noMaps, and noPaper to true.
+- In every storyCanon.pagePlans[].forbiddenObjects, include readable text, letters, alphabet letters, Japanese characters, numbers, signs, labels, captions, speech bubbles, books, maps, paper, scrolls, documents, posters, screens, logos, and symbols.
+- Convert risky concepts before writing visualBeat or allowedObjects:
+  clue or secret clue -> glowing petals, tiny footprints, soft light particles, or a small glowing star charm
+  message -> facial expression, gesture, soft light, or petals moving in the wind
+  map -> real winding path, river curve, starlight direction, or glowing path
+  book -> do not use; use a plain decorative box, gem, flower, charm, or soft light instead
+  letter -> do not use; use a ribbon, flower, feather, gem, or charm instead
+  sign -> do not use; show direction with a path fork, tree shape, river curve, or natural object instead
+- Keep the same cast appearance, outfit, colors, and visual style across all pagePlans.
 
 まず内部で3つの Story Plan を作ってください。
 Story Plan には次を含めてください。
@@ -1361,6 +1578,10 @@ ${issueText}
 ${JSON.stringify(story)}
 
 同じ既存JSON形式だけで、${mode.pageCount}ページの本文と visualFocus を修正してください。
+修正ルール:
+- 各ページの本文は、別々の出来事、発見、気持ちの変化で前に進めてください。
+- 同じ本文、同じ文末、同じ言い回しを2ページ以上で再利用しないでください。
+- 問題ページだけでなく、${mode.pageCount}ページ全体の流れが重複しないように整えてください。
 Story Plan、評価内容、説明文、Markdown、コードブロックは出力しないでください。
 `.trim();
 }
@@ -1733,16 +1954,27 @@ function normalizeGeneratedStory(
     );
   }
 
+  const normalizedCharacterSheet = Object.fromEntries(
+    STORY_REQUIRED_CHARACTER_FIELDS.map((field) => [
+      field,
+      requireStoryStringField(characterSheet, `characterSheet.${field}`),
+    ]),
+  );
+  const normalizedPages = pages.map((page, index) =>
+    normalizeGeneratedStoryPage(page, index),
+  );
+
   return {
     title,
     coverScene,
-    characterSheet: Object.fromEntries(
-      STORY_REQUIRED_CHARACTER_FIELDS.map((field) => [
-        field,
-        requireStoryStringField(characterSheet, `characterSheet.${field}`),
-      ]),
-    ),
-    pages: pages.map((page, index) => normalizeGeneratedStoryPage(page, index)),
+    characterSheet: normalizedCharacterSheet,
+    pages: normalizedPages,
+    storyCanon: normalizeStoryCanon(story.storyCanon, {
+      title,
+      characterSheet: normalizedCharacterSheet,
+      pages: normalizedPages,
+      pageCount,
+    }),
   };
 }
 
@@ -1772,6 +2004,416 @@ function normalizeGeneratedStoryPage(page, index) {
     throw createStoryJsonError(`Story page ${index + 1} has invalid visibleCast.`);
   }
   return normalizedPage;
+}
+
+function normalizeStoryCanon(
+  source,
+  { title = '', characterSheet = {}, pages = [], pageCount = STORY_BODY_PAGE_COUNT } = {},
+) {
+  const fallback = fallbackStoryCanon({
+    title,
+    characterSheet,
+    pages,
+    pageCount,
+  });
+  const raw = source && typeof source === 'object' && !Array.isArray(source)
+    ? source
+    : {};
+  const rawPlans = Array.isArray(raw.pagePlans) ? raw.pagePlans : [];
+  const pagePlans = [];
+  for (let index = 0; index < pageCount; index += 1) {
+    const pageNumber = index + 1;
+    const rawPlan =
+      rawPlans.find((plan) => Number(plan?.page) === pageNumber) ||
+      rawPlans[index];
+    pagePlans.push(
+      normalizeStoryCanonPagePlan(rawPlan, {
+        fallback: fallback.pagePlans[index],
+        page: pageNumber,
+        pageSource: pages[index],
+      }),
+    );
+  }
+
+  return {
+    title: firstNonEmptyText([raw.title, fallback.title, title, 'Story']),
+    visualStyle: firstNonEmptyText([
+      raw.visualStyle,
+      fallback.visualStyle,
+      DEFAULT_IMAGE_STYLE,
+    ]),
+    worldRules: normalizeStoryCanonWorldRules(
+      raw.worldRules,
+      fallback.worldRules,
+    ),
+    cast: normalizeStoryCanonCast(raw.cast, {
+      fallback: fallback.cast,
+      characterSheet,
+    }),
+    setting: normalizeStoryCanonSetting(raw.setting, {
+      fallback: fallback.setting,
+      characterSheet,
+    }),
+    pagePlans,
+  };
+}
+
+function fallbackStoryCanon({
+  title = '',
+  characterSheet = {},
+  pages = [],
+  pageCount = STORY_BODY_PAGE_COUNT,
+} = {}) {
+  const profile = fallbackCharacterProfile({ title, characterSheet });
+  const companion = optionalText(characterSheet.companion);
+  const cast = [
+    {
+      id: 'protagonist',
+      name: firstNonEmptyText([title, profile.name, 'Main character']),
+      role: 'protagonist',
+      appearance: firstNonEmptyText([
+        characterSheet.protagonist,
+        profile.appearance,
+      ]),
+      outfit: profile.clothing,
+      colors: normalizeStringList([profile.colors], null, []),
+      personalityVisualCues: profile.personalityTone,
+    },
+  ];
+  if (companion) {
+    cast.push({
+      id: 'companion',
+      name: 'Companion',
+      role: 'companion',
+      appearance: companion,
+      outfit: 'Simple consistent child-friendly details.',
+      colors: normalizeStringList([profile.colors], null, []),
+      personalityVisualCues: 'Friendly, supportive, gentle visual cues.',
+    });
+  }
+
+  return {
+    title: firstNonEmptyText([title, profile.name, 'Story']),
+    visualStyle: DEFAULT_IMAGE_STYLE,
+    worldRules: { ...DEFAULT_STORY_CANON_WORLD_RULES },
+    cast,
+    setting: {
+      mainLocation: firstNonEmptyText([
+        characterSheet.worldDetails,
+        profile.worldStyle,
+        'A warm colorful story world',
+      ]),
+      timeOfDay: 'soft daytime',
+      season: 'gentle season',
+      recurringVisualMotifs: [
+        'soft glowing petals',
+        'tiny footprints',
+        'small glowing star charm',
+        'winding path',
+      ],
+    },
+    pagePlans: Array.from({ length: pageCount }, (_, index) => {
+      const page = pages[index] || {};
+      const pageNumber = index + 1;
+      const visualBeat = toSafeCanonVisualText(
+        firstNonEmptyText([
+          page.visualFocus,
+          page.story,
+          `The main character takes one clear gentle action in a warm setting.`,
+        ]),
+      );
+      return {
+        page: pageNumber,
+        storyBeat: firstNonEmptyText([
+          page.story,
+          `Story beat ${pageNumber}`,
+        ]),
+        userTextIntent: firstNonEmptyText([
+          page.story,
+          `Short Japanese display text for page ${pageNumber}`,
+        ]),
+        visualBeat,
+        visibleCast: normalizeCanonVisibleCast(page.visibleCast, [
+          'protagonist',
+          ...(companion ? ['companion'] : []),
+        ]),
+        characterPositions:
+          'Main characters stay in the central area with clear faces.',
+        camera: 'medium shot with readable expressions and simple depth',
+        lighting: 'warm soft light',
+        emotion: firstNonEmptyText([
+          page.mood,
+          'curious, hopeful, gentle',
+        ]),
+        allowedObjects: normalizeCanonAllowedObjects(
+          [visualBeat, SAFE_STORY_OBJECTS[index % SAFE_STORY_OBJECTS.length]],
+          [],
+        ),
+        forbiddenObjects: normalizeCanonForbiddenObjects([]),
+      };
+    }),
+  };
+}
+
+function normalizeStoryCanonWorldRules(source, fallback = {}) {
+  const rules = source && typeof source === 'object' && !Array.isArray(source)
+    ? source
+    : {};
+  return {
+    noReadableText: true,
+    noLetters: true,
+    noSigns: true,
+    noBooks: true,
+    noMaps: true,
+    noPaper: true,
+    magicIsShownAs: firstNonEmptyText([
+      rules.magicIsShownAs,
+      fallback.magicIsShownAs,
+      DEFAULT_STORY_CANON_WORLD_RULES.magicIsShownAs,
+    ]),
+  };
+}
+
+function normalizeStoryCanonCast(source, { fallback = [], characterSheet = {} } = {}) {
+  const rawCast = Array.isArray(source) && source.length > 0 ? source : fallback;
+  const normalized = rawCast
+    .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map((entry, index) => {
+      const role = firstNonEmptyText([
+        entry.role,
+        entry.id,
+        index === 0 ? 'protagonist' : 'companion',
+      ]).toLowerCase();
+      const id = firstNonEmptyText([
+        entry.id,
+        role.includes('companion') ? 'companion' : 'protagonist',
+      ]).toLowerCase();
+      const fallbackAppearance =
+        id === 'companion'
+          ? optionalText(characterSheet.companion)
+          : optionalText(characterSheet.protagonist);
+      return {
+        id,
+        name: firstNonEmptyText([entry.name, id]),
+        role,
+        appearance: firstNonEmptyText([
+          entry.appearance,
+          fallbackAppearance,
+          'Cute friendly rounded character design.',
+        ]),
+        outfit: firstNonEmptyText([
+          entry.outfit,
+          'Simple consistent child-friendly outfit or accessory.',
+        ]),
+        colors: normalizeStringList(entry.colors, null, [
+          firstNonEmptyText([
+            characterSheet.artDirection,
+            'warm pastel colors',
+          ]),
+        ]),
+        personalityVisualCues: firstNonEmptyText([
+          entry.personalityVisualCues,
+          'gentle curious expression',
+        ]),
+      };
+    });
+  if (!normalized.some((entry) => entry.id === 'protagonist')) {
+    normalized.unshift({
+      id: 'protagonist',
+      name: 'protagonist',
+      role: 'protagonist',
+      appearance: firstNonEmptyText([
+        characterSheet.protagonist,
+        'Cute friendly rounded main character.',
+      ]),
+      outfit: 'Simple consistent child-friendly outfit or accessory.',
+      colors: normalizeStringList([characterSheet.artDirection], null, [
+        'warm pastel colors',
+      ]),
+      personalityVisualCues: 'gentle curious expression',
+    });
+  }
+  return normalized.slice(0, 4);
+}
+
+function normalizeStoryCanonSetting(source, { fallback = {}, characterSheet = {} } = {}) {
+  const setting = source && typeof source === 'object' && !Array.isArray(source)
+    ? source
+    : {};
+  return {
+    mainLocation: firstNonEmptyText([
+      setting.mainLocation,
+      fallback.mainLocation,
+      characterSheet.worldDetails,
+      'A warm colorful story world',
+    ]),
+    timeOfDay: firstNonEmptyText([
+      setting.timeOfDay,
+      fallback.timeOfDay,
+      'soft daytime',
+    ]),
+    season: firstNonEmptyText([
+      setting.season,
+      fallback.season,
+      'gentle season',
+    ]),
+    recurringVisualMotifs: normalizeCanonAllowedObjects(
+      setting.recurringVisualMotifs,
+      fallback.recurringVisualMotifs || [
+        'soft glowing petals',
+        'tiny footprints',
+        'winding path',
+      ],
+    ),
+  };
+}
+
+function normalizeStoryCanonPagePlan(
+  source,
+  { fallback = {}, page = 1, pageSource = {} } = {},
+) {
+  const plan = source && typeof source === 'object' && !Array.isArray(source)
+    ? source
+    : {};
+  const visualBeat = toSafeCanonVisualText(
+    firstNonEmptyText([
+      plan.visualBeat,
+      fallback.visualBeat,
+      pageSource.visualFocus,
+      pageSource.story,
+      `The main character takes one clear gentle action in a warm setting.`,
+    ]),
+  );
+  return {
+    page:
+      Number.isInteger(plan.page) && plan.page > 0
+        ? plan.page
+        : Number.isInteger(fallback.page) && fallback.page > 0
+            ? fallback.page
+            : page,
+    storyBeat: firstNonEmptyText([
+      plan.storyBeat,
+      fallback.storyBeat,
+      pageSource.story,
+      `Story beat ${page}`,
+    ]),
+    userTextIntent: firstNonEmptyText([
+      plan.userTextIntent,
+      fallback.userTextIntent,
+      pageSource.story,
+      `Short Japanese display text for page ${page}`,
+    ]),
+    visualBeat,
+    visibleCast: normalizeCanonVisibleCast(
+      plan.visibleCast,
+      normalizeCanonVisibleCast(fallback.visibleCast, pageSource.visibleCast),
+    ),
+    characterPositions: firstNonEmptyText([
+      plan.characterPositions,
+      fallback.characterPositions,
+      'Main characters stay in the central area with clear faces.',
+    ]),
+    camera: firstNonEmptyText([
+      plan.camera,
+      fallback.camera,
+      'medium shot with readable expressions and simple depth',
+    ]),
+    lighting: firstNonEmptyText([
+      plan.lighting,
+      fallback.lighting,
+      'warm soft light',
+    ]),
+    emotion: firstNonEmptyText([
+      plan.emotion,
+      fallback.emotion,
+      pageSource.mood,
+      'curious, hopeful, gentle',
+    ]),
+    allowedObjects: normalizeCanonAllowedObjects(
+      plan.allowedObjects,
+      fallback.allowedObjects,
+    ),
+    forbiddenObjects: normalizeCanonForbiddenObjects(
+      plan.forbiddenObjects,
+      fallback.forbiddenObjects,
+    ),
+  };
+}
+
+function normalizeCanonVisibleCast(value, fallback = ['protagonist']) {
+  const raw = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const values = Array.isArray(raw) ? raw : ['protagonist'];
+  const normalized = values
+    .filter((entry) => typeof entry === 'string')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+  const unique = Array.from(new Set(normalized));
+  return unique.length > 0 ? unique : ['protagonist'];
+}
+
+function normalizeCanonAllowedObjects(value, fallback = []) {
+  const raw = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const safeTerms = Array.isArray(raw) ? raw : [];
+  const converted = safeTerms
+    .filter((entry) => typeof entry === 'string')
+    .map(toSafeCanonVisualText)
+    .flatMap((entry) => entry.split(','))
+    .map((entry) => entry.replace(/\s+/g, ' ').trim())
+    .filter((entry) => entry && !containsUnsafeStoryObject(entry));
+  const merged = [
+    ...converted,
+    ...DEFAULT_CANON_ALLOWED_OBJECTS.slice(0, 4),
+  ];
+  return Array.from(new Set(merged));
+}
+
+function normalizeCanonForbiddenObjects(value, fallback = []) {
+  const raw = Array.isArray(value) && value.length > 0 ? value : fallback;
+  const values = Array.isArray(raw)
+    ? raw.filter((entry) => typeof entry === 'string').map((entry) => entry.trim())
+    : [];
+  return Array.from(
+    new Set([...values.filter(Boolean), ...DEFAULT_CANON_FORBIDDEN_OBJECTS]),
+  );
+}
+
+function toSafeCanonVisualText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/\bwritten clues?\b/gi, 'small glowing charm')
+    .replace(/\bsecret clues?\b/gi, 'small glowing star charm')
+    .replace(/\bclues?\b/gi, 'small glowing charm')
+    .replace(/\bsecrets?\b/gi, 'soft magical glow')
+    .replace(/\banswers?\b/gi, 'warm discovery moment')
+    .replace(/\bmessages?\b/gi, 'friendly gesture')
+    .replace(/\bquestions?\b/gi, 'curious facial expression')
+    .replace(/\bwondering\b/gi, 'curious facial expression')
+    .replace(/\bletters?\b/gi, 'tiny flower')
+    .replace(/\bnotes?\b/gi, 'small gem')
+    .replace(/\bpapers?\b/gi, 'small glowing charm')
+    .replace(/\bcards?\b/gi, 'small glowing charm')
+    .replace(/\bbooks?\b/gi, 'tiny flower')
+    .replace(/\bmaps?\b/gi, 'winding path')
+    .replace(/\bsigns?\b/gi, 'tree stump')
+    .replace(/\blabels?\b/gi, 'plain decoration')
+    .replace(/\bspeech bubbles?\b/gi, 'open sky')
+    .replace(/\bthought bubbles?\b/gi, 'soft cloud in the sky')
+    .replace(/\bSECRET\b/g, 'soft magical glow')
+    .replace(/\bMAP\b/g, 'winding path')
+    .replace(/\bBOOK\b/g, 'tiny flower')
+    .replace(/手がかり|てがかり/g, 'small glowing star charm')
+    .replace(/秘密|ひみつ/g, 'soft magical glow')
+    .replace(/メッセージ|伝言|ことば/g, 'friendly gesture')
+    .replace(/答え|こたえ/g, 'warm discovery moment')
+    .replace(/地図|ちず/g, 'winding path')
+    .replace(/本|ほん/g, 'tiny flower')
+    .replace(/手紙|てがみ|紙|メモ|カード/g, 'small glowing charm')
+    .replace(/看板|ラベル/g, 'tree stump')
+    .replace(/[?？]/g, 'curious facial expression')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function requireStoryStringField(source, fieldName, { allowEmpty = false } = {}) {
@@ -1832,6 +2474,8 @@ function validateGeneratedStoryQuality(
     });
   }
 
+  issues.push(...findRepeatedStoryPageIssues(pages));
+
   const visualFocusValues = pages
     .map((page) => (typeof page?.visualFocus === 'string' ? page.visualFocus : ''))
     .filter((value) => value.trim().length > 0);
@@ -1865,6 +2509,47 @@ function hasBannedStoryEnding(story) {
   return BANNED_STORY_ENDINGS.some((ending) =>
     normalizedStory.endsWith(normalizeForComparison(ending)),
   );
+}
+
+function findRepeatedStoryPageIssues(pages) {
+  const stories = pages
+    .map((page, index) => ({
+      index,
+      value: normalizeForComparison(page?.story ?? ''),
+    }))
+    .filter((entry) => entry.value.length > 0);
+  const seen = new Map();
+
+  for (const story of stories) {
+    const firstIndex = seen.get(story.value);
+    if (firstIndex !== undefined) {
+      return [
+        {
+          code: 'duplicate_story_page',
+          message: `${firstIndex + 1}ページ目と${story.index + 1}ページ目の本文が同じです。`,
+        },
+      ];
+    }
+    seen.set(story.value, story.index);
+  }
+
+  for (let i = 0; i < stories.length; i += 1) {
+    for (let j = i + 1; j < stories.length; j += 1) {
+      if (
+        stories[i].value !== stories[j].value &&
+        similarityScore(stories[i].value, stories[j].value) >= 0.9
+      ) {
+        return [
+          {
+            code: 'similar_story_page',
+            message: `${stories[i].index + 1}ページ目と${stories[j].index + 1}ページ目の本文が似すぎています。`,
+          },
+        ];
+      }
+    }
+  }
+
+  return [];
 }
 
 function hasHighlySimilarStrings(
@@ -1977,18 +2662,47 @@ function buildImageSpecResponseSchema(pageCount) {
       type: 'array',
       items: { type: 'string' },
     },
-    backgroundMustFillCanvas: { type: 'boolean' },
-    wordlessMode: { type: 'boolean' },
-    forbiddenTextSurfaces: {
-      type: 'array',
-      items: { type: 'string' },
-    },
-    style: { type: 'string' },
-    avoid: {
-      type: 'array',
-      items: { type: 'string' },
-    },
-  };
+      backgroundMustFillCanvas: { type: 'boolean' },
+      wordlessMode: { type: 'boolean' },
+      forbiddenTextSurfaces: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      style: { type: 'string' },
+      avoid: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      visualFocus: { type: 'string' },
+      mood: { type: 'string' },
+      visibleCast: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      scene: {
+        type: 'object',
+        properties: {
+          location: { type: 'string' },
+          time: { type: 'string' },
+          action: { type: 'string' },
+          composition: { type: 'string' },
+          camera: { type: 'string' },
+          lighting: { type: 'string' },
+          characterDetails: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          allowedObjects: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          forbiddenObjects: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+        },
+      },
+    };
 
   return {
     type: 'object',
@@ -2055,12 +2769,22 @@ function normalizeImageSpecRequest(data, mode) {
     data.characterSheet && typeof data.characterSheet === 'object'
       ? data.characterSheet
       : {};
+  const storyCanon =
+    data.storyCanon && typeof data.storyCanon === 'object'
+      ? normalizeStoryCanon(data.storyCanon, {
+          title,
+          characterSheet,
+          pages,
+          pageCount: mode.pageCount,
+        })
+      : null;
 
   return {
     title,
     story,
     pages,
     characterSheet,
+    storyCanon,
     mode,
     extraRequirements: optionalText(data.extraRequirements),
   };
@@ -2072,6 +2796,7 @@ async function generateSafeImageSpecs({
   story,
   pages,
   characterSheet,
+  storyCanon,
   mode,
   extraRequirements,
 }) {
@@ -2109,6 +2834,27 @@ async function generateSafeImageSpecs({
         : '',
     }),
   );
+  if (storyCanon) {
+    try {
+      const parsed = generateImageSpecsFromCanon({
+        storyCanon,
+        fallbackProfile,
+      });
+      logImageSpecsPrepared({
+        callerId,
+        characterProfile: parsed.characterProfile,
+        imagePageSpecs: parsed.imagePageSpecs,
+        source: 'canon',
+      });
+      return { ...parsed, source: 'canon' };
+    } catch (error) {
+      functions.logger.warn('Canon image specs fell back to generated path.', {
+        callerId,
+        pageCount: pages.length,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
   const prompt = buildImageSpecPrompt({
     title,
     story,
@@ -2159,6 +2905,204 @@ async function generateSafeImageSpecs({
       source: 'fallback',
     };
   }
+}
+
+function generateImageSpecsFromCanon({ storyCanon, fallbackProfile = null } = {}) {
+  const pageCount = Array.isArray(storyCanon?.pagePlans)
+    ? storyCanon.pagePlans.length
+    : STORY_BODY_PAGE_COUNT;
+  const canon = normalizeStoryCanon(storyCanon, { pageCount });
+  const characterProfile = characterProfileFromStoryCanon(
+    canon,
+    fallbackProfile || fallbackCharacterProfile({ title: canon.title }),
+  );
+  return {
+    characterProfile,
+    imagePageSpecs: canon.pagePlans.map((plan) =>
+      imagePageSpecFromCanonPagePlan({
+        canon,
+        plan,
+        characterProfile,
+      }),
+    ),
+  };
+}
+
+function characterProfileFromStoryCanon(canon, fallbackProfile) {
+  const protagonist =
+    findCanonCastMember(canon, 'protagonist') || canon.cast[0] || {};
+  return normalizeCharacterProfile(
+    {
+      name: firstNonEmptyText([
+        protagonist.name,
+        canon.title,
+        fallbackProfile.name,
+      ]),
+      appearance: firstNonEmptyText([
+        protagonist.appearance,
+        fallbackProfile.appearance,
+      ]),
+      clothing: firstNonEmptyText([
+        protagonist.outfit,
+        fallbackProfile.clothing,
+      ]),
+      colors: firstNonEmptyText([
+        Array.isArray(protagonist.colors)
+          ? protagonist.colors.join(', ')
+          : protagonist.colors,
+        fallbackProfile.colors,
+      ]),
+      expressionStyle: firstNonEmptyText([
+        protagonist.personalityVisualCues,
+        fallbackProfile.expressionStyle,
+      ]),
+      personalityTone: firstNonEmptyText([
+        protagonist.personalityVisualCues,
+        fallbackProfile.personalityTone,
+      ]),
+      worldStyle: firstNonEmptyText([
+        canon.visualStyle,
+        canon.setting?.mainLocation,
+        fallbackProfile.worldStyle,
+      ]),
+    },
+    fallbackProfile,
+  );
+}
+
+function imagePageSpecFromCanonPagePlan({ canon, plan, characterProfile }) {
+  const setting = canon.setting || {};
+  const visualBeat = toSafeCanonVisualText(plan.visualBeat);
+  const visibleCast = normalizeCanonVisibleCast(plan.visibleCast);
+  const visibleDetails = visibleCast
+    .map((castId) => findCanonCastMember(canon, castId))
+    .filter(Boolean)
+    .map((member) =>
+      [
+        member.name,
+        member.role,
+        member.appearance,
+        member.outfit,
+        Array.isArray(member.colors) ? member.colors.join(', ') : '',
+      ]
+        .filter(Boolean)
+        .join(': '),
+    );
+  const supportingCharacters = visibleCast
+    .filter((castId) => castId !== 'protagonist')
+    .map((castId) => findCanonCastMember(canon, castId))
+    .filter(Boolean)
+    .map((member) =>
+      [member.name, member.appearance, member.outfit]
+        .filter(Boolean)
+        .join(', '),
+    )
+    .join(' ');
+  const allowedObjects = normalizeCanonAllowedObjects(
+    plan.allowedObjects,
+    setting.recurringVisualMotifs,
+  );
+  const backgroundElements = normalizeCanonAllowedObjects(
+    setting.recurringVisualMotifs,
+    DEFAULT_CANON_ALLOWED_OBJECTS,
+  );
+  const location = firstNonEmptyText([
+    setting.mainLocation,
+    'warm colorful story world',
+  ]);
+  const time = firstNonEmptyText([setting.timeOfDay, 'soft daytime']);
+  const lighting = firstNonEmptyText([plan.lighting, 'warm soft light']);
+  const action = firstNonEmptyText([
+    visualBeat,
+    'The main character takes one clear gentle action.',
+  ]);
+  const composition = firstNonEmptyText([
+    plan.characterPositions,
+    'Main characters stay in the central area with clear faces.',
+  ]);
+  return normalizeImagePageSpec(
+    {
+      page: plan.page,
+      sceneGoal: action,
+      visualFocus: action,
+      mood: plan.emotion,
+      visibleCast,
+      mainCharacterDescription: [
+        characterProfile.appearance,
+        characterProfile.clothing,
+        characterProfile.colors,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      supportingCharacters: firstNonEmptyText([
+        supportingCharacters,
+        'None.',
+      ]),
+      sceneDescription: action,
+      composition: [composition, plan.camera].filter(Boolean).join(' '),
+      emotion: firstNonEmptyText([plan.emotion, 'curious and gentle']),
+      backgroundDescription: [
+        location,
+        time,
+        setting.season,
+        lighting,
+      ]
+        .filter(Boolean)
+        .join(', '),
+      environmentDescription: [
+        location,
+        time,
+        lighting,
+        canon.visualStyle,
+      ]
+        .filter(Boolean)
+        .join(', '),
+      foregroundElements: [
+        allowedObjects[0],
+        'simple grass, flowers, path, stones, or soft plants',
+      ].filter(Boolean),
+      midgroundElements: [
+        ...allowedObjects.slice(1, 3),
+        'winding path or soft floor plane',
+      ].filter(Boolean),
+      backgroundElements: [
+        ...backgroundElements.slice(0, 5),
+        location,
+      ].filter(Boolean),
+      backgroundMustFillCanvas: true,
+      wordlessMode: true,
+      forbiddenTextSurfaces: DEFAULT_FORBIDDEN_TEXT_SURFACES,
+      style: DEFAULT_IMAGE_STYLE,
+      avoid: DEFAULT_AVOID_TERMS,
+      scene: {
+        location,
+        time,
+        action,
+        composition,
+        camera: firstNonEmptyText([plan.camera, 'medium shot']),
+        lighting,
+        characterDetails: visibleDetails,
+        allowedObjects,
+        forbiddenObjects: normalizeCanonForbiddenObjects(plan.forbiddenObjects),
+      },
+    },
+    {
+      page: plan.page,
+      characterProfile,
+    },
+  );
+}
+
+function findCanonCastMember(canon, id) {
+  const normalizedId = String(id || '').trim().toLowerCase();
+  if (!normalizedId) {
+    return null;
+  }
+  return (canon.cast || []).find((member) => {
+    const memberId = String(member?.id || '').trim().toLowerCase();
+    const role = String(member?.role || '').trim().toLowerCase();
+    return memberId === normalizedId || role === normalizedId;
+  }) || null;
 }
 
 function buildImageSpecPrompt({
@@ -2242,7 +3186,21 @@ Output JSON only with this exact shape:
       "wordlessMode": true,
       "forbiddenTextSurfaces": ["string"],
       "style": "string",
-      "avoid": ["string"]
+      "avoid": ["string"],
+      "visualFocus": "string",
+      "mood": "string",
+      "visibleCast": ["protagonist"],
+      "scene": {
+        "location": "string",
+        "time": "string",
+        "action": "string",
+        "composition": "string",
+        "camera": "string",
+        "lighting": "string",
+        "characterDetails": ["string"],
+        "allowedObjects": ["string"],
+        "forbiddenObjects": ["string"]
+      }
     }
   ]
 }
@@ -2250,6 +3208,7 @@ Output JSON only with this exact shape:
 Rules:
 - Write every output value in simple concrete English.
 - Do not copy the full Japanese story into image fields.
+- If no storyCanon is provided by the client, treat this as a fallback path and still avoid making display text the parent of the image.
 - Make one ImagePageSpec for every input page.
 - Keep the same main character appearance, clothing, colors, and expression style on every page.
 - Make the scene easy to understand at a glance.
@@ -2259,6 +3218,8 @@ Rules:
 - The full 9:16 canvas must be filled edge-to-edge by the illustrated story setting.
 - Use plain natural or decorative story objects only: ${SAFE_STORY_OBJECTS.join(', ')}.
 - Also use trees, flowers, clouds, hills, stars, rivers, stones, toys, furniture, curtains, cushions, lamps, plants, paths, rocks, shells, candy shapes, or other plain decorative objects.
+- Fill scene.action with one concrete visible moment only. Fill scene.allowedObjects with safe visible objects only.
+- Fill scene.forbiddenObjects with: ${DEFAULT_CANON_FORBIDDEN_OBJECTS.join(', ')}.
 - If the story mentions a clue, secret, answer, message, problem, question, wondering, map, or letter, convert it into a safe visible object or expression:
   clue or secret clue -> small glowing star charm
   written clue -> small glowing charm
@@ -2503,6 +3464,24 @@ function normalizeImagePageSpec(
     spec.forbiddenTextSurfaces,
     base.forbiddenTextSurfaces,
   );
+  const scene = normalizeImageSpecScene(spec.scene, base.scene, {
+    location: environmentDescription,
+    action: firstNonEmptyText([
+      spec.sceneDescription,
+      base.sceneDescription,
+      spec.sceneGoal,
+      base.sceneGoal,
+    ]),
+    composition: firstNonEmptyText([spec.composition, base.composition]),
+    lighting: environmentDescription,
+    characterDetails: [mainCharacterDescription],
+    allowedObjects: [
+      ...foregroundElements,
+      ...midgroundElements,
+      ...backgroundElements,
+    ],
+    forbiddenObjects: DEFAULT_CANON_FORBIDDEN_OBJECTS,
+  });
   return {
     page: normalizedPage,
     sceneGoal: firstNonEmptyText([
@@ -2547,6 +3526,78 @@ function normalizeImagePageSpec(
     forbiddenTextSurfaces,
     style: firstNonEmptyText([spec.style, base.style, DEFAULT_IMAGE_STYLE]),
     avoid,
+    visualFocus: firstNonEmptyText([
+      spec.visualFocus,
+      base.visualFocus,
+      spec.sceneDescription,
+      base.sceneDescription,
+    ]),
+    mood: firstNonEmptyText([spec.mood, base.mood, spec.emotion, base.emotion]),
+    visibleCast: normalizeCanonVisibleCast(spec.visibleCast, base.visibleCast),
+    scene,
+  };
+}
+
+function normalizeImageSpecScene(source, fallback = null, defaults = {}) {
+  const scene = source && typeof source === 'object' && !Array.isArray(source)
+    ? source
+    : {};
+  const base =
+    fallback && typeof fallback === 'object' && !Array.isArray(fallback)
+      ? fallback
+      : {};
+  return {
+    location: firstNonEmptyText([
+      scene.location,
+      base.location,
+      defaults.location,
+      'warm colorful story setting',
+    ]),
+    time: firstNonEmptyText([
+      scene.time,
+      base.time,
+      defaults.time,
+      'soft daytime',
+    ]),
+    action: toSafeCanonVisualText(
+      firstNonEmptyText([
+        scene.action,
+        base.action,
+        defaults.action,
+        'one clear gentle story action',
+      ]),
+    ),
+    composition: firstNonEmptyText([
+      scene.composition,
+      base.composition,
+      defaults.composition,
+      'central characters with clear faces',
+    ]),
+    camera: firstNonEmptyText([
+      scene.camera,
+      base.camera,
+      defaults.camera,
+      'medium shot',
+    ]),
+    lighting: firstNonEmptyText([
+      scene.lighting,
+      base.lighting,
+      defaults.lighting,
+      'warm soft light',
+    ]),
+    characterDetails: normalizeStringList(
+      scene.characterDetails,
+      base.characterDetails,
+      defaults.characterDetails || [],
+    ),
+    allowedObjects: normalizeCanonAllowedObjects(
+      scene.allowedObjects,
+      base.allowedObjects || defaults.allowedObjects || [],
+    ),
+    forbiddenObjects: normalizeCanonForbiddenObjects(
+      scene.forbiddenObjects,
+      base.forbiddenObjects || defaults.forbiddenObjects || [],
+    ),
   };
 }
 
@@ -2596,7 +3647,9 @@ function normalizeAvoidTerms(value, fallback = null) {
 function buildImagenPrompt(spec) {
   const normalized = normalizeImagePageSpec(spec);
   const sceneDescription = sanitizeVisualPromptForImagen([
+    normalized.scene?.action,
     normalized.sceneDescription,
+    normalized.visualFocus,
     normalized.sceneGoal,
   ]
     .filter(Boolean)
@@ -2610,6 +3663,22 @@ function buildImagenPrompt(spec) {
   const foreground = formatSafePromptList(normalized.foregroundElements);
   const midground = formatSafePromptList(normalized.midgroundElements);
   const backgroundElements = formatSafePromptList(normalized.backgroundElements);
+  const sceneSetting = sanitizeVisualPromptForImagen([
+    normalized.scene?.location,
+    normalized.scene?.time,
+    normalized.scene?.lighting,
+    ...(Array.isArray(normalized.scene?.allowedObjects)
+      ? normalized.scene.allowedObjects
+      : []),
+  ]
+    .filter(Boolean)
+    .join(' '));
+  const sceneComposition = sanitizeVisualPromptForImagen([
+    normalized.scene?.composition,
+    normalized.scene?.camera,
+  ]
+    .filter(Boolean)
+    .join(' '));
   const mainStoryObject = resolveSafeStoryObject(normalized);
   return [
     'Create a vertical full-frame children\'s illustration.',
@@ -2624,7 +3693,7 @@ function buildImagenPrompt(spec) {
     sanitizeVisualPromptForImagen(normalized.supportingCharacters),
     '',
     'Setting:',
-    [environment, background, foreground, midground, backgroundElements]
+    [sceneSetting, environment, background, foreground, midground, backgroundElements]
       .filter(Boolean)
       .join(' '),
     '',
@@ -2634,6 +3703,7 @@ function buildImagenPrompt(spec) {
     'Fill the upper area with natural scenery such as sky, clouds, tree leaves, hills, stars, or soft light.',
     'Fill the lower foreground with simple grass, flowers, a path, stones, or soft plants.',
     'Use a complete illustrated environment with colorful scenery across every edge.',
+    sceneComposition,
     sanitizeVisualPromptForImagen(normalized.composition),
     '',
     'Main story object:',
@@ -2668,6 +3738,11 @@ function resolveSafeStoryObject(spec) {
     spec.sceneDescription,
     spec.backgroundDescription,
     spec.environmentDescription,
+    spec.visualFocus,
+    spec.mood,
+    spec.scene?.action,
+    spec.scene?.location,
+    ...(Array.isArray(spec.scene?.allowedObjects) ? spec.scene.allowedObjects : []),
     ...(Array.isArray(spec.foregroundElements) ? spec.foregroundElements : []),
     ...(Array.isArray(spec.midgroundElements) ? spec.midgroundElements : []),
   ].join(' ');
@@ -4525,6 +5600,8 @@ exports.__test__ = {
   IMAGEN_IMAGE_SAMPLE_COUNT,
   IMAGEN_PERSON_GENERATION,
   DEFAULT_AVOID_TERMS,
+  DEFAULT_CANON_ALLOWED_OBJECTS,
+  DEFAULT_CANON_FORBIDDEN_OBJECTS,
   DEFAULT_FORBIDDEN_TEXT_SURFACES,
   DEFAULT_IMAGE_STYLE,
   SAFE_STORY_OBJECTS,
@@ -4555,6 +5632,8 @@ exports.__test__ = {
   fallbackImagePageSpec,
   findUnsafeCategory,
   formatStoryOptionsForPrompt,
+  fallbackStoryCanon,
+  generateImageSpecsFromCanon,
   hashGuestSessionId,
   isStoryJsonRequest,
   isSilverSubscriptionActive,
@@ -4563,6 +5642,7 @@ exports.__test__ = {
   normalizeCharacterProfile,
   normalizeImagePageSpec,
   normalizeImageQualityAssessment,
+  normalizeStoryCanon,
   normalizeStoryOptions,
   parseImageSpecJson,
   parseGeneratedStoryPreviewJson,
@@ -4581,6 +5661,7 @@ exports.__test__ = {
   shouldRegenerateFromImageAssessment,
   stringifyGeneratedStoryJson,
   storyUsageMonthKey,
+  toSafeCanonVisualText,
   validateGeneratedStoryQuality,
   validateStoryPreviewQuality,
 };

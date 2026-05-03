@@ -262,6 +262,20 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
           forbiddenTextSurfaces: [],
           style: '',
           avoid: [],
+          visualFocus: 'Fox kneels near a glowing lantern.',
+          mood: 'Gentle wonder.',
+          visibleCast: ['protagonist'],
+          scene: {
+            location: 'candy garden',
+            time: 'morning',
+            action: 'Fox kneels near a glowing lantern.',
+            composition: 'central fox',
+            camera: 'medium shot',
+            lighting: 'warm light',
+            characterDetails: ['orange fox child with blue scarf'],
+            allowedObjects: ['small glowing gem'],
+            forbiddenObjects: ['readable text'],
+          },
           extra: 'drop me',
         },
       ],
@@ -300,6 +314,10 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
     'forbiddenTextSurfaces',
     'style',
     'avoid',
+    'visualFocus',
+    'mood',
+    'visibleCast',
+    'scene',
   ]);
   assert.equal(parsed.imagePageSpecs[0].supportingCharacters, 'None.');
   assert.equal(parsed.imagePageSpecs[0].style, __test__.DEFAULT_IMAGE_STYLE);
@@ -309,6 +327,8 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
   assert.ok(parsed.imagePageSpecs[0].backgroundElements.length > 0);
   assert.ok(parsed.imagePageSpecs[0].forbiddenTextSurfaces.includes('signs'));
   assert.ok(parsed.imagePageSpecs[0].avoid.includes('distorted hands'));
+  assert.equal(parsed.imagePageSpecs[0].scene.location, 'candy garden');
+  assert.ok(parsed.imagePageSpecs[0].scene.allowedObjects.includes('small glowing gem'));
 });
 
 test('fallbackImagePageSpec fills missing values', () => {
@@ -331,6 +351,50 @@ test('fallbackImagePageSpec fills missing values', () => {
   assert.ok(spec.avoid.includes('text'));
   assert.ok(spec.avoid.includes('signs'));
   assert.ok(spec.avoid.includes('extra fingers'));
+  assert.equal(spec.scene.action, 'A fox looks at a small door.');
+  assert.ok(spec.scene.forbiddenObjects.includes('readable text'));
+});
+
+test('generateImageSpecsFromCanon builds safe specs from StoryCanon', () => {
+  const canon = buildValidStoryCanon(4, {
+    pagePlans: buildValidStoryCanon(4).pagePlans.map((plan, index) => ({
+      ...plan,
+      visualBeat:
+        index === 0
+          ? 'Mimi discovers a secret clue, a message, a book, and a map.'
+          : plan.visualBeat,
+      allowedObjects:
+        index === 0
+          ? ['secret clue', 'message', 'book', 'map', 'paper note']
+          : plan.allowedObjects,
+    })),
+  });
+
+  const parsed = __test__.generateImageSpecsFromCanon({ storyCanon: canon });
+  const spec = parsed.imagePageSpecs[0];
+  const prompt = __test__.buildImagenPrompt(spec);
+
+  assert.equal(parsed.imagePageSpecs.length, 4);
+  assert.equal(parsed.characterProfile.name, 'Mimi');
+  assert.match(spec.scene.action, /small glowing star charm/);
+  assert.ok(spec.scene.forbiddenObjects.includes('readable text'));
+  assert.ok(spec.scene.forbiddenObjects.includes('paper'));
+  assert.doesNotMatch(prompt, /paper note/i);
+  assert.doesNotMatch(prompt, /book as object/i);
+  assert.doesNotMatch(prompt, /readable sign/i);
+  assert.doesNotMatch(prompt, /\bSECRET\b/);
+  assert.doesNotMatch(prompt, /\bMAP\b/);
+  assert.doesNotMatch(prompt, /\bBOOK\b/);
+});
+
+test('normalizeStoryCanon pads pagePlans for long modes', () => {
+  const canon = __test__.normalizeStoryCanon(
+    buildValidStoryCanon(4, { pagePlans: buildValidStoryCanon(4).pagePlans.slice(0, 2) }),
+    { pageCount: 12 },
+  );
+
+  assert.equal(canon.pagePlans.length, 12);
+  assert.ok(canon.pagePlans[11].forbiddenObjects.includes('readable text'));
 });
 
 test('image quality retry helpers regenerate at most once', () => {
@@ -506,6 +570,92 @@ function buildValidStory(overrides = {}) {
   };
 }
 
+function buildValidStoryCanon(pageCount = 4, overrides = {}) {
+  return {
+    title: 'Mimi and the soft glow',
+    visualStyle: 'Soft children\'s illustration with warm pastel colors.',
+    worldRules: {
+      noReadableText: true,
+      noLetters: true,
+      noSigns: true,
+      noBooks: true,
+      noMaps: true,
+      noPaper: true,
+      magicIsShownAs: 'glowing petals and small star charms',
+    },
+    cast: [
+      {
+        id: 'protagonist',
+        name: 'Mimi',
+        role: 'protagonist',
+        appearance: 'small cream rabbit with round eyes',
+        outfit: 'red scarf and tiny backpack',
+        colors: ['cream', 'red', 'warm brown'],
+        personalityVisualCues: 'curious face and gentle smile',
+      },
+      {
+        id: 'companion',
+        name: 'Poro',
+        role: 'companion',
+        appearance: 'small yellow bird with round body',
+        outfit: 'tiny green satchel',
+        colors: ['yellow', 'green'],
+        personalityVisualCues: 'helpful bright expression',
+      },
+    ],
+    setting: {
+      mainLocation: 'sunlit forest path',
+      timeOfDay: 'warm morning',
+      season: 'spring',
+      recurringVisualMotifs: [
+        'soft glowing petals',
+        'tiny footprints',
+        'winding path',
+      ],
+    },
+    pagePlans: Array.from({ length: pageCount }, (_, index) => ({
+      page: index + 1,
+      storyBeat: `Beat ${index + 1}`,
+      userTextIntent:
+        'Display text may mention a secret clue, a message, a book, or a map.',
+      visualBeat:
+        'Mimi and Poro follow soft glowing petals beside a winding path.',
+      visibleCast: ['protagonist', 'companion'],
+      characterPositions:
+        'Mimi and Poro stand together in the central area.',
+      camera: 'medium shot',
+      lighting: 'warm morning light',
+      emotion: 'curious and hopeful',
+      allowedObjects: ['soft glowing petals', 'winding path'],
+      forbiddenObjects: ['readable text'],
+    })),
+    ...overrides,
+  };
+}
+
+function buildDistinctStoryPages(pageCount) {
+  const basePages = buildValidStory().pages;
+  const storyTexts = [
+    'ミミは朝の森で 光るどんぐりを見つけ、ポポに「見て」と小さな声で知らせました。',
+    'ポポは川べりの丸い石をならべ、飛びこえられる道をゆっくり作りました。',
+    '風が青いリボンを運んできて、ふたりは木の枝に結びつけて目印にしました。',
+    '雲のすきまから星形の光が落ち、ミミはなくした鈴の音を聞き分けました。',
+    '小さな橋がゆれても、ポポは花のかげにある安全な足場を見つけました。',
+    'ふたりは丘の上で金色の羽を拾い、夕方までに返す相手を探しました。',
+    '森の門の前で甘いにおいがして、ミミはパン屋の煙突を思い出しました。',
+    'さいごに帽子がくしゃみをして、ふたりは顔を見合わせてくすっと笑いました。',
+  ];
+
+  return Array.from({ length: pageCount }, (_, index) => ({
+    ...basePages[index % basePages.length],
+    story: storyTexts[index % storyTexts.length],
+    visualFocus: `場面${index + 1}: ${storyTexts[index % storyTexts.length]}`,
+    mood: `気持ち${index + 1}`,
+    dialogue: index === 0 ? '見て' : '',
+    visibleCast: ['protagonist', 'companion'],
+  }));
+}
+
 test('buildStoryPrompt includes story quality requirements', () => {
   const prompt = __test__.buildStoryPrompt({ prompt: 'Return JSON only.' });
 
@@ -516,6 +666,8 @@ test('buildStoryPrompt includes story quality requirements', () => {
   assert.match(prompt, /Image prompt field language overrides/);
   assert.match(prompt, /Write "coverScene".*simple concrete English/);
   assert.match(prompt, /Do not write generic visual fields/);
+  assert.match(prompt, /StoryCanon \/ VisualBible requirements/);
+  assert.match(prompt, /storyCanon\.pagePlans must contain exactly 4 items/);
 });
 
 test('story modes define server-owned page counts and costs', () => {
@@ -690,6 +842,7 @@ test('parseGeneratedStoryJson accepts fenced JSON and strips extra fields', () =
     'coverScene',
     'characterSheet',
     'pages',
+    'storyCanon',
   ]);
   assert.deepEqual(Object.keys(parsed.pages[0]), [
     'story',
@@ -700,6 +853,10 @@ test('parseGeneratedStoryJson accepts fenced JSON and strips extra fields', () =
   ]);
   assert.equal(parsed.storyPlan, undefined);
   assert.equal(parsed.pages[0].internalScore, undefined);
+  assert.equal(parsed.storyCanon.pagePlans.length, 4);
+  assert.ok(
+    parsed.storyCanon.pagePlans[0].forbiddenObjects.includes('readable text'),
+  );
 });
 
 test('parseGeneratedStoryJson rejects responses without 4 pages', () => {
@@ -727,6 +884,38 @@ test('parseGeneratedStoryJson accepts mode-specific page counts', () => {
   );
 
   assert.equal(parsed.pages.length, 8);
+  assert.equal(parsed.storyCanon.pagePlans.length, 8);
+});
+
+test('parseGeneratedStoryJson normalizes provided StoryCanon', () => {
+  const baseCanon = buildValidStoryCanon(4);
+  const story = buildValidStory({
+    storyCanon: buildValidStoryCanon(4, {
+      pagePlans: [
+        ...baseCanon.pagePlans.slice(0, 3),
+        {
+          ...baseCanon.pagePlans[3],
+          visualBeat:
+            'Mimi finds a secret clue in a book beside a map and a sign.',
+          allowedObjects: ['secret clue', 'book', 'map', 'sign'],
+          forbiddenObjects: [],
+        },
+      ],
+    }),
+  });
+
+  const parsed = __test__.parseGeneratedStoryJson(JSON.stringify(story));
+  const plan = parsed.storyCanon.pagePlans[3];
+
+  assert.equal(parsed.storyCanon.title, 'Mimi and the soft glow');
+  assert.equal(parsed.storyCanon.pagePlans.length, 4);
+  assert.match(plan.visualBeat, /small glowing star charm/);
+  assert.doesNotMatch(plan.visualBeat, /\bbook\b/i);
+  assert.doesNotMatch(plan.visualBeat, /\bmap\b/i);
+  assert.doesNotMatch(plan.visualBeat, /\bsign\b/i);
+  assert.ok(plan.allowedObjects.includes('small glowing star charm'));
+  assert.ok(plan.forbiddenObjects.includes('readable text'));
+  assert.ok(plan.forbiddenObjects.includes('Japanese characters'));
 });
 
 test('validateGeneratedStoryQuality detects banned endings', () => {
@@ -745,6 +934,54 @@ test('validateGeneratedStoryQuality detects banned endings', () => {
   assert.ok(issues.some((issue) => issue.code === 'banned_ending'));
 });
 
+test('validateGeneratedStoryQuality detects duplicate story pages', () => {
+  const pages = buildDistinctStoryPages(8);
+  const repeatedStory =
+    'やさしいこぐまが ひみつの 手がかりを 見つけると、景色の見え方が くるりと変わった。思っていたよりも やさしい答えが その先に かくれていた。';
+  pages[1] = { ...pages[1], story: repeatedStory };
+  pages[2] = { ...pages[2], story: repeatedStory };
+  pages[3] = { ...pages[3], story: repeatedStory };
+
+  const issues = __test__.validateGeneratedStoryQuality(
+    buildValidStory({ pages }),
+    { pageCount: 8 },
+  );
+
+  assert.ok(issues.some((issue) => issue.code === 'duplicate_story_page'));
+});
+
+test('validateGeneratedStoryQuality detects similar story pages', () => {
+  const pages = buildDistinctStoryPages(8);
+  pages[4] = {
+    ...pages[4],
+    story:
+      'ふたりの まえに 小さなトラブルが あらわれた。でも きつねは まっすぐで ゆうきがあるところを 思いだし、あわてずに まわりを 見た。',
+  };
+  pages[5] = {
+    ...pages[5],
+    story:
+      'ふたりの まえに 小さなトラブルが あらわれた。でも きつねは まっすぐで ゆうきがあるところを 思いだし、あわてずに まわりを 見ていた。',
+  };
+  pages[6] = {
+    ...pages[6],
+    story:
+      'ふたりの まえに 小さなトラブルが あらわれた。でも きつねは まっすぐで ゆうきがあるところを 思いだし、あわてずに まわりを 見てみた。',
+  };
+
+  const issues = __test__.validateGeneratedStoryQuality(
+    buildValidStory({ pages }),
+    { pageCount: 8 },
+  );
+
+  assert.ok(issues.some((issue) => issue.code === 'similar_story_page'));
+});
+
+test('validateGeneratedStoryQuality accepts distinct story pages', () => {
+  const issues = __test__.validateGeneratedStoryQuality(buildValidStory());
+
+  assert.deepEqual(issues, []);
+});
+
 test('stringifyGeneratedStoryJson preserves the existing response shape', () => {
   const story = buildValidStory();
   const text = __test__.stringifyGeneratedStoryJson(JSON.stringify(story));
@@ -754,6 +991,7 @@ test('stringifyGeneratedStoryJson preserves the existing response shape', () => 
   assert.equal(typeof parsed.coverScene, 'string');
   assert.equal(typeof parsed.characterSheet.protagonist, 'string');
   assert.equal(parsed.pages.length, 4);
+  assert.equal(parsed.storyCanon.pagePlans.length, 4);
   assert.deepEqual(Object.keys(parsed.pages[0]), [
     'story',
     'visualFocus',

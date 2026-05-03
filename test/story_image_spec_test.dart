@@ -31,6 +31,17 @@ void main() {
         'forbiddenTextSurfaces': ['signs', 'labels', 'logos'],
         'style': defaultStoryImageStyle,
         'avoid': ['text', 'letters'],
+        'scene': {
+          'location': 'candy garden',
+          'time': 'morning',
+          'action': 'The fox lifts a glowing strawberry lantern.',
+          'composition': 'central fox and bear',
+          'camera': 'medium shot',
+          'lighting': 'warm light',
+          'characterDetails': ['small orange fox child'],
+          'allowedObjects': ['small glowing star charm'],
+          'forbiddenObjects': ['readable text'],
+        },
       },
       page: 1,
       characterProfile: profile,
@@ -56,6 +67,9 @@ void main() {
     expect(spec.avoid, contains('text'));
     expect(spec.avoid, contains('speech bubbles'));
     expect(spec.avoid, contains('signs'));
+    expect(spec.scene['location'], 'candy garden');
+    expect(spec.scene['allowedObjects'], contains('small glowing star charm'));
+    expect(spec.toJson(), contains('scene'));
   });
 
   test('StoryImagePageSpec fallback fills missing values', () {
@@ -89,6 +103,8 @@ void main() {
     expect(spec.avoid, contains('distorted hands'));
     expect(spec.avoid, contains('extra fingers'));
     expect(spec.avoid, contains('labels'));
+    expect(spec.scene['action'], 'A fox looks at a small candy door.');
+    expect(spec.scene['forbiddenObjects'], contains('text'));
   });
 
   test('StoryImageSpecPackage normalizes page specs by page number', () {
@@ -133,5 +149,6 @@ void main() {
     );
     expect(
         package.imagePageSpecs[0].toJson(), contains('forbiddenTextSurfaces'));
+    expect(package.imagePageSpecs[0].toJson(), contains('scene'));
   });
 }
