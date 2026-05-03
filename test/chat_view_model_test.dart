@@ -111,6 +111,27 @@ void main() {
     );
   });
 
+  test('local story fallback uses distinct body text for long modes', () {
+    for (final mode in [StoryMode.standard, StoryMode.premium]) {
+      final draft = StoryGenerationComposer.fallbackDraft(
+        answers: fallbackAnswers,
+        mode: mode,
+      );
+      final stories = draft.pages.map((page) => page.story).toList();
+
+      expect(stories, hasLength(mode.pageCount));
+      expect(stories.toSet(), hasLength(mode.pageCount));
+      expect(
+        stories.where((story) => story.contains('ふたりの まえに ちいさな トラブル')).length,
+        lessThanOrEqualTo(1),
+      );
+      expect(
+        stories.where((story) => story.contains('ひみつの 手がかりを見つける')).length,
+        0,
+      );
+    }
+  });
+
   test('structured drafts keep 8 and 12 page responses', () {
     final standardStory = <String, dynamic>{
       ...structuredStory,

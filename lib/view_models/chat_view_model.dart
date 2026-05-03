@@ -401,14 +401,8 @@ class ChatViewModel extends ChangeNotifier {
         errorMessage: 'Error in _makeStory storyText',
       );
     } catch (error) {
-      debugPrint('Falling back to local story text: $error');
-      return _buildLocalStoryPackage(
-        chatLogs: chatLogs,
-        mode: mode,
-        storyOptions: storyOptions,
-        preview: preview,
-        generationRequestId: generationRequestId,
-      );
+      debugPrint('Story generation failed: $error');
+      rethrow;
     }
 
     debugPrint('story: $storyText');

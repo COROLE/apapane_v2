@@ -605,24 +605,90 @@ StoryGenerationPage _fallbackPage({
       visibleCast: _allVisibleCast,
     );
   }
-  if (index < pageCount / 2) {
-    return StoryGenerationPage(
+  final middleSteps = <StoryGenerationPage>[
+    StoryGenerationPage(
       story: 'ふたりの まえに ちいさな トラブルが あらわれた。'
           'でも $protagonist は $specialDetail ところを 思いだし、あわてずに まわりを見た。',
       visualFocus: '$protagonist が 困りごとを見つめて 考える場面',
       mood: 'どきどきするが 前向き',
       dialogue: 'だいじょうぶ、きっと みつかるよ',
       visibleCast: _allVisibleCast,
-    );
-  }
-  return StoryGenerationPage(
-    story: '$companion が ひみつの 手がかりを見つけると、景色の見え方が くるりと変わった。'
-        '思っていたよりも やさしい 答えが その先に かくれていた。',
-    visualFocus: 'ひみつの手がかりを見つけて 景色がひらく場面',
-    mood: 'ふしぎで きらきら',
-    dialogue: 'こんな ところに あったんだ',
-    visibleCast: _allVisibleCast,
-  );
+    ),
+    StoryGenerationPage(
+      story: '$companion が 足もとの 光るしるしを 見つけた。'
+          '$protagonist は しるしの先を そっと たどり、道が ふたつに 分かれることに 気づいた。',
+      visualFocus: '光るしるしを見つけて 分かれ道を見つめるふたり',
+      mood: 'ふしぎで しずか',
+      dialogue: 'どっちへ いこう',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: 'ひとつめの道では、風が まるい葉っぱを くるくる 踊らせた。'
+          '$protagonist は 葉っぱの動きを見て、急がず 待つことを 選んだ。',
+      visualFocus: '葉っぱの動きを見て 立ち止まるふたり',
+      mood: '落ち着いて 考える',
+      dialogue: '',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: '待っていると、草のかげから 小さな 光が ぽっと あらわれた。'
+          '$companion は それが 次の入口を 照らしていると 気づいた。',
+      visualFocus: '草のかげの小さな光が 次の入口を照らす場面',
+      mood: 'ひらめいて 明るい',
+      dialogue: 'あそこが あやしいよ',
+      visibleCast: _allVisibleCast,
+    ),
+    const StoryGenerationPage(
+      story: '入口の先には、こえを出すと ゆれる橋が あった。'
+          'ふたりは 小さな声で 数をかぞえながら、一歩ずつ 橋をわたった。',
+      visualFocus: 'ゆれる橋を 小さな声で数えながら渡るふたり',
+      mood: '少しこわいが 勇気がある',
+      dialogue: 'いち、に、さん',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: '橋をわたると、なくしたと思っていた 目印が 花の上で きらりと 光った。'
+          '$protagonist は 見落としていた場所ほど 大事だと わかった。',
+      visualFocus: '花の上で光る目印を見つけて ほっとするふたり',
+      mood: 'ほっとして うれしい',
+      dialogue: '',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: 'けれど 目印を持ち上げると、まわりの景色が くるりと 変わった。'
+          '$companion は こわがらず、さっきの光の向きを 思い出した。',
+      visualFocus: '景色が変わり 光の向きを思い出すふたり',
+      mood: 'おどろくが 希望がある',
+      dialogue: '光は あっちだったね',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: 'ふたりは 光の向きへ 進み、$place の いちばん 高いところへ 出た。'
+          'そこで $specialDetail ことが、さいごの扉を 開く力に なった。',
+      visualFocus: '高い場所で さいごの扉を見つけるふたり',
+      mood: '大きな発見で きらきら',
+      dialogue: '',
+      visibleCast: _allVisibleCast,
+    ),
+    StoryGenerationPage(
+      story: '扉の向こうには、探していた答えが そのまま 置かれていたわけでは なかった。'
+          '$protagonist は $companion と 相談して、自分たちで 答えを 作ることにした。',
+      visualFocus: '扉の向こうで ふたりが相談して答えを作る場面',
+      mood: '考えて 前へ進む',
+      dialogue: 'ふたりなら できるよ',
+      visibleCast: _allVisibleCast,
+    ),
+    const StoryGenerationPage(
+      story: '答えを形にすると、まわりの小さなものたちが ぱっと 明るくなった。'
+          'ふたりは こまった時間も 役に立っていたのだと 笑った。',
+      visualFocus: '答えが形になり まわりが明るくなる場面',
+      mood: 'やさしく 晴れやか',
+      dialogue: 'ぜんぶ つながっていたね',
+      visibleCast: _allVisibleCast,
+    ),
+  ];
+
+  return middleSteps[(index - 1) % middleSteps.length];
 }
 
 List<StoryGenerationPage> _legacyPagesFromResponse(SDMap response) {
