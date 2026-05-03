@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:apapane/config/app_env.dart';
@@ -66,6 +67,8 @@ class ChatViewModel extends ChangeNotifier {
       '\u7ba1\u7406\u8005\u5074\u3067\u753b\u50cf\u751f\u6210API\u306e\u4e0a\u9650\u8a2d\u5b9a\u3092\u78ba\u8a8d\u3057\u3066\u304f\u3060\u3055\u3044\u3002';
   static const String _storyGenerationFailedMessage =
       'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。';
+  static const String _requestRateLimitMessage =
+      '生成リクエストが多すぎます。少し待ってからもう一度お試しください。';
   static const int _directImageConcurrency = 1;
   static const String _directImageNegativePrompt =
       'blurry, low quality, distorted face, extra limbs, cropped, text, letters, readable words, subtitles, captions, speech bubbles, signage, logo, watermark, book page with readable writing, frame, photorealistic, 3d render, anime screencap, comic style, sketch, rough lineart, inconsistent art style, inconsistent character design, different outfit, different species';
@@ -397,7 +400,9 @@ class ChatViewModel extends ChangeNotifier {
           );
           return result.when(
             success: (res) => jsonDecode(res),
-            failure: (_) => null,
+            failure: (error) {
+              throw error ?? StateError('generateStory failed without detail.');
+            },
           );
         },
         errorMessage: 'Error in _makeStory storyText',
@@ -611,7 +616,7 @@ class ChatViewModel extends ChangeNotifier {
         try {
           await _apiRepository.cancelStoryGeneration(
             requestId: generationRequestId,
-            reason: e.toString(),
+            reason: _cancelReason(e),
           );
         } catch (cancelError) {
           debugPrint('Failed to cancel story generation: $cancelError');
@@ -778,14 +783,21 @@ class ChatViewModel extends ChangeNotifier {
     required String errorMessage,
   }) async {
     SDMap? data;
+    Object? lastError;
     while (retries < maxRetries) {
       try {
         data = await fetchFunction();
         if (data != null) break;
+        lastError = StateError('generateStory returned empty data.');
       } on FormatException catch (e) {
+        lastError = e;
         debugPrint('$errorMessage, retrying... (${e.message}) count: $retries');
       } catch (e) {
+        lastError = e;
         debugPrint('$errorMessage: $e');
+        if (!_shouldRetryStoryFetchError(e)) {
+          rethrow;
+        }
       }
       retries++;
       if (retries < maxRetries) {
@@ -793,7 +805,7 @@ class ChatViewModel extends ChangeNotifier {
       }
     }
     if (retries >= maxRetries) {
-      throw Exception('読み込み回数の上限をこえました。');
+      throw lastError ?? StateError('generateStory failed after retries.');
     }
     return data!;
   }
@@ -2033,26 +2045,74 @@ class ChatViewModel extends ChangeNotifier {
     return _errorMessage(error);
   }
 
+  @visibleForTesting
+  static bool shouldRetryStoryFetchErrorForTesting(Object? error) {
+    return _shouldRetryStoryFetchError(error);
+  }
+
   static String _errorMessage(Object? error) {
     final message = error?.toString().trim() ?? '';
     if (message.isEmpty) {
       return 'おはなし作りに失敗しました。設定を確認して、もう一度お試しください。';
     }
+    if (_isRequestRateLimitError(error)) {
+      return _requestRateLimitMessage;
+    }
     if (_isImageQuotaError(error)) {
       return _imageQuotaMessage;
     }
-    final normalized =
-        message.replaceFirst('Exception: ', '').replaceFirst('Bad state: ', '');
+    final normalized = _normalizeErrorMessage(message);
     if (_isStoryGenerationFailure(normalized)) {
       return _storyGenerationFailedMessage;
     }
     return normalized;
   }
 
+  static String _cancelReason(Object? error) {
+    final normalized = _normalizeErrorMessage(error?.toString().trim() ?? '');
+    if (normalized.isEmpty) {
+      return 'story_generation_failed';
+    }
+    return normalized.length > 500 ? normalized.substring(0, 500) : normalized;
+  }
+
+  static String _normalizeErrorMessage(String message) {
+    return message
+        .replaceFirst('Exception: ', '')
+        .replaceFirst('Bad state: ', '')
+        .trim();
+  }
+
+  static bool _shouldRetryStoryFetchError(Object? error) {
+    if (error is FormatException || error is TimeoutException) {
+      return true;
+    }
+    final message = error?.toString().toLowerCase().trim() ?? '';
+    if (message.isEmpty) {
+      return true;
+    }
+    return !(message.contains('resource-exhausted') ||
+        message.contains('unauthenticated') ||
+        message.contains('permission-denied') ||
+        message.contains('failed-precondition') ||
+        message.contains('invalid-argument') ||
+        message.contains('app check'));
+  }
+
+  static bool _isRequestRateLimitError(Object? error) {
+    final message = error?.toString().toLowerCase().trim() ?? '';
+    return message.contains('resource-exhausted') ||
+        message.contains('生成リクエストが多すぎます');
+  }
+
   static bool _isStoryGenerationFailure(String message) {
+    final lower = message.toLowerCase();
     return message.contains('読み込み回数') ||
         message.contains('Generated story did not pass quality checks') ||
         message.contains('invalid_story_json') ||
-        message.contains('story_quality');
+        message.contains('story_quality') ||
+        message.contains('generateStory returned') ||
+        lower.contains('timed out') ||
+        lower.contains('timeout');
   }
 }

@@ -16,7 +16,11 @@ class ApiService {
 
   final FirebaseFunctions _functions;
   static const Duration _functionCallTimeout = Duration(seconds: 90);
+  static const Duration _storyFunctionCallTimeout = Duration(seconds: 150);
   static const Duration _imageFunctionCallTimeout = Duration(seconds: 420);
+
+  static Duration get storyFunctionCallTimeoutForTesting =>
+      _storyFunctionCallTimeout;
 
   static SDMap buildGenerateImageSpecsPayload({
     required String title,
@@ -61,6 +65,7 @@ class ApiService {
         if (storyOptions != null) 'storyOptions': storyOptions,
         if (preview != null) 'preview': preview,
       },
+      timeout: _storyFunctionCallTimeout,
     );
     final text = data['text'];
     if (text is! String || text.trim().isEmpty) {

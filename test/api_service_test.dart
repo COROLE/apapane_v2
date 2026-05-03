@@ -2,6 +2,13 @@ import 'package:apapane/services/api/api_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('story callable uses a timeout longer than the backend limit', () {
+    expect(
+      ApiService.storyFunctionCallTimeoutForTesting,
+      greaterThan(const Duration(seconds: 120)),
+    );
+  });
+
   test('generateImageSpecs payload includes StoryCanon when available', () {
     final payload = ApiService.buildGenerateImageSpecsPayload(
       title: 'Moon Lantern',

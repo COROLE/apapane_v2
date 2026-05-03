@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:apapane/models/auth/local_session_user.dart';
 import 'package:apapane/models/purchase/purchase_entitlements.dart';
 import 'package:apapane/models/story/story_generation_config.dart';
@@ -298,6 +300,57 @@ void main() {
             'Generated story did not pass quality checks: story_quality'),
       ),
       'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        TimeoutException('generateStory timed out.'),
+      ),
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        Exception('[firebase_functions/internal] invalid_story_json'),
+      ),
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
+  });
+
+  test('story resource exhausted errors use rate limit copy', () {
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        Exception(
+          '[firebase_functions/resource-exhausted] '
+          '生成リクエストが多すぎます。少し待ってからもう一度お試しください。',
+        ),
+      ),
+      '生成リクエストが多すぎます。少し待ってからもう一度お試しください。',
+    );
+  });
+
+  test('story fetch retry skips non-retryable callable errors', () {
+    expect(
+      ChatViewModel.shouldRetryStoryFetchErrorForTesting(
+        TimeoutException('generateStory timed out.'),
+      ),
+      isTrue,
+    );
+    expect(
+      ChatViewModel.shouldRetryStoryFetchErrorForTesting(
+        const FormatException('invalid json'),
+      ),
+      isTrue,
+    );
+    expect(
+      ChatViewModel.shouldRetryStoryFetchErrorForTesting(
+        Exception('[firebase_functions/resource-exhausted] too many requests'),
+      ),
+      isFalse,
+    );
+    expect(
+      ChatViewModel.shouldRetryStoryFetchErrorForTesting(
+        Exception('[firebase_functions/unauthenticated] App Check required'),
+      ),
+      isFalse,
     );
   });
 
