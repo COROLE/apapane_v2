@@ -23,11 +23,8 @@ class FirebaseBootstrap {
 
     await Firebase.initializeApp(options: _currentPlatformOptions());
     await FirebaseAppCheck.instance.activate(
-      androidProvider:
-          kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      appleProvider: kDebugMode
-          ? AppleProvider.debug
-          : AppleProvider.appAttestWithDeviceCheckFallback,
+      androidProvider: _androidProvider(debugMode: kDebugMode),
+      appleProvider: _appleProvider(debugMode: kDebugMode),
     );
     await FirebaseCrashlytics.instance
         .setCrashlyticsCollectionEnabled(!kDebugMode);
@@ -89,5 +86,18 @@ class FirebaseBootstrap {
   static String? _optional(EnvKey key) {
     final value = AppEnv.get(key).trim();
     return value.isEmpty ? null : value;
+  }
+
+  @visibleForTesting
+  static AppleProvider appleProviderForTesting({required bool debugMode}) {
+    return _appleProvider(debugMode: debugMode);
+  }
+
+  static AndroidProvider _androidProvider({required bool debugMode}) {
+    return debugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity;
+  }
+
+  static AppleProvider _appleProvider({required bool debugMode}) {
+    return debugMode ? AppleProvider.debug : AppleProvider.deviceCheck;
   }
 }
