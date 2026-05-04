@@ -313,6 +313,15 @@ void main() {
       ),
       'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
     );
+    expect(
+      ChatViewModel.errorMessageForTesting(
+        StateError(
+          'generateStoryHttp failed (400): failed-precondition: '
+          'The specified schema produces a constraint that has too many states for serving.',
+        ),
+      ),
+      'おはなしをうまく作れませんでした。コインは消費されません。もう一度お試しください。',
+    );
   });
 
   test('story resource exhausted errors use rate limit copy', () {

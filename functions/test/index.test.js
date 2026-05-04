@@ -761,6 +761,14 @@ test('story response schema follows the selected mode only', () => {
   assert.equal(schema.properties.pages.maxItems, 12);
 });
 
+test('story response schema omits StoryCanon to stay small for Gemini', () => {
+  const schema = __test__.buildStoryResponseSchema(
+    __test__.resolveStoryMode('standard'),
+  );
+
+  assert.equal(schema.properties.storyCanon, undefined);
+});
+
 test('parseGeneratedStoryPreviewJson enforces preview page plan length', () => {
   const validPreview = {
     title: 'にじのもり',

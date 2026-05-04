@@ -2112,6 +2112,9 @@ class ChatViewModel extends ChangeNotifier {
         message.contains('invalid_story_json') ||
         message.contains('story_quality') ||
         message.contains('generateStory returned') ||
+        lower.contains('generatestoryhttp failed') ||
+        lower.contains('failed-precondition') ||
+        lower.contains('specified schema') ||
         lower.contains('timed out') ||
         lower.contains('timeout');
   }
