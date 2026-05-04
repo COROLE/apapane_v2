@@ -39,6 +39,50 @@ test('resolveGeneratorCaller rejects requests without auth or guest session', ()
   );
 });
 
+test('resolveHttpGeneratorCaller verifies bearer auth when present', async () => {
+  const caller = await __test__.resolveHttpGeneratorCaller(
+    {
+      headers: {
+        authorization: 'Bearer firebase-id-token',
+      },
+    },
+    {},
+    {
+      verifyIdToken: async (token) => {
+        assert.equal(token, 'firebase-id-token');
+        return { uid: ' parent-uid ' };
+      },
+    },
+  );
+
+  assert.deepEqual(caller, {
+    id: 'parent-uid',
+    mode: 'auth',
+  });
+});
+
+test('resolveHttpGeneratorCaller rejects invalid bearer auth', async () => {
+  await assert.rejects(
+    () =>
+      __test__.resolveHttpGeneratorCaller(
+        {
+          headers: {
+            authorization: 'Bearer broken-token',
+          },
+        },
+        { guestSessionId: 'guest-session' },
+        {
+          verifyIdToken: async () => {
+            throw new Error('invalid token');
+          },
+        },
+      ),
+    (error) =>
+      error instanceof functions.https.HttpsError &&
+      error.code === 'unauthenticated',
+  );
+});
+
 test('requireCallableAppCheck returns the verified app id', () => {
   const appId = __test__.requireCallableAppCheck({
     app: { appId: ' app-id ' },
@@ -115,7 +159,10 @@ test('extractApiError prefers nested error messages', () => {
 
 test('apiErrorCodeForResponse maps billing limits to resource exhaustion', () => {
   assert.equal(
-    __test__.apiErrorCodeForResponse(500, 'Billing hard limit has been reached.'),
+    __test__.apiErrorCodeForResponse(
+      500,
+      'Billing hard limit has been reached.',
+    ),
     'resource-exhausted',
   );
   assert.equal(
@@ -147,11 +194,11 @@ test('image generation uses Imagen 4 with vertical output settings', () => {
 test('buildImagenPrompt uses positive full-frame visual instructions', () => {
   const prompt = __test__.buildImagenPrompt({
     page: 1,
-    sceneGoal: 'A fox child finds a secret clue on a paper card with a question mark.',
+    sceneGoal:
+      'A fox child finds a secret clue on a paper card with a question mark.',
     mainCharacterDescription: 'small orange fox child, blue scarf',
     supportingCharacters: 'gentle bear friend with red backpack',
-    sceneDescription:
-      'The fox and bear read a note beside a map and a sign.',
+    sceneDescription: 'The fox and bear read a note beside a map and a sign.',
     composition: 'Vertical 9:16, fox large in the lower foreground.',
     emotion: 'Warm surprise and friendly curiosity.',
     backgroundDescription: 'Simple candy trees and soft pastel path.',
@@ -168,7 +215,7 @@ test('buildImagenPrompt uses positive full-frame visual instructions', () => {
   });
 
   for (const section of [
-    'Create a vertical full-frame children\'s illustration.',
+    "Create a vertical full-frame children's illustration.",
     'Create only a wordless visual scene.',
     'whole canvas from edge to edge',
     'Scene:',
@@ -328,7 +375,9 @@ test('parseImageSpecJson strips extra fields and normalizes specs', () => {
   assert.ok(parsed.imagePageSpecs[0].forbiddenTextSurfaces.includes('signs'));
   assert.ok(parsed.imagePageSpecs[0].avoid.includes('distorted hands'));
   assert.equal(parsed.imagePageSpecs[0].scene.location, 'candy garden');
-  assert.ok(parsed.imagePageSpecs[0].scene.allowedObjects.includes('small glowing gem'));
+  assert.ok(
+    parsed.imagePageSpecs[0].scene.allowedObjects.includes('small glowing gem'),
+  );
 });
 
 test('fallbackImagePageSpec fills missing values', () => {
@@ -346,7 +395,9 @@ test('fallbackImagePageSpec fills missing values', () => {
   assert.ok(spec.environmentDescription.includes('environment'));
   assert.ok(spec.foregroundElements.includes('main character clearly visible'));
   assert.ok(spec.midgroundElements.includes('plain props without writing'));
-  assert.ok(spec.backgroundElements.some((entry) => entry.includes('wordless')));
+  assert.ok(
+    spec.backgroundElements.some((entry) => entry.includes('wordless')),
+  );
   assert.ok(spec.forbiddenTextSurfaces.includes('blackboards'));
   assert.ok(spec.avoid.includes('text'));
   assert.ok(spec.avoid.includes('signs'));
@@ -389,7 +440,9 @@ test('generateImageSpecsFromCanon builds safe specs from StoryCanon', () => {
 
 test('normalizeStoryCanon pads pagePlans for long modes', () => {
   const canon = __test__.normalizeStoryCanon(
-    buildValidStoryCanon(4, { pagePlans: buildValidStoryCanon(4).pagePlans.slice(0, 2) }),
+    buildValidStoryCanon(4, {
+      pagePlans: buildValidStoryCanon(4).pagePlans.slice(0, 2),
+    }),
     { pageCount: 12 },
   );
 
@@ -573,7 +626,7 @@ function buildValidStory(overrides = {}) {
 function buildValidStoryCanon(pageCount = 4, overrides = {}) {
   return {
     title: 'Mimi and the soft glow',
-    visualStyle: 'Soft children\'s illustration with warm pastel colors.',
+    visualStyle: "Soft children's illustration with warm pastel colors.",
     worldRules: {
       noReadableText: true,
       noLetters: true,
@@ -621,8 +674,7 @@ function buildValidStoryCanon(pageCount = 4, overrides = {}) {
       visualBeat:
         'Mimi and Poro follow soft glowing petals beside a winding path.',
       visibleCast: ['protagonist', 'companion'],
-      characterPositions:
-        'Mimi and Poro stand together in the central area.',
+      characterPositions: 'Mimi and Poro stand together in the central area.',
       camera: 'medium shot',
       lighting: 'warm morning light',
       emotion: 'curious and hopeful',
@@ -728,8 +780,7 @@ test('parseGeneratedStoryPreviewJson enforces preview page plan length', () => {
         pageCount: 12,
       }),
     (error) =>
-      error instanceof functions.https.HttpsError &&
-      error.code === 'internal',
+      error instanceof functions.https.HttpsError && error.code === 'internal',
   );
 });
 
@@ -749,7 +800,9 @@ test('validateStoryPreviewQuality rejects repeated page plans', () => {
     ],
   };
 
-  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+  const issues = __test__.validateStoryPreviewQuality(preview, {
+    pageCount: 8,
+  });
 
   assert.ok(issues.some((issue) => issue.code === 'duplicate_page_plan'));
 });
@@ -770,7 +823,9 @@ test('validateStoryPreviewQuality rejects repeated generic preview fragments', (
     ],
   };
 
-  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+  const issues = __test__.validateStoryPreviewQuality(preview, {
+    pageCount: 8,
+  });
 
   assert.ok(issues.some((issue) => issue.code === 'generic_page_plan'));
 });
@@ -791,7 +846,9 @@ test('validateStoryPreviewQuality accepts varied page plans', () => {
     ],
   };
 
-  const issues = __test__.validateStoryPreviewQuality(preview, { pageCount: 8 });
+  const issues = __test__.validateStoryPreviewQuality(preview, {
+    pageCount: 8,
+  });
 
   assert.deepEqual(issues, []);
 });

@@ -7,6 +7,7 @@ import 'package:apapane/enums/env_key.dart';
 import 'package:apapane/local/local_auth_session.dart';
 import 'package:apapane/typedefs/firestore_typedef.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:http/http.dart' as http;
 
@@ -53,20 +54,29 @@ class ApiService {
     SDMap? storyOptions,
     SDMap? preview,
   }) async {
-    final data = await _callFunction(
-      'generateStory',
-      {
-        'prompt': prompt,
-        'systemPrompt': systemPrompt,
-        'profile': apiKeyName,
-        'jsonOutput': jsonOutput,
-        if (responseJsonSchema != null) 'responseSchema': responseJsonSchema,
-        if (storyMode != null) 'mode': storyMode,
-        if (storyOptions != null) 'storyOptions': storyOptions,
-        if (preview != null) 'preview': preview,
-      },
-      timeout: _storyFunctionCallTimeout,
-    );
+    final payload = {
+      'prompt': prompt,
+      'systemPrompt': systemPrompt,
+      'profile': apiKeyName,
+      'jsonOutput': jsonOutput,
+      if (responseJsonSchema != null) 'responseSchema': responseJsonSchema,
+      if (storyMode != null) 'mode': storyMode,
+      if (storyOptions != null) 'storyOptions': storyOptions,
+      if (preview != null) 'preview': preview,
+    };
+    late final SDMap data;
+    try {
+      data = await _callFunction(
+        'generateStory',
+        payload,
+        timeout: _storyFunctionCallTimeout,
+      );
+    } catch (error) {
+      if (!shouldUseGenerateStoryHttpFallbackForTesting(error)) {
+        rethrow;
+      }
+      data = await _callGenerateStoryHttp(payload);
+    }
     final text = data['text'];
     if (text is! String || text.trim().isEmpty) {
       throw StateError('generateStory returned an empty response.');
@@ -334,6 +344,71 @@ class ApiService {
       throw StateError('App Check token is missing.');
     }
     return normalizedToken;
+  }
+
+  Future<SDMap> _callGenerateStoryHttp(SDMap payload) async {
+    final guestSessionId =
+        await LocalAuthSession.instance.ensureCallableSessionId();
+    final projectId = AppEnv.get(EnvKey.FIREBASE_PROJECT_ID).trim();
+    if (projectId.isEmpty) {
+      throw StateError('Firebase project ID is missing.');
+    }
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+    };
+    final idToken = await _tryFirebaseIdToken();
+    if (idToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $idToken';
+    }
+
+    final url = Uri.parse(
+      'https://us-central1-$projectId.cloudfunctions.net/generateStoryHttp',
+    );
+    final response = await http
+        .post(
+          url,
+          headers: headers,
+          body: jsonEncode({
+            ...payload,
+            if (guestSessionId.isNotEmpty) 'guestSessionId': guestSessionId,
+          }),
+        )
+        .timeout(
+          _storyFunctionCallTimeout,
+          onTimeout: () =>
+              throw TimeoutException('generateStoryHttp timed out.'),
+        );
+
+    final rawBody = utf8.decode(response.bodyBytes);
+    final decodedBody = _decodeHttpJson(rawBody);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = _extractHttpErrorMessage(decodedBody, rawBody);
+      throw StateError(
+        'generateStoryHttp failed (${response.statusCode}): $message',
+      );
+    }
+
+    if (decodedBody is Map<String, dynamic>) {
+      return decodedBody;
+    }
+    throw StateError('generateStoryHttp returned an unexpected payload.');
+  }
+
+  Future<String> _tryFirebaseIdToken() async {
+    try {
+      final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+      return token?.trim() ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static bool shouldUseGenerateStoryHttpFallbackForTesting(Object? error) {
+    final message = error?.toString().toLowerCase().trim() ?? '';
+    return message.contains('unauthenticated') ||
+        message.contains('app check') ||
+        message.contains('appcheck') ||
+        message.contains('cloudfunctionshostapi.call');
   }
 
   void _ensureImageData(

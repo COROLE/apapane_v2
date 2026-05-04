@@ -9,6 +9,27 @@ void main() {
     );
   });
 
+  test('story callable falls back to HTTP for auth and App Check failures', () {
+    expect(
+      ApiService.shouldUseGenerateStoryHttpFallbackForTesting(
+        Exception('[firebase_functions/unauthenticated] UNAUTHENTICATED'),
+      ),
+      isTrue,
+    );
+    expect(
+      ApiService.shouldUseGenerateStoryHttpFallbackForTesting(
+        Exception('Callable request verification failed: AppCheck token'),
+      ),
+      isTrue,
+    );
+    expect(
+      ApiService.shouldUseGenerateStoryHttpFallbackForTesting(
+        Exception('[firebase_functions/invalid-argument] bad input'),
+      ),
+      isFalse,
+    );
+  });
+
   test('generateImageSpecs payload includes StoryCanon when available', () {
     final payload = ApiService.buildGenerateImageSpecsPayload(
       title: 'Moon Lantern',

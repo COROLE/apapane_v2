@@ -36,12 +36,7 @@ const STORY_MODES = Object.freeze({
     pageCount: 4,
     coinCost: 1,
     usage: 'おためし、短いおはなし',
-    beats: Object.freeze([
-      '主人公紹介',
-      '事件やお願い',
-      '解決',
-      '余韻・オチ',
-    ]),
+    beats: Object.freeze(['主人公紹介', '事件やお願い', '解決', '余韻・オチ']),
   }),
   standard: Object.freeze({
     key: 'standard',
@@ -85,7 +80,14 @@ const STORY_MODES = Object.freeze({
 const STORY_OPTION_VALUES = Object.freeze({
   tone: Object.freeze(['funny', 'heartwarming', 'bedtime', 'adventure']),
   endingStyle: Object.freeze(['happy', 'gentle', 'funnyTwist']),
-  worldType: Object.freeze(['forest', 'ocean', 'space', 'sweets', 'dinosaur', 'custom']),
+  worldType: Object.freeze([
+    'forest',
+    'ocean',
+    'space',
+    'sweets',
+    'dinosaur',
+    'custom',
+  ]),
 });
 const STORY_OPTION_LABELS = Object.freeze({
   tone: Object.freeze({
@@ -143,7 +145,7 @@ const IMAGE_OUTPUT_WIDTH = 900;
 const IMAGE_OUTPUT_HEIGHT = 1600;
 const IMAGE_OUTPUT_JPEG_QUALITY = 84;
 const DEFAULT_IMAGE_STYLE =
-  'Soft children\'s illustration, warm pastel color palette, gentle lighting, clean composition, simple clear shapes, cute and friendly characters, polished and cohesive, high-quality mobile artwork.';
+  "Soft children's illustration, warm pastel color palette, gentle lighting, clean composition, simple clear shapes, cute and friendly characters, polished and cohesive, high-quality mobile artwork.";
 const DEFAULT_FORBIDDEN_TEXT_SURFACES = Object.freeze([
   'text',
   'letters',
@@ -462,8 +464,7 @@ const UNSAFE_RULES = [
   },
   {
     category: 'hateful_abuse',
-    pattern:
-      /\b(hate crime|racial slur|nazi)\b|人種差別|ヘイト|ナチ/i,
+    pattern: /\b(hate crime|racial slur|nazi)\b|人種差別|ヘイト|ナチ/i,
   },
 ];
 
@@ -475,45 +476,50 @@ const db = admin.firestore();
 
 exports.generateStory = withGeminiSecret.https.onCall(async (data, context) => {
   const caller = resolveGeneratorCaller(context, data);
-  rejectClientStoryPricing(data);
-
-  const prompt = readString(data.prompt, 'prompt');
-  const systemPrompt = readString(data.systemPrompt, 'systemPrompt');
-  const jsonOutput = data.jsonOutput === true;
-  const responseSchema =
-    data.responseSchema && typeof data.responseSchema === 'object'
-      ? data.responseSchema
-      : data.responseJsonSchema && typeof data.responseJsonSchema === 'object'
-          ? data.responseJsonSchema
-          : null;
-  const requestedStoryJson = isStoryJsonRequest({ jsonOutput, responseSchema });
-  const mode = requestedStoryJson
-    ? resolveStoryMode(data.mode, DEFAULT_STORY_MODE_KEY)
-    : null;
-  const storyOptions = requestedStoryJson
-    ? normalizeStoryOptions(data.storyOptions)
-    : STORY_OPTION_DEFAULTS;
-  const effectiveResponseSchema = requestedStoryJson
-    ? buildStoryResponseSchema(mode)
-    : responseSchema;
-  const preview =
-    data.preview && typeof data.preview === 'object'
-      ? normalizeStoryPreviewInput(data.preview, mode)
-      : null;
+  const storyRequest = resolveStoryGenerationRequest(data);
 
   const text = await generateSafeStory({
     callerId: caller.id,
-    prompt,
-    systemPrompt,
-    jsonOutput,
-    responseSchema: effectiveResponseSchema,
-    mode,
-    storyOptions,
-    preview,
+    ...storyRequest,
   });
 
   return { text };
 });
+
+exports.generateStoryHttp = withGeminiSecret.https.onRequest(
+  async (req, res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'method-not-allowed' });
+      return;
+    }
+
+    let callerId = 'http';
+    try {
+      const body = normalizeHttpBody(req.body);
+      const caller = await resolveHttpGeneratorCaller(req, body);
+      callerId = caller.id;
+      const storyRequest = resolveStoryGenerationRequest(body);
+      const text = await generateSafeStory({
+        callerId,
+        ...storyRequest,
+      });
+
+      res.status(200).json({ text });
+    } catch (error) {
+      functions.logger.error('generateStoryHttp failed.', { callerId, error });
+      sendHttpError(res, error);
+    }
+  },
+);
 
 exports.generateStoryPreview = withGeminiSecret.https.onCall(
   async (data, context) => {
@@ -557,12 +563,10 @@ exports.generateImageSpecs = withGeminiSecret.https.onCall(
   },
 );
 
-exports.getStoryCreationStatus = functions.https.onCall(
-  async (_, context) => {
-    const uid = requireParentAccount(context);
-    return getStoryCreationStatusForUid(uid);
-  },
-);
+exports.getStoryCreationStatus = functions.https.onCall(async (_, context) => {
+  const uid = requireParentAccount(context);
+  return getStoryCreationStatusForUid(uid);
+});
 
 exports.reserveStoryGeneration = functions.https.onCall(
   async (data, context) => {
@@ -619,7 +623,10 @@ exports.generateImage = withGeminiImageSecret.https.onCall(
 exports.generateImageHttp = withGeminiImageSecret.https.onRequest(
   async (req, res) => {
     res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, X-Firebase-AppCheck');
+    res.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, X-Firebase-AppCheck',
+    );
     res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
     if (req.method === 'OPTIONS') {
@@ -699,80 +706,82 @@ exports.synthesizeVoice = withAppCheck.https.onCall(async (data, context) => {
   };
 });
 
-exports.verifyPurchase = withPurchaseSecrets.https.onCall(async (data, context) => {
-  requireCallableAppCheck(context);
-  const uid = requireParentAccount(context);
+exports.verifyPurchase = withPurchaseSecrets.https.onCall(
+  async (data, context) => {
+    requireCallableAppCheck(context);
+    const uid = requireParentAccount(context);
 
-  const platform = readString(data.platform, 'platform');
-  const packageName = readString(data.packageName, 'packageName');
-  const productId = readString(data.productId, 'productId');
-  const purchaseId = readString(data.purchaseId, 'purchaseId');
-  const verificationData = readString(
-    data.verificationData,
-    'verificationData',
-  );
+    const platform = readString(data.platform, 'platform');
+    const packageName = readString(data.packageName, 'packageName');
+    const productId = readString(data.productId, 'productId');
+    const purchaseId = readString(data.purchaseId, 'purchaseId');
+    const verificationData = readString(
+      data.verificationData,
+      'verificationData',
+    );
 
-  if (productId === 'consumable') {
-    if (platform === 'android') {
-      await verifyAndroidConsumable({
-        packageName,
+    if (productId === 'consumable') {
+      if (platform === 'android') {
+        await verifyAndroidConsumable({
+          packageName,
+          productId,
+          purchaseToken: verificationData,
+        });
+      } else if (platform === 'ios') {
+        await verifyIosConsumable({
+          productId,
+          receiptData: verificationData,
+        });
+      } else {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          `未対応のプラットフォームです: ${platform}`,
+        );
+      }
+
+      return grantConsumable({
+        uid,
+        purchaseId,
         productId,
-        purchaseToken: verificationData,
+        platform,
       });
-    } else if (platform === 'ios') {
-      await verifyIosConsumable({
-        productId,
-        receiptData: verificationData,
-      });
-    } else {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        `未対応のプラットフォームです: ${platform}`,
-      );
     }
 
-    return grantConsumable({
-      uid,
-      purchaseId,
-      productId,
-      platform,
-    });
-  }
+    if (productId === 'silver_subscription') {
+      let subscription;
+      if (platform === 'android') {
+        subscription = await verifyAndroidSubscription({
+          packageName,
+          subscriptionId: productId,
+          purchaseToken: verificationData,
+        });
+      } else if (platform === 'ios') {
+        subscription = await verifyIosSubscription({
+          productId,
+          receiptData: verificationData,
+        });
+      } else {
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          `未対応のプラットフォームです: ${platform}`,
+        );
+      }
 
-  if (productId === 'silver_subscription') {
-    let subscription;
-    if (platform === 'android') {
-      subscription = await verifyAndroidSubscription({
-        packageName,
-        subscriptionId: productId,
-        purchaseToken: verificationData,
-      });
-    } else if (platform === 'ios') {
-      subscription = await verifyIosSubscription({
+      return grantSubscription({
+        uid,
+        purchaseId,
         productId,
-        receiptData: verificationData,
+        platform,
+        expiresAtMs: subscription.expiresAtMs,
       });
-    } else {
-      throw new functions.https.HttpsError(
-        'invalid-argument',
-        `未対応のプラットフォームです: ${platform}`,
-      );
     }
 
-    return grantSubscription({
-      uid,
-      purchaseId,
-      productId,
-      platform,
-      expiresAtMs: subscription.expiresAtMs,
-    });
-  }
-
-  throw new functions.https.HttpsError(
-    'invalid-argument',
-    `未対応の商品です: ${productId}`,
-  );
-});
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `未対応の商品です: ${productId}`,
+    );
+  },
+);
 
 exports.deleteAccount = withAppCheck.https.onCall(async (_, context) => {
   requireCallableAppCheck(context);
@@ -798,7 +807,9 @@ async function generateSafeStory({
 }) {
   await enforceRateLimit(callerId, STORY_RATE_LIMIT);
 
-  const blockedCategory = findUnsafeCategory([prompt, systemPrompt].join('\n\n'));
+  const blockedCategory = findUnsafeCategory(
+    [prompt, systemPrompt].join('\n\n'),
+  );
   if (blockedCategory) {
     await writeSafetyAuditLog({
       uid: callerId,
@@ -829,7 +840,11 @@ async function generateSafeStory({
   let currentPrompt = basePrompt;
   let qualityRepairUsed = false;
 
-  for (let attempt = 1; attempt <= STORY_GENERATION_MAX_ATTEMPTS; attempt += 1) {
+  for (
+    let attempt = 1;
+    attempt <= STORY_GENERATION_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
     let text;
     try {
       text = await callGeminiText({
@@ -989,9 +1004,11 @@ async function generateSafeStoryPreview({
       currentPrompt = buildStoryPreviewRepairPrompt({
         prompt: basePrompt,
         mode,
-        issues: [{
-          message: 'JSON形式または必須項目が不正です。',
-        }],
+        issues: [
+          {
+            message: 'JSON形式または必須項目が不正です。',
+          },
+        ],
         previousOutput: error instanceof Error ? error.message : String(error),
       });
       continue;
@@ -1019,9 +1036,11 @@ async function generateSafeStoryPreview({
       currentPrompt = buildStoryPreviewRepairPrompt({
         prompt: basePrompt,
         mode,
-        issues: [{
-          message: error instanceof Error ? error.message : String(error),
-        }],
+        issues: [
+          {
+            message: error instanceof Error ? error.message : String(error),
+          },
+        ],
         previousOutput: text,
       });
       continue;
@@ -1108,7 +1127,11 @@ async function generateSafeStoryPreview({
 }
 
 function isStoryJsonRequest({ jsonOutput, responseSchema }) {
-  if (jsonOutput !== true || !responseSchema || typeof responseSchema !== 'object') {
+  if (
+    jsonOutput !== true ||
+    !responseSchema ||
+    typeof responseSchema !== 'object'
+  ) {
     return false;
   }
 
@@ -1119,6 +1142,44 @@ function isStoryJsonRequest({ jsonOutput, responseSchema }) {
     properties.pages &&
     typeof properties.pages === 'object',
   );
+}
+
+function resolveStoryGenerationRequest(data) {
+  rejectClientStoryPricing(data);
+
+  const prompt = readString(data.prompt, 'prompt');
+  const systemPrompt = readString(data.systemPrompt, 'systemPrompt');
+  const jsonOutput = data.jsonOutput === true;
+  const responseSchema =
+    data.responseSchema && typeof data.responseSchema === 'object'
+      ? data.responseSchema
+      : data.responseJsonSchema && typeof data.responseJsonSchema === 'object'
+        ? data.responseJsonSchema
+        : null;
+  const requestedStoryJson = isStoryJsonRequest({ jsonOutput, responseSchema });
+  const mode = requestedStoryJson
+    ? resolveStoryMode(data.mode, DEFAULT_STORY_MODE_KEY)
+    : null;
+  const storyOptions = requestedStoryJson
+    ? normalizeStoryOptions(data.storyOptions)
+    : STORY_OPTION_DEFAULTS;
+  const effectiveResponseSchema = requestedStoryJson
+    ? buildStoryResponseSchema(mode)
+    : responseSchema;
+  const preview =
+    data.preview && typeof data.preview === 'object'
+      ? normalizeStoryPreviewInput(data.preview, mode)
+      : null;
+
+  return {
+    prompt,
+    systemPrompt,
+    jsonOutput,
+    responseSchema: effectiveResponseSchema,
+    mode,
+    storyOptions,
+    preview,
+  };
 }
 
 function rejectClientStoryPricing(data) {
@@ -1140,9 +1201,8 @@ function rejectClientStoryPricing(data) {
 }
 
 function resolveStoryMode(value, fallbackKey = DEFAULT_STORY_MODE_KEY) {
-  const key = typeof value === 'string' && value.trim()
-    ? value.trim()
-    : fallbackKey;
+  const key =
+    typeof value === 'string' && value.trim() ? value.trim() : fallbackKey;
   const mode = STORY_MODES[key];
   if (!mode) {
     throw new functions.https.HttpsError(
@@ -1154,9 +1214,8 @@ function resolveStoryMode(value, fallbackKey = DEFAULT_STORY_MODE_KEY) {
 }
 
 function normalizeStoryOptions(value) {
-  const source = value && typeof value === 'object' && !Array.isArray(value)
-    ? value
-    : {};
+  const source =
+    value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const normalized = { ...STORY_OPTION_DEFAULTS };
   for (const [key, allowedValues] of Object.entries(STORY_OPTION_VALUES)) {
     const rawValue = typeof source[key] === 'string' ? source[key].trim() : '';
@@ -1347,12 +1406,7 @@ function buildStoryResponseSchema(mode) {
           worldDetails: { type: 'string' },
           artDirection: { type: 'string' },
         },
-        required: [
-          'protagonist',
-          'companion',
-          'worldDetails',
-          'artDirection',
-        ],
+        required: ['protagonist', 'companion', 'worldDetails', 'artDirection'],
       },
       pages: {
         type: 'array',
@@ -1375,23 +1429,12 @@ function buildStoryResponseSchema(mode) {
               },
             },
           },
-          required: [
-            'story',
-            'visualFocus',
-            'mood',
-            'dialogue',
-            'visibleCast',
-          ],
+          required: ['story', 'visualFocus', 'mood', 'dialogue', 'visibleCast'],
         },
       },
       storyCanon: buildStoryCanonResponseSchema(mode),
     },
-    required: [
-      'title',
-      'coverScene',
-      'characterSheet',
-      'pages',
-    ],
+    required: ['title', 'coverScene', 'characterSheet', 'pages'],
   };
 }
 
@@ -1415,8 +1458,7 @@ function buildStoryPreviewResponseSchema(mode) {
         maxItems: mode.pageCount,
         items: {
           type: 'string',
-          description:
-            '1ページ分の具体的な展開。前後のページと重複しない1文。',
+          description: '1ページ分の具体的な展開。前後のページと重複しない1文。',
         },
       },
     },
@@ -1563,9 +1605,7 @@ function buildStoryRepairPrompt({
   issues,
   mode = STORY_MODES[DEFAULT_STORY_MODE_KEY],
 }) {
-  const issueText = issues
-    .map((issue) => `- ${issue.message}`)
-    .join('\n');
+  const issueText = issues.map((issue) => `- ${issue.message}`).join('\n');
 
   return `
 ${prompt}
@@ -1645,9 +1685,7 @@ function buildStoryPreviewRepairPrompt({
   issues,
   previousOutput,
 }) {
-  const issueText = issues
-    .map((issue) => `- ${issue.message}`)
-    .join('\n');
+  const issueText = issues.map((issue) => `- ${issue.message}`).join('\n');
 
   return `
 ${prompt}
@@ -1714,8 +1752,7 @@ function extractStoryPreviewSeeds({
       readPreviewSetting(source, '仲間') ||
       'なかま',
     strength:
-      readPreviewSetting(source, '仲間のせつめい') ||
-      `${toneLabel}気持ち`,
+      readPreviewSetting(source, '仲間のせつめい') || `${toneLabel}気持ち`,
     wish:
       readPreviewSetting(source, 'どんなおはなし') ||
       readPreviewSetting(source, '願い') ||
@@ -1785,10 +1822,7 @@ function stringifyGeneratedStoryJson(
   return JSON.stringify(parseGeneratedStoryJson(rawText, { pageCount }));
 }
 
-function parseGeneratedStoryPreviewJson(
-  rawText,
-  { pageCount } = {},
-) {
+function parseGeneratedStoryPreviewJson(rawText, { pageCount } = {}) {
   const parsed = parseJsonObjectText(rawText);
   const title = requirePreviewStringField(parsed, 'title');
   const summary = requirePreviewStringField(parsed, 'summary');
@@ -1812,10 +1846,7 @@ function parseGeneratedStoryPreviewJson(
   };
 }
 
-function validateStoryPreviewQuality(
-  preview,
-  { pageCount } = {},
-) {
+function validateStoryPreviewQuality(preview, { pageCount } = {}) {
   const issues = [];
   const pagePlan = Array.isArray(preview?.pagePlan) ? preview.pagePlan : [];
   if (pagePlan.length !== pageCount) {
@@ -1840,8 +1871,7 @@ function validateStoryPreviewQuality(
     if (seen.has(normalized)) {
       issues.push({
         code: 'duplicate_page_plan',
-        message:
-          `${seen.get(normalized) + 1}ページ目と${index + 1}ページ目の展開案が同じです。`,
+        message: `${seen.get(normalized) + 1}ページ目と${index + 1}ページ目の展開案が同じです。`,
       });
       break;
     }
@@ -1874,8 +1904,7 @@ function validateStoryPreviewQuality(
   if (repeatedGenericFragment) {
     issues.push({
       code: 'generic_page_plan',
-      message:
-        `「${repeatedGenericFragment}」のような抽象表現を複数ページで繰り返しています。`,
+      message: `「${repeatedGenericFragment}」のような抽象表現を複数ページで繰り返しています。`,
     });
   }
 
@@ -1994,21 +2023,30 @@ function normalizeGeneratedStoryPage(page, index) {
     ),
   );
   if (!Array.isArray(page.visibleCast) || page.visibleCast.length === 0) {
-    throw createStoryJsonError(`Story page ${index + 1} is missing visibleCast.`);
+    throw createStoryJsonError(
+      `Story page ${index + 1} is missing visibleCast.`,
+    );
   }
   normalizedPage.visibleCast = page.visibleCast
     .filter((entry) => typeof entry === 'string')
     .map((entry) => entry.trim())
     .filter(Boolean);
   if (normalizedPage.visibleCast.length === 0) {
-    throw createStoryJsonError(`Story page ${index + 1} has invalid visibleCast.`);
+    throw createStoryJsonError(
+      `Story page ${index + 1} has invalid visibleCast.`,
+    );
   }
   return normalizedPage;
 }
 
 function normalizeStoryCanon(
   source,
-  { title = '', characterSheet = {}, pages = [], pageCount = STORY_BODY_PAGE_COUNT } = {},
+  {
+    title = '',
+    characterSheet = {},
+    pages = [],
+    pageCount = STORY_BODY_PAGE_COUNT,
+  } = {},
 ) {
   const fallback = fallbackStoryCanon({
     title,
@@ -2016,9 +2054,10 @@ function normalizeStoryCanon(
     pages,
     pageCount,
   });
-  const raw = source && typeof source === 'object' && !Array.isArray(source)
-    ? source
-    : {};
+  const raw =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? source
+      : {};
   const rawPlans = Array.isArray(raw.pagePlans) ? raw.pagePlans : [];
   const pagePlans = [];
   for (let index = 0; index < pageCount; index += 1) {
@@ -2124,10 +2163,7 @@ function fallbackStoryCanon({
       );
       return {
         page: pageNumber,
-        storyBeat: firstNonEmptyText([
-          page.story,
-          `Story beat ${pageNumber}`,
-        ]),
+        storyBeat: firstNonEmptyText([page.story, `Story beat ${pageNumber}`]),
         userTextIntent: firstNonEmptyText([
           page.story,
           `Short Japanese display text for page ${pageNumber}`,
@@ -2141,10 +2177,7 @@ function fallbackStoryCanon({
           'Main characters stay in the central area with clear faces.',
         camera: 'medium shot with readable expressions and simple depth',
         lighting: 'warm soft light',
-        emotion: firstNonEmptyText([
-          page.mood,
-          'curious, hopeful, gentle',
-        ]),
+        emotion: firstNonEmptyText([page.mood, 'curious, hopeful, gentle']),
         allowedObjects: normalizeCanonAllowedObjects(
           [visualBeat, SAFE_STORY_OBJECTS[index % SAFE_STORY_OBJECTS.length]],
           [],
@@ -2156,9 +2189,10 @@ function fallbackStoryCanon({
 }
 
 function normalizeStoryCanonWorldRules(source, fallback = {}) {
-  const rules = source && typeof source === 'object' && !Array.isArray(source)
-    ? source
-    : {};
+  const rules =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? source
+      : {};
   return {
     noReadableText: true,
     noLetters: true,
@@ -2174,10 +2208,16 @@ function normalizeStoryCanonWorldRules(source, fallback = {}) {
   };
 }
 
-function normalizeStoryCanonCast(source, { fallback = [], characterSheet = {} } = {}) {
-  const rawCast = Array.isArray(source) && source.length > 0 ? source : fallback;
+function normalizeStoryCanonCast(
+  source,
+  { fallback = [], characterSheet = {} } = {},
+) {
+  const rawCast =
+    Array.isArray(source) && source.length > 0 ? source : fallback;
   const normalized = rawCast
-    .filter((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))
+    .filter(
+      (entry) => entry && typeof entry === 'object' && !Array.isArray(entry),
+    )
     .map((entry, index) => {
       const role = firstNonEmptyText([
         entry.role,
@@ -2236,10 +2276,14 @@ function normalizeStoryCanonCast(source, { fallback = [], characterSheet = {} } 
   return normalized.slice(0, 4);
 }
 
-function normalizeStoryCanonSetting(source, { fallback = {}, characterSheet = {} } = {}) {
-  const setting = source && typeof source === 'object' && !Array.isArray(source)
-    ? source
-    : {};
+function normalizeStoryCanonSetting(
+  source,
+  { fallback = {}, characterSheet = {} } = {},
+) {
+  const setting =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? source
+      : {};
   return {
     mainLocation: firstNonEmptyText([
       setting.mainLocation,
@@ -2272,9 +2316,10 @@ function normalizeStoryCanonPagePlan(
   source,
   { fallback = {}, page = 1, pageSource = {} } = {},
 ) {
-  const plan = source && typeof source === 'object' && !Array.isArray(source)
-    ? source
-    : {};
+  const plan =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? source
+      : {};
   const visualBeat = toSafeCanonVisualText(
     firstNonEmptyText([
       plan.visualBeat,
@@ -2289,8 +2334,8 @@ function normalizeStoryCanonPagePlan(
       Number.isInteger(plan.page) && plan.page > 0
         ? plan.page
         : Number.isInteger(fallback.page) && fallback.page > 0
-            ? fallback.page
-            : page,
+          ? fallback.page
+          : page,
     storyBeat: firstNonEmptyText([
       plan.storyBeat,
       fallback.storyBeat,
@@ -2360,17 +2405,16 @@ function normalizeCanonAllowedObjects(value, fallback = []) {
     .flatMap((entry) => entry.split(','))
     .map((entry) => entry.replace(/\s+/g, ' ').trim())
     .filter((entry) => entry && !containsUnsafeStoryObject(entry));
-  const merged = [
-    ...converted,
-    ...DEFAULT_CANON_ALLOWED_OBJECTS.slice(0, 4),
-  ];
+  const merged = [...converted, ...DEFAULT_CANON_ALLOWED_OBJECTS.slice(0, 4)];
   return Array.from(new Set(merged));
 }
 
 function normalizeCanonForbiddenObjects(value, fallback = []) {
   const raw = Array.isArray(value) && value.length > 0 ? value : fallback;
   const values = Array.isArray(raw)
-    ? raw.filter((entry) => typeof entry === 'string').map((entry) => entry.trim())
+    ? raw
+        .filter((entry) => typeof entry === 'string')
+        .map((entry) => entry.trim())
     : [];
   return Array.from(
     new Set([...values.filter(Boolean), ...DEFAULT_CANON_FORBIDDEN_OBJECTS]),
@@ -2416,7 +2460,11 @@ function toSafeCanonVisualText(value) {
     .trim();
 }
 
-function requireStoryStringField(source, fieldName, { allowEmpty = false } = {}) {
+function requireStoryStringField(
+  source,
+  fieldName,
+  { allowEmpty = false } = {},
+) {
   const fieldKey = fieldName.split('.').pop();
   const value = source?.[fieldKey];
   if (typeof value !== 'string' || (!allowEmpty && value.trim().length === 0)) {
@@ -2464,9 +2512,12 @@ function validateGeneratedStoryQuality(
   }
 
   if (
-    hasHighlySimilarStrings(pages.map((page) => page?.story ?? ''), {
-      minCount: pageCount,
-    })
+    hasHighlySimilarStrings(
+      pages.map((page) => page?.story ?? ''),
+      {
+        minCount: pageCount,
+      },
+    )
   ) {
     issues.push({
       code: 'repetitive_story',
@@ -2477,7 +2528,9 @@ function validateGeneratedStoryQuality(
   issues.push(...findRepeatedStoryPageIssues(pages));
 
   const visualFocusValues = pages
-    .map((page) => (typeof page?.visualFocus === 'string' ? page.visualFocus : ''))
+    .map((page) =>
+      typeof page?.visualFocus === 'string' ? page.visualFocus : '',
+    )
     .filter((value) => value.trim().length > 0);
   if (
     visualFocusValues.length === pageCount &&
@@ -2494,7 +2547,8 @@ function validateGeneratedStoryQuality(
 
 function hasAnyDialogue(pages) {
   return pages.some((page) => {
-    const dialogue = typeof page?.dialogue === 'string' ? page.dialogue.trim() : '';
+    const dialogue =
+      typeof page?.dialogue === 'string' ? page.dialogue.trim() : '';
     const story = typeof page?.story === 'string' ? page.story.trim() : '';
     return (
       dialogue.length > 0 ||
@@ -2662,47 +2716,47 @@ function buildImageSpecResponseSchema(pageCount) {
       type: 'array',
       items: { type: 'string' },
     },
-      backgroundMustFillCanvas: { type: 'boolean' },
-      wordlessMode: { type: 'boolean' },
-      forbiddenTextSurfaces: {
-        type: 'array',
-        items: { type: 'string' },
-      },
-      style: { type: 'string' },
-      avoid: {
-        type: 'array',
-        items: { type: 'string' },
-      },
-      visualFocus: { type: 'string' },
-      mood: { type: 'string' },
-      visibleCast: {
-        type: 'array',
-        items: { type: 'string' },
-      },
-      scene: {
-        type: 'object',
-        properties: {
-          location: { type: 'string' },
-          time: { type: 'string' },
-          action: { type: 'string' },
-          composition: { type: 'string' },
-          camera: { type: 'string' },
-          lighting: { type: 'string' },
-          characterDetails: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-          allowedObjects: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-          forbiddenObjects: {
-            type: 'array',
-            items: { type: 'string' },
-          },
+    backgroundMustFillCanvas: { type: 'boolean' },
+    wordlessMode: { type: 'boolean' },
+    forbiddenTextSurfaces: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    style: { type: 'string' },
+    avoid: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    visualFocus: { type: 'string' },
+    mood: { type: 'string' },
+    visibleCast: {
+      type: 'array',
+      items: { type: 'string' },
+    },
+    scene: {
+      type: 'object',
+      properties: {
+        location: { type: 'string' },
+        time: { type: 'string' },
+        action: { type: 'string' },
+        composition: { type: 'string' },
+        camera: { type: 'string' },
+        lighting: { type: 'string' },
+        characterDetails: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        allowedObjects: {
+          type: 'array',
+          items: { type: 'string' },
+        },
+        forbiddenObjects: {
+          type: 'array',
+          items: { type: 'string' },
         },
       },
-    };
+    },
+  };
 
   return {
     type: 'object',
@@ -2888,11 +2942,14 @@ async function generateSafeImageSpecs({
     });
     return { ...parsed, source: 'generated' };
   } catch (error) {
-    functions.logger.warn('Image spec generation fell back to deterministic specs.', {
-      callerId,
-      pageCount: pages.length,
-      message: error instanceof Error ? error.message : String(error),
-    });
+    functions.logger.warn(
+      'Image spec generation fell back to deterministic specs.',
+      {
+        callerId,
+        pageCount: pages.length,
+        message: error instanceof Error ? error.message : String(error),
+      },
+    );
     logImageSpecsPrepared({
       callerId,
       characterProfile: fallbackProfile,
@@ -2907,7 +2964,10 @@ async function generateSafeImageSpecs({
   }
 }
 
-function generateImageSpecsFromCanon({ storyCanon, fallbackProfile = null } = {}) {
+function generateImageSpecsFromCanon({
+  storyCanon,
+  fallbackProfile = null,
+} = {}) {
   const pageCount = Array.isArray(storyCanon?.pagePlans)
     ? storyCanon.pagePlans.length
     : STORY_BODY_PAGE_COUNT;
@@ -3034,27 +3094,14 @@ function imagePageSpecFromCanonPagePlan({ canon, plan, characterProfile }) {
       ]
         .filter(Boolean)
         .join(' '),
-      supportingCharacters: firstNonEmptyText([
-        supportingCharacters,
-        'None.',
-      ]),
+      supportingCharacters: firstNonEmptyText([supportingCharacters, 'None.']),
       sceneDescription: action,
       composition: [composition, plan.camera].filter(Boolean).join(' '),
       emotion: firstNonEmptyText([plan.emotion, 'curious and gentle']),
-      backgroundDescription: [
-        location,
-        time,
-        setting.season,
-        lighting,
-      ]
+      backgroundDescription: [location, time, setting.season, lighting]
         .filter(Boolean)
         .join(', '),
-      environmentDescription: [
-        location,
-        time,
-        lighting,
-        canon.visualStyle,
-      ]
+      environmentDescription: [location, time, lighting, canon.visualStyle]
         .filter(Boolean)
         .join(', '),
       foregroundElements: [
@@ -3065,10 +3112,9 @@ function imagePageSpecFromCanonPagePlan({ canon, plan, characterProfile }) {
         ...allowedObjects.slice(1, 3),
         'winding path or soft floor plane',
       ].filter(Boolean),
-      backgroundElements: [
-        ...backgroundElements.slice(0, 5),
-        location,
-      ].filter(Boolean),
+      backgroundElements: [...backgroundElements.slice(0, 5), location].filter(
+        Boolean,
+      ),
       backgroundMustFillCanvas: true,
       wordlessMode: true,
       forbiddenTextSurfaces: DEFAULT_FORBIDDEN_TEXT_SURFACES,
@@ -3094,15 +3140,23 @@ function imagePageSpecFromCanonPagePlan({ canon, plan, characterProfile }) {
 }
 
 function findCanonCastMember(canon, id) {
-  const normalizedId = String(id || '').trim().toLowerCase();
+  const normalizedId = String(id || '')
+    .trim()
+    .toLowerCase();
   if (!normalizedId) {
     return null;
   }
-  return (canon.cast || []).find((member) => {
-    const memberId = String(member?.id || '').trim().toLowerCase();
-    const role = String(member?.role || '').trim().toLowerCase();
-    return memberId === normalizedId || role === normalizedId;
-  }) || null;
+  return (
+    (canon.cast || []).find((member) => {
+      const memberId = String(member?.id || '')
+        .trim()
+        .toLowerCase();
+      const role = String(member?.role || '')
+        .trim()
+        .toLowerCase();
+      return memberId === normalizedId || role === normalizedId;
+    }) || null
+  );
 }
 
 function buildImageSpecPrompt({
@@ -3115,8 +3169,8 @@ function buildImageSpecPrompt({
   extraRequirements,
 }) {
   const pageText = pages
-    .map(
-      (page) => [
+    .map((page) =>
+      [
         `Page ${page.page}`,
         `pageSummary: ${page.pageSummary}`,
         `story: ${page.story}`,
@@ -3241,7 +3295,11 @@ Rules:
 
 function parseImageSpecJson(
   rawText,
-  { pageCount = STORY_BODY_PAGE_COUNT, fallbackProfile = null, fallbackSpecs = [] } = {},
+  {
+    pageCount = STORY_BODY_PAGE_COUNT,
+    fallbackProfile = null,
+    fallbackSpecs = [],
+  } = {},
 ) {
   const parsed = parseJsonObjectText(rawText);
   const characterProfile = normalizeCharacterProfile(
@@ -3251,14 +3309,13 @@ function parseImageSpecJson(
   const rawSpecs = Array.isArray(parsed.imagePageSpecs)
     ? parsed.imagePageSpecs
     : Array.isArray(parsed.pages)
-        ? parsed.pages
-        : [];
+      ? parsed.pages
+      : [];
   const imagePageSpecs = [];
   for (let index = 0; index < pageCount; index += 1) {
     const page = index + 1;
     const fallback =
-      fallbackSpecs[index] ||
-      fallbackImagePageSpec({ page, characterProfile });
+      fallbackSpecs[index] || fallbackImagePageSpec({ page, characterProfile });
     const rawSpec =
       rawSpecs.find((spec) => Number(spec?.page) === page) || rawSpecs[index];
     imagePageSpecs.push(
@@ -3280,7 +3337,8 @@ function fallbackCharacterProfile({ title = '', characterSheet = {} } = {}) {
         characterSheet.protagonist,
         'A cute, friendly main character with a rounded picture-book design.',
       ]),
-      clothing: 'Simple child-friendly clothing or accessories that stay consistent on every page.',
+      clothing:
+        'Simple child-friendly clothing or accessories that stay consistent on every page.',
       colors: firstNonEmptyText([
         characterSheet.artDirection,
         'Warm pastel colors with clear, readable character colors.',
@@ -3291,7 +3349,7 @@ function fallbackCharacterProfile({ title = '', characterSheet = {} } = {}) {
         'Kind, curious, brave in a gentle way, friendly for young children.',
       worldStyle: firstNonEmptyText([
         characterSheet.worldDetails,
-        'A safe, warm, simple children\'s picture-book world.',
+        "A safe, warm, simple children's picture-book world.",
       ]),
     },
     {},
@@ -3330,7 +3388,7 @@ function normalizeCharacterProfile(source, fallback = {}) {
     worldStyle: firstNonEmptyText([
       profile.worldStyle,
       fallback.worldStyle,
-      'Safe, warm children\'s picture-book world.',
+      "Safe, warm children's picture-book world.",
     ]),
   };
 }
@@ -3363,10 +3421,7 @@ function fallbackImagePageSpec({
       ]
         .filter(Boolean)
         .join(' '),
-      supportingCharacters: firstNonEmptyText([
-        supportingCharacters,
-        'None.',
-      ]),
+      supportingCharacters: firstNonEmptyText([supportingCharacters, 'None.']),
       sceneDescription: sceneGoal,
       composition:
         'Vertical 9:16 composition with the main character large and clear in the foreground, one simple focal action, and enough open space to read the scene immediately.',
@@ -3384,7 +3439,11 @@ function fallbackImagePageSpec({
         .join(' '),
       foregroundElements: [
         'main character clearly visible',
-        firstNonEmptyText([visualFocus, pageSummary, 'one simple story action']),
+        firstNonEmptyText([
+          visualFocus,
+          pageSummary,
+          'one simple story action',
+        ]),
       ],
       midgroundElements: [
         'simple path or floor shape',
@@ -3411,9 +3470,8 @@ function normalizeImagePageSpec(
   const spec = source && typeof source === 'object' ? source : {};
   const base = fallback || {};
   const profile = characterProfile || fallbackCharacterProfile({});
-  const normalizedPage = Number.isInteger(spec.page) && spec.page > 0
-    ? spec.page
-    : page;
+  const normalizedPage =
+    Number.isInteger(spec.page) && spec.page > 0 ? spec.page : page;
   const mainCharacterDescription = firstNonEmptyText([
     spec.mainCharacterDescription,
     base.mainCharacterDescription,
@@ -3439,18 +3497,12 @@ function normalizeImagePageSpec(
   const foregroundElements = normalizeStringList(
     spec.foregroundElements,
     base.foregroundElements,
-    [
-      'main character clearly visible',
-      'one simple story-relevant action',
-    ],
+    ['main character clearly visible', 'one simple story-relevant action'],
   );
   const midgroundElements = normalizeStringList(
     spec.midgroundElements,
     base.midgroundElements,
-    [
-      'simple story path or floor plane',
-      'plain props without writing',
-    ],
+    ['simple story path or floor plane', 'plain props without writing'],
   );
   const backgroundElements = normalizeStringList(
     spec.backgroundElements,
@@ -3539,9 +3591,10 @@ function normalizeImagePageSpec(
 }
 
 function normalizeImageSpecScene(source, fallback = null, defaults = {}) {
-  const scene = source && typeof source === 'object' && !Array.isArray(source)
-    ? source
-    : {};
+  const scene =
+    source && typeof source === 'object' && !Array.isArray(source)
+      ? source
+      : {};
   const base =
     fallback && typeof fallback === 'object' && !Array.isArray(fallback)
       ? fallback
@@ -3623,17 +3676,15 @@ function normalizeBoolean(value, fallback, defaultValue) {
 }
 
 function normalizeForbiddenTextSurfaces(value, fallback = null) {
-  return normalizeStringList(
-    value,
-    fallback,
-    DEFAULT_FORBIDDEN_TEXT_SURFACES,
-  );
+  return normalizeStringList(value, fallback, DEFAULT_FORBIDDEN_TEXT_SURFACES);
 }
 
 function normalizeAvoidTerms(value, fallback = null) {
   const input = Array.isArray(value) && value.length > 0 ? value : fallback;
   const terms = Array.isArray(input)
-    ? input.filter((entry) => typeof entry === 'string').map((entry) => entry.trim())
+    ? input
+        .filter((entry) => typeof entry === 'string')
+        .map((entry) => entry.trim())
     : [];
   return Array.from(
     new Set([
@@ -3646,14 +3697,16 @@ function normalizeAvoidTerms(value, fallback = null) {
 
 function buildImagenPrompt(spec) {
   const normalized = normalizeImagePageSpec(spec);
-  const sceneDescription = sanitizeVisualPromptForImagen([
-    normalized.scene?.action,
-    normalized.sceneDescription,
-    normalized.visualFocus,
-    normalized.sceneGoal,
-  ]
-    .filter(Boolean)
-    .join(' '));
+  const sceneDescription = sanitizeVisualPromptForImagen(
+    [
+      normalized.scene?.action,
+      normalized.sceneDescription,
+      normalized.visualFocus,
+      normalized.sceneGoal,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
   const background = sanitizeVisualPromptForImagen(
     normalized.backgroundDescription,
   );
@@ -3662,26 +3715,29 @@ function buildImagenPrompt(spec) {
   );
   const foreground = formatSafePromptList(normalized.foregroundElements);
   const midground = formatSafePromptList(normalized.midgroundElements);
-  const backgroundElements = formatSafePromptList(normalized.backgroundElements);
-  const sceneSetting = sanitizeVisualPromptForImagen([
-    normalized.scene?.location,
-    normalized.scene?.time,
-    normalized.scene?.lighting,
-    ...(Array.isArray(normalized.scene?.allowedObjects)
-      ? normalized.scene.allowedObjects
-      : []),
-  ]
-    .filter(Boolean)
-    .join(' '));
-  const sceneComposition = sanitizeVisualPromptForImagen([
-    normalized.scene?.composition,
-    normalized.scene?.camera,
-  ]
-    .filter(Boolean)
-    .join(' '));
+  const backgroundElements = formatSafePromptList(
+    normalized.backgroundElements,
+  );
+  const sceneSetting = sanitizeVisualPromptForImagen(
+    [
+      normalized.scene?.location,
+      normalized.scene?.time,
+      normalized.scene?.lighting,
+      ...(Array.isArray(normalized.scene?.allowedObjects)
+        ? normalized.scene.allowedObjects
+        : []),
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const sceneComposition = sanitizeVisualPromptForImagen(
+    [normalized.scene?.composition, normalized.scene?.camera]
+      .filter(Boolean)
+      .join(' '),
+  );
   const mainStoryObject = resolveSafeStoryObject(normalized);
   return [
-    'Create a vertical full-frame children\'s illustration.',
+    "Create a vertical full-frame children's illustration.",
     'Create only a wordless visual scene.',
     'A continuous colorful environment fills the whole canvas from edge to edge.',
     '',
@@ -3693,7 +3749,14 @@ function buildImagenPrompt(spec) {
     sanitizeVisualPromptForImagen(normalized.supportingCharacters),
     '',
     'Setting:',
-    [sceneSetting, environment, background, foreground, midground, backgroundElements]
+    [
+      sceneSetting,
+      environment,
+      background,
+      foreground,
+      midground,
+      backgroundElements,
+    ]
       .filter(Boolean)
       .join(' '),
     '',
@@ -3712,7 +3775,7 @@ function buildImagenPrompt(spec) {
     'Style:',
     sanitizeVisualPromptForImagen(normalized.emotion),
     sanitizeVisualPromptForImagen(normalized.style || DEFAULT_IMAGE_STYLE),
-    'Soft children\'s illustration, warm pastel colors, gentle lighting, clean shapes, cute friendly characters, cozy atmosphere, polished high-quality artwork.',
+    "Soft children's illustration, warm pastel colors, gentle lighting, clean shapes, cute friendly characters, cozy atmosphere, polished high-quality artwork.",
     '',
     'Surface rule:',
     'All objects are plain decorative shapes with clean surfaces.',
@@ -3730,9 +3793,8 @@ function formatSafePromptList(values) {
 }
 
 function resolveSafeStoryObject(spec) {
-  const normalizedPage = Number.isInteger(spec.page) && spec.page > 0
-    ? spec.page
-    : 1;
+  const normalizedPage =
+    Number.isInteger(spec.page) && spec.page > 0 ? spec.page : 1;
   const source = [
     spec.sceneGoal,
     spec.sceneDescription,
@@ -3742,7 +3804,9 @@ function resolveSafeStoryObject(spec) {
     spec.mood,
     spec.scene?.action,
     spec.scene?.location,
-    ...(Array.isArray(spec.scene?.allowedObjects) ? spec.scene.allowedObjects : []),
+    ...(Array.isArray(spec.scene?.allowedObjects)
+      ? spec.scene.allowedObjects
+      : []),
     ...(Array.isArray(spec.foregroundElements) ? spec.foregroundElements : []),
     ...(Array.isArray(spec.midgroundElements) ? spec.midgroundElements : []),
   ].join(' ');
@@ -4015,7 +4079,8 @@ async function assessGeneratedImageQualitySafely({
       hasCompleteBackground: true,
       importantSubjectTooLow: false,
       isAcceptable: true,
-      reason: 'Quality assessment failed; accepting image to avoid blocking generation.',
+      reason:
+        'Quality assessment failed; accepting image to avoid blocking generation.',
     };
   }
 }
@@ -4371,8 +4436,8 @@ async function callGeminiText({
     Number.isInteger(maxOutputTokens) && maxOutputTokens > 0
       ? maxOutputTokens
       : jsonOutput
-          ? 4096
-          : 256;
+        ? 4096
+        : 256;
   const payload = await postJson(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
@@ -4392,15 +4457,15 @@ async function callGeminiText({
           temperature: jsonOutput ? 0.7 : 0.4,
           maxOutputTokens: outputTokenLimit,
           ...(jsonOutput ? { responseMimeType: 'application/json' } : {}),
-          ...(jsonOutput && responseSchema
-            ? { responseSchema }
-            : {}),
+          ...(jsonOutput && responseSchema ? { responseSchema } : {}),
         },
       },
     },
   );
 
-  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const candidates = Array.isArray(payload.candidates)
+    ? payload.candidates
+    : [];
   const parts = candidates[0]?.content?.parts;
   const text = Array.isArray(parts)
     ? parts
@@ -4665,8 +4730,11 @@ function truncateText(value, maxLength) {
   return `${normalized.slice(0, maxLength - 1)}…`;
 }
 
-
-async function verifyAndroidConsumable({ packageName, productId, purchaseToken }) {
+async function verifyAndroidConsumable({
+  packageName,
+  productId,
+  purchaseToken,
+}) {
   const publisher = buildAndroidPublisherClient();
   const response = await publisher.purchases.products.get({
     packageName,
@@ -4853,10 +4921,7 @@ async function getStoryCreationStatusForUid(uid, now = new Date()) {
   const userData = userSnapshot.data() || {};
   const usageData = usageSnapshot.data() || {};
   const isSubscriptionActive = isSilverSubscriptionActive(userData, now);
-  const storyCreditsUsed = Math.max(
-    0,
-    Number(usageData.storyCreditsUsed ?? 0),
-  );
+  const storyCreditsUsed = Math.max(0, Number(usageData.storyCreditsUsed ?? 0));
   const storyCreditsRemaining = isSubscriptionActive
     ? Math.max(0, SILVER_MONTHLY_STORY_CREDITS - storyCreditsUsed)
     : 0;
@@ -4988,7 +5053,11 @@ async function completeStoryGenerationForUid({ uid, requestId }) {
       );
     }
     if (data.status === 'completed') {
-      return storyReservationResponse({ requestId, request: data, idempotent: true });
+      return storyReservationResponse({
+        requestId,
+        request: data,
+        idempotent: true,
+      });
     }
     if (data.status === 'canceled') {
       throw new functions.https.HttpsError(
@@ -5272,7 +5341,10 @@ async function deleteUserStorage(uid) {
 
 function resolveStorageBucket() {
   const configuredBucket = admin.app().options.storageBucket;
-  if (typeof configuredBucket === 'string' && configuredBucket.trim().length > 0) {
+  if (
+    typeof configuredBucket === 'string' &&
+    configuredBucket.trim().length > 0
+  ) {
     return configuredBucket.trim();
   }
 
@@ -5366,7 +5438,11 @@ async function parseJson(response) {
 
 function normalizeHttpBody(body) {
   if (body && typeof body === 'object' && !Array.isArray(body)) {
-    if (body.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+    if (
+      body.data &&
+      typeof body.data === 'object' &&
+      !Array.isArray(body.data)
+    ) {
       return body.data;
     }
     return body;
@@ -5515,6 +5591,32 @@ function resolveGeneratorCaller(context, data) {
   );
 }
 
+async function resolveHttpGeneratorCaller(req, data, auth = admin.auth()) {
+  const authorization = readHeaderValue(
+    req?.headers?.authorization || req?.headers?.Authorization,
+  );
+  const bearerMatch = authorization.match(/^Bearer\s+(.+)$/i);
+  if (bearerMatch) {
+    try {
+      const decoded = await auth.verifyIdToken(bearerMatch[1].trim());
+      const uid = typeof decoded?.uid === 'string' ? decoded.uid.trim() : '';
+      if (uid) {
+        return {
+          id: uid,
+          mode: 'auth',
+        };
+      }
+    } catch (_) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'ログイン状態を確認できませんでした。',
+      );
+    }
+  }
+
+  return resolveGeneratorCaller({ rawRequest: req }, data);
+}
+
 function hashGuestSessionId(guestSessionId) {
   return createHash('sha256').update(guestSessionId).digest('hex').slice(0, 32);
 }
@@ -5653,6 +5755,8 @@ exports.__test__ = {
   rejectClientStoryPricing,
   requireCallableAppCheck,
   requireHttpAppCheck,
+  resolveHttpGeneratorCaller,
+  resolveStoryGenerationRequest,
   resolveStoryMode,
   resolveGeneratorCaller,
   sanitizeImagePrompt,
