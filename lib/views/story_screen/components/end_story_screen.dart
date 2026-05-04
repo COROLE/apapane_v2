@@ -1,6 +1,7 @@
 import 'package:apapane/constants/strings.dart';
 import 'package:apapane/enums/confirm_action.dart';
 import 'package:apapane/enums/to_story_page_type.dart';
+import 'package:apapane/providers/normal_providers.dart';
 import 'package:apapane/providers/simple_firestore_providers.dart';
 import 'package:apapane/view_models/main_view_model.dart';
 import 'package:apapane/view_models/story_view_model.dart';
@@ -96,7 +97,7 @@ class EndStoryScreen extends ConsumerWidget {
                       ref.invalidate(archiveViewModelProvider);
 
                       if (context.mounted) {
-                        context.pop();
+                        _goHome(context, ref);
                       }
                     },
                     child: const Text(
@@ -112,7 +113,7 @@ class EndStoryScreen extends ConsumerWidget {
                       mainViewModel: mainViewModel,
                     );
                     if (context.mounted) {
-                      context.pop();
+                      _goHome(context, ref);
                     }
                   },
                   child: Text(isGuestMode ? 'おわる' : noText),
@@ -128,5 +129,10 @@ class EndStoryScreen extends ConsumerWidget {
     } catch (error) {
       debugPrint('End story flow failed: $error');
     }
+  }
+
+  void _goHome(BuildContext context, WidgetRef ref) {
+    ref.read(bottomNavigationBarViewModelProvider).onPageChanged(0);
+    context.go('/home');
   }
 }

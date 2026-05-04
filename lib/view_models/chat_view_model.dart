@@ -104,6 +104,138 @@ class ChatViewModel extends ChangeNotifier {
   StoryCreationStatus? _storyCreationStatus;
   int _previewGenerationCount = 0;
   static const int _maxPreviewGenerationCount = 3;
+  static const List<List<String>> _localExampleOptionsByStage = [
+    [
+      'あかいマフラーの うさぎ',
+      'そらをとびたい こねこ',
+      'ちいさな きつね',
+      'ねむたがりの くま',
+      'うたがすきな ペンギン',
+      'まほうのぼうしの りす',
+      'ながぐつをはいた かえる',
+      'ひかるしっぽの こいぬ',
+      'ほしをあつめる ことり',
+      'ゆうきをさがす こぐま',
+      'ふわふわの ひつじ',
+      'おしゃれな はりねずみ',
+      'ちいさな ドラゴン',
+      'おしゃべりな どんぐり',
+      'まいごの ロボット',
+      'にじいろの さかな',
+      'きらきらの しか',
+      'おどりがすきな たぬき',
+      'やさしい こじか',
+      'ゆめをみる ひよこ',
+      'しろい こぐま',
+      'はなかんむりの こねずみ',
+      'ぼうけんずきの こぶた',
+      'つきのひかりの ふくろう',
+    ],
+    [
+      'にじのもり',
+      'おほしさまのうみ',
+      'ふわふわぐものくに',
+      'ひかるきのこのもり',
+      'おかしのおしろ',
+      'つきあかりの はらっぱ',
+      'しゃぼんだまの まち',
+      'ゆきの ひみつトンネル',
+      'そよかぜの たに',
+      'ガラスの みずうみ',
+      'はなびらの こみち',
+      'おもちゃの えき',
+      'あさつゆの にわ',
+      'ランタンの どうくつ',
+      'まほうの くだものばたけ',
+      'ねむる くじらのしま',
+      'ひなたぼっこの おか',
+      'こもれびの としょかん',
+      'ふしぎな かぜぐるまむら',
+      'ゆめいろの すなはま',
+      'ほたるの かわべ',
+      'やさしい あめのまち',
+      'にじの はしのうえ',
+      'ちいさな ひみつきち',
+    ],
+    [
+      'やさしい こぐま',
+      'げんきな ことり',
+      'ちいさな ドラゴン',
+      'おしゃべりなどんぐり',
+      'ふしぎな ロボット',
+      'ものしりの ふくろう',
+      'はずかしがりの こじか',
+      'うたがじょうずな かえる',
+      'おっとりした ひつじ',
+      'きらきらの ようせい',
+      'ちいさな まほうつかい',
+      'おせわずきの りす',
+      'わすれんぼうの たぬき',
+      'ゆうびんやの こいぬ',
+      'みずたまりの さかな',
+      'ころころ まつぼっくり',
+      'そらいろの くじら',
+      'あまえんぼうの こねこ',
+      'ちからもちの かめ',
+      'おどる ひかりのこ',
+      'やさしい ゆきだるま',
+      'なぞなぞずきの からす',
+      'おひるねずきの ぱんだ',
+      'ちいさな ほしのこ',
+    ],
+    [
+      'やさしくて ちょっと こわがり',
+      'げんきいっぱいで ゆうきがある',
+      'のんびりしていて ものしり',
+      'いたずらずきだけど やさしい',
+      'しずかだけど がんばりや',
+      'はずかしがりやで うたがすき',
+      'あわてんぼうだけど ともだちおもい',
+      'くいしんぼうで さびしがり',
+      'まじめで ちょっと まけずぎらい',
+      'おしゃれで きれいなものがすき',
+      'ゆっくりだけど あきらめない',
+      'こわいものしらずで やさしい',
+      'ねむたがりだけど ひらめきじょうず',
+      'おしゃべりで みんなをわらわせる',
+      'なきむしだけど こころがつよい',
+      'たんけんがすきで すぐまよっちゃう',
+      'ちいさなことに よくきがつく',
+      'てれやだけど ありがとうがいえる',
+      'ひとりがすきだけど ともだちもだいすき',
+      'ふしぎなことを しんじている',
+      'まほうはにがてだけど れんしゅうずき',
+      'のりものがすきで すこしせっかち',
+      'おひるねがすきで ゆめをよくみる',
+      'こまったひとを ほっとけない',
+    ],
+    [
+      'ひみつのたからをさがしたい',
+      'まいごのほしをおうちにかえしたい',
+      'おともだちとなかなおりしたい',
+      'こわいよるをのりこえたい',
+      'ふしぎなドアのむこうをみにいきたい',
+      'なくしたベルをみつけたい',
+      'ちいさなあかりをみんなにとどけたい',
+      'おまつりにまにあいたい',
+      'しおれたおはなをげんきにしたい',
+      'そらにかかったにじをわたりたい',
+      'ねむれないつきをわらわせたい',
+      'こわれたおもちゃをなおしたい',
+      'あめの日だけのひみつをみつけたい',
+      'ゆうきをくれるたねをそだてたい',
+      'おばけにありがとうをいいたい',
+      'まほうのうたをおぼえたい',
+      'ちいさなふねでかわをくだりたい',
+      'きえたあしあとをたどりたい',
+      'ともだちのたんじょうびをたすけたい',
+      'ふわふわぐもをつかまえたい',
+      'おうちへかえるみちをてらしたい',
+      'しずかなもりでねがいをみつけたい',
+      'みんなでおいしいスープをつくりたい',
+      'こわがりなともだちをはげましたい',
+    ],
+  ];
   final Map<int, int> _exampleCursorByStage = {};
   int _exampleSeed = DateTime.now().millisecondsSinceEpoch;
   late int _seed;
@@ -209,21 +341,10 @@ class ChatViewModel extends ChangeNotifier {
     _sendMessage(context, message.text);
   }
 
-  Future<void> _example() async {
-    final fallback = _buildRotatingExample();
-    final questionText = _latestAssistantQuestion();
-
-    if (!_hasClaudeAccess() || questionText.isEmpty) {
-      _exampleText = fallback;
-      notifyListeners();
-      return;
-    }
-
-    _exampleText = await _generateAdaptiveExample(
-      questionText: questionText,
-      fallback: fallback,
-    );
+  Future<void> _example() {
+    _exampleText = _buildRotatingExample();
     notifyListeners();
+    return Future<void>.value();
   }
 
   void _replyMessage(BuildContext context, {String lastText = ""}) async {
@@ -744,8 +865,12 @@ class ChatViewModel extends ChangeNotifier {
     _addMessage(context, textMessage);
     if (!_isShowCreate) {
       _replyMessage(context, lastText: text);
+      _startExampleLoading();
+    } else {
+      _exampleText = "";
+      _isExampleLoading = false;
+      notifyListeners();
     }
-    _startExampleLoading();
   }
 
   void _handleVoiceSend(BuildContext context) {
@@ -1694,49 +1819,10 @@ class ChatViewModel extends ChangeNotifier {
         .whereType<types.TextMessage>()
         .where((message) => message.author.id == _user.id)
         .length;
-
-    switch (userAnswerCount) {
-      case 0:
-        return _nextExampleForStage(0, const [
-          'うさぎ',
-          'くま',
-          'こねこ',
-          'きつね',
-          'ペンギン',
-        ]);
-      case 1:
-        return _nextExampleForStage(1, const [
-          'にじのもり',
-          'おほしさまのうみ',
-          'ふわふわぐものくに',
-          'ひかるきのこのもり',
-          'おかしのおしろ',
-        ]);
-      case 2:
-        return _nextExampleForStage(2, const [
-          'やさしいこぐま',
-          'げんきなことり',
-          'ちいさなドラゴン',
-          'おしゃべりなどんぐり',
-          'ふしぎなロボット',
-        ]);
-      case 3:
-        return _nextExampleForStage(3, const [
-          'やさしくて ちょっと こわがり',
-          'げんきいっぱいで ゆうきがある',
-          'のんびりしていて ものしり',
-          'いたずらずきだけど やさしい',
-          'しずかだけど がんばりや',
-        ]);
-      default:
-        return _nextExampleForStage(4, const [
-          'ひみつのたからをさがしたい',
-          'まいごのほしをおうちにかえしたい',
-          'おともだちとなかなおりしたい',
-          'こわいよるをのりこえたい',
-          'ふしぎなドアのむこうをみにいきたい',
-        ]);
-    }
+    final stage = userAnswerCount < _localExampleOptionsByStage.length
+        ? userAnswerCount
+        : _localExampleOptionsByStage.length - 1;
+    return _nextExampleForStage(stage, _localExampleOptionsByStage[stage]);
   }
 
   String _nextExampleForStage(int stage, List<String> options) {
@@ -1747,113 +1833,11 @@ class ChatViewModel extends ChangeNotifier {
     return options[nextIndex % options.length];
   }
 
-  String _latestAssistantQuestion() {
-    final cached = _lastQuestion.trim();
-    if (cached.isNotEmpty) {
-      return cached;
-    }
-
-    for (final message in _messages) {
-      if (message is types.TextMessage && message.author.id == _apapane.id) {
-        final text = message.text.trim();
-        if (text.isNotEmpty) {
-          return text;
-        }
-      }
-    }
-    return '';
-  }
-
-  Future<String> _generateAdaptiveExample({
-    required String questionText,
-    required String fallback,
-  }) async {
-    final userAnswers = _messages.reversed
-        .whereType<types.TextMessage>()
-        .where((message) => message.author.id == _user.id)
-        .map((message) => message.text.trim())
-        .where((text) => text.isNotEmpty)
-        .take(4)
-        .toList()
-        .reversed
-        .toList();
-
-    final prompt = [
-      'Create one short example reply in Japanese for a child using a story app.',
-      'Latest assistant question:',
-      questionText,
-      if (userAnswers.isNotEmpty) 'Previous child answers:',
-      if (userAnswers.isNotEmpty) ...userAnswers.map((answer) => '- $answer'),
-      'Requirements:',
-      '- Output exactly one example reply only.',
-      '- Keep it playful, specific, and easy for a child to tap.',
-      '- Use simple Japanese.',
-      '- Avoid repeating this fallback example word-for-word: $fallback',
-      '- Vary the wording and details naturally.',
-      '- No quotes, no bullets, no explanations.',
-    ].join('\n');
-
-    const systemPrompt =
-        'You write one short child-safe Japanese example answer for a storytelling app. Output only the example text.';
-
-    final result = await _apiRepository.getClaudeResponse(
-      prompt,
-      systemPrompt,
-      'conversation',
-    );
-
-    return result.when(
-      success: (res) => _sanitizeExampleResponse(res, fallback),
-      failure: (_) => fallback,
-    );
-  }
-
-  String _sanitizeExampleResponse(String raw, String fallback) {
-    final firstLine = raw
-        .split('\n')
-        .map((line) => line.trim())
-        .firstWhere((line) => line.isNotEmpty, orElse: () => '');
-
-    if (firstLine.isEmpty) {
-      return fallback;
-    }
-
-    final cleaned = firstLine
-        .replaceAll(RegExp(r'^[\s"\.\-\d\)\(]+'), '')
-        .replaceAll(RegExp(r'[\s"]+$'), '')
-        .trim();
-
-    if (cleaned.isEmpty) {
-      return fallback;
-    }
-
-    return cleaned.length > 24 ? cleaned.substring(0, 24) : cleaned;
-  }
-
-  // ignore: unused_element
-  String _buildLocalExample(String questionText) {
-    final normalized = questionText
-        .replaceAll('。', '')
-        .replaceAll('?', '')
-        .replaceAll('？', '')
-        .trim();
-
-    if (normalized.contains('しゅじんこう')) {
-      return 'うさぎ';
-    }
-    if (normalized.contains('ばしょ') || normalized.contains('どこ')) {
-      return 'にじのもり';
-    }
-    if (normalized.contains('なかま') || normalized.contains('だれ')) {
-      return 'こぐま';
-    }
-    if (normalized.contains('せいかく')) {
-      return 'やさしい';
-    }
-    if (normalized.contains('どんなこと') || normalized.contains('なに')) {
-      return 'ひみつのたからさがし';
-    }
-    return 'もり';
+  @visibleForTesting
+  static List<List<String>> localExampleOptionsForTesting() {
+    return _localExampleOptionsByStage
+        .map((options) => List<String>.unmodifiable(options))
+        .toList(growable: false);
   }
 
   static SDMap _storyJsonSchemaForMode(StoryMode mode) => {

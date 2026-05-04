@@ -89,6 +89,21 @@ void main() {
     expect(StoryMode.premium.coinCost, 3);
   });
 
+  test('local example pools are broad and stage-specific', () {
+    final examplePools = ChatViewModel.localExampleOptionsForTesting();
+
+    expect(examplePools, hasLength(5));
+    for (final pool in examplePools) {
+      expect(pool, hasLength(greaterThanOrEqualTo(20)));
+      expect(pool.toSet(), hasLength(pool.length));
+    }
+    expect(examplePools[0], contains('あかいマフラーの うさぎ'));
+    expect(examplePools[1], contains('にじのもり'));
+    expect(examplePools[2], contains('やさしい こぐま'));
+    expect(examplePools[3], contains('やさしくて ちょっと こわがり'));
+    expect(examplePools[4], contains('ひみつのたからをさがしたい'));
+  });
+
   test('local preview fallback uses distinct beats for standard stories', () {
     final preview = ChatViewModel.localStoryPreviewForTesting(
       answers: const [
